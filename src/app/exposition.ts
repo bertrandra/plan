@@ -292,7 +292,7 @@ export const MODE_EXPERT: Record<string, string> = {
   'export.svg': 'Format technique : un dessin vectoriel à reprendre dans un autre logiciel.',
   'export.dxf': 'Format technique : un fichier de DAO.',
   'export.glb': 'Format technique : la scène 3D, pour un autre logiciel.',
-  'vue.visionneuse': 'Relit le dernier GLB exporte, un format technique.',
+  'vue.visionneuse': 'Relit le dernier GLB exporté, un format technique.',
   'fichier.importerSvg': 'Format technique : un dessin vectoriel venu d\'un autre logiciel.',
   'fichier.importerJson': 'Format technique : le fichier brut d\'un projet.',
   'fichier.exporterJson': 'Format technique : le fichier brut d\'un projet ; le projet s\'enregistre et se partage sans lui.',
@@ -301,7 +301,7 @@ export const MODE_EXPERT: Record<string, string> = {
   'projet.actualiserIgn': 'Actualiser le projet relit l\'IGN et recalcule tout ; celle-ci ne remplace que ce qui en vient, au choix.',
   'projet.toitsFond': 'La lecture des toits du voisinage en tache de fond se suspend ou reprend d\'elle-même.',
   'projet.supprimerVoisinage': 'Une réparation : le voisinage se masque (menu Affichage) sans être supprime.',
-  'projet.doublons': 'Une réparation d\'un plan importe deux fois.',
+  'projet.doublons': 'Une réparation d\'un plan importé deux fois.',
   // Les onglets des resultats ramenes a cinq (sujet 5 du lot) : l'entree « Résumé à copier » ouvre l'onglet Résumé, du mode expert.
   // « Copier le résumé » (export.copierResume) reste a tous : un geste de la barre d'estimation, qui ne demande pas l'onglet.
   'export.resume': 'Le résumé à copier, un texte technique ; son onglet Résumé est du mode expert.',

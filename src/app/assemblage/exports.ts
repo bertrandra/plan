@@ -41,7 +41,7 @@ export interface MetaProjet { meta?: ProjetResume | null }
 /** Le resume texte du projet : le tiroir le montre, le presse-papiers le recoit. */
 export function resumeDuProjet(etat: EtatApp, m: Mesures): string {
   return construireResume(etat.objects, etat.measures, {
-    appVersion: APP_VERSION, computeMeasureGeom: m.computeMeasureGeom, refLabel: m.refLabel, targetLabel: m.targetLabel
+    appVersion: APP_VERSION, computeMeasureGeom: m.computeMeasureGeom, refLabel: m.refLabelExport, targetLabel: m.targetLabel
   });
 }
 

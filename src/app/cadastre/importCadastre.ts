@@ -349,7 +349,7 @@ function lectures(n: Noyau): Lectures {
     resumePropriete() {
       const parcelles = parcellesPropriete();
       if (parcelles.length <= 1) {
-        return { texte: 'Propriété : ' + libelleParcelle(principale()) + ' seule. Coche « propriété » sur une mitoyenne pour fusionner plusieurs parcelles en un seul terrain.', alerte: false };
+        return { texte: 'Propriété : ' + libelleParcelle(principale()) + ' seule. Cochez « propriété » sur une mitoyenne pour fusionner plusieurs parcelles en un seul terrain.', alerte: false };
       }
       const fusion = fusionnerAnneaux(parcelles.map(p => p.pts), FUSION_TOL_M);
       if (!fusion) {
@@ -534,7 +534,7 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
   }
 
   async function rechercher(texte: string): Promise<void> {
-    if (!texte || texte.length < 3) { e.erreur = 'Saisis une adresse (au moins 3 caractères).'; signaler(); return; }
+    if (!texte || texte.length < 3) { e.erreur = 'Saisissez une adresse (au moins 3 caractères).'; signaler(); return; }
     const m = texte.match(RE_COORDS);
     if (m) {
       const lat = parseFloat((m[1] ?? '').replace(',', '.')), lon = parseFloat((m[2] ?? '').replace(',', '.'));
@@ -781,7 +781,7 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         // JSON), en le disant clairement plutot que de faire semblant d'enregistrer.
         fermer();
         ctx.appliquerProjetImporte({ meta: {}, objets, mesures: [], ignores: 0 }, true);
-        showToast('Mode local : le plan cadastral est charge mais ne sera pas enregistre. Utilise Export JSON pour le conserver.' + (relief ? ' ' + relief : ''));
+        showToast('Mode local : le plan cadastral est chargé mais ne sera pas enregistré. Exportez le projet (JSON) pour le conserver.' + (relief ? ' ' + relief : ''));
         return;
       }
       const cible = ctx.projetCible?.() ?? null;

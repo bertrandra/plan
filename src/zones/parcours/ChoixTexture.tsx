@@ -36,7 +36,7 @@ export function ChoixTexture({ titre, caseLibelle, choisir, fermer }: Props) {
   const choisie = selection && catalogue ? catalogue[selection] : undefined;
   const statut = !catalogue ? (erreur ? '' : 'Chargement du catalogue Poly Haven…')
     : !recherche.trim() ? Object.keys(catalogue).length + ' textures disponibles.'
-    : resultats.length + ' resultat' + (resultats.length > 1 ? 's' : '') + (resultats.length > VIGNETTES_MAX ? ' (' + VIGNETTES_MAX + ' premiers affiches, affine ta recherche pour voir les autres)' : '');
+    : resultats.length + ' résultat' + (resultats.length > 1 ? 's' : '') + (resultats.length > VIGNETTES_MAX ? ' (' + VIGNETTES_MAX + ' premiers affichés ; affinez la recherche pour voir les autres)' : '');
 
   const enregistrer = () => {
     if (!selection || !choisie) return;
@@ -52,7 +52,7 @@ export function ChoixTexture({ titre, caseLibelle, choisir, fermer }: Props) {
         <div className="titreParcours">{titre + ' — textures Poly Haven (CC0)'}</div>
         <button type="button" data-controle="texture.fermer" className="secondary small" aria-label="Fermer" onClick={fermer}>✕</button>
       </div>
-      <input ref={champ} type="text" data-controle="texture.recherche" className="rechercheTextures" placeholder="Rechercher (bois, brique, tuile, béton, gazon...)" value={recherche}
+      <input ref={champ} type="text" data-controle="texture.recherche" className="rechercheTextures" placeholder="Rechercher (bois, brique, tuile, béton, gazon…)" value={recherche}
         onChange={(e) => setRecherche(e.target.value)} />
       <div className="statutTextures">{statut}</div>
       <div className="corpsTextures">
@@ -71,7 +71,7 @@ export function ChoixTexture({ titre, caseLibelle, choisir, fermer }: Props) {
             <div className="nomTexture">{choisie.name}</div>
             <div className="noteTexture">{choisie.category || (choisie.categories || []).join(', ')}</div>
             <div className="noteTexture">{choisie.description || ''}</div>
-          </> : <div className="hint">Clique une vignette pour la voir en grand.</div>}
+          </> : <div className="hint">Cliquez une vignette pour la voir en grand.</div>}
         </div>
       </div>
       <div className="piedDialogue">

@@ -70,7 +70,7 @@ export function Optimisation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
     <div id="terrasseOptimResult">
       <div className="hint">
         {'Lames de ' + (c.epaisseurLame || 25) + ' mm en ' + ((ESSENCE_PRICES[c.essenceBois ?? ''] || { label: undefined }).label || c.essenceBois) +
-          ' : appuis a ' + maxEntraxeLameCm(c) + ' cm maximum. Une ligne par stratégie de construction (section × avec ou sans lambourdes), ' +
+          ' : appuis à ' + maxEntraxeLameCm(c) + ' cm maximum. Une ligne par stratégie de construction (section × avec ou sans lambourdes), ' +
           'à chaque fois son meilleur entraxe ; toutes respectent cette limite et la portée de chaque pièce. Classement par coût de structure ' +
           '(vis + bois porteur) : les lames sont identiques dans tous les cas, donc exclues. Détail du calcul dans l\'onglet Méthode.'}
       </div>
@@ -101,7 +101,7 @@ export function Optimisation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
         {res.length + ' configurations testées. Config actuelle : ' + actuel.vis + ' vis, ' + actuel.densite + '/m², ' + actuel.cout + ' € — optimum : ' +
           meilleur.vis + ' vis, ' + meilleur.densite + '/m², ' + meilleur.cout + ' €' +
           (gain > 0 ? ', soit ' + gain + ' € et ' + (actuel.vis - meilleur.vis) + ' vis en moins.' : '. La config actuelle est déjà au niveau de l\'optimum.') +
-          ' Pre-dimensionnement indicatif sur base 250 kg/m², sans valeur de note de calcul.'}
+          ' Prédimensionnement indicatif sur base 250 kg/m², sans valeur de note de calcul.'}
       </div>
     </div>
   );

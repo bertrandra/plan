@@ -144,7 +144,7 @@ export function texteDuBatiment(b: BatimentVillage, indices: IndicesLidar | null
   const modele = { contour: contourCompact(b.pts), hauteurEgoutM: egoutDe(b), toit: b.toit ? { forme: b.toit.forme } : null, corps: (b.corps ?? []).length };
   return [
     'Bâtiment visé : ' + b.key + '. Cas candidat pour le corpus : décrivez son toit (forme, profil, bouts, lucarnes, cheminées) tel que les photos de rue le montrent.',
-    'Façades à décrire (étiquettes) : aucune ; laissez `façades` vide.',
+    'Façades à décrire (étiquettes) : aucune ; laissez `facades` vide.',
     'Indices LiDAR chiffrés : ' + (indices ? JSON.stringify(indices) : 'aucune mesure LiDAR pour ce bâtiment') + '.',
     'Modèle actuel de Plan (JSON compact, mètres) : ' + JSON.stringify(modele),
   ].join('\n');

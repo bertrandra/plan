@@ -75,7 +75,7 @@ export function showProjectLoadError(err: { reason?: string } | null): void {
   const titre = 'Chargement du projet impossible';
   // Sans `err`, l'indice vaut `null`/`undefined` : la recherche echoue et le repli s'applique.
   const texte = (RAISONS[(err && err.reason) as string] || 'Une erreur est survenue lors du chargement du projet.') +
-    ' Le projet de démonstration n\'a pas été charge à la place, pour éviter de donner l\'impression que votre projet a été perdu ou remplace.';
+    ' Le projet de démonstration n\'a pas été chargé à la place, pour éviter de donner l\'impression que votre projet a été perdu ou remplace.';
   if (dialogues.aUnAbonne()) { dialogues.ouvrir({ type: 'erreurChargement', titre, texte, action: 'Réessayer', executer: () => location.reload() }); return; }
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(30,22,14,0.55); z-index:9999; display:flex; align-items:center; justify-content:center; font-family:"Helvetica Neue",Arial,sans-serif;';

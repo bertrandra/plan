@@ -355,7 +355,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   cmd.declarer({
     id: 'projet.nouveau', libelle: 'Enregistrer sous…', groupe: 'projet',
     permission: PERMISSION_ECRITURE, quota: QUOTA_PROJETS,
-    description: 'Cree un projet sur le serveur, copie du plan actuel',
+    description: 'Crée un projet sur le serveur, copie du plan actuel',
     actif: () => seed.apiAvailable,
     executer: () => {
       showPrompt('Nom du nouveau projet (copie du plan actuel) :', courant ? (courant.name + ' (copie)') : 'Nouveau projet', async (name) => {
@@ -395,7 +395,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     id: 'projet.depuisAdresse', libelle: 'Nouveau projet depuis une adresse', groupe: 'projet',
     capacite: CAPACITES.cadastre.code, permission: PERMISSION_ECRITURE,
     quota: () => (projetARemplir(seed, ctx.etat) ? null : QUOTA_PROJETS),
-    description: 'Cree un projet à partir du plan cadastral : adresse, parcelle, parcelles voisines',
+    description: 'Crée un projet à partir du plan cadastral : adresse, parcelle, parcelles voisines',
     executer: () => {
       if (ctx.etat.dirty && seed.apiAvailable) {
         showConfirm('Des modifications ne sont pas enregistrées. Ouvrir l\'import cadastre quand même ?', () => ctx.ouvrirImportCadastre());
@@ -408,7 +408,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   cmd.declarer({
     id: 'projet.actualiserIgn', libelle: 'Actualiser IGN', groupe: 'projet',
     capacite: CAPACITES.cadastre.code,
-    description: 'Rejoue les appels IGN et remplace ce qui en vient : contour cadastral, bâtiments et végétation importes, zonage PLU. Les objets dessines à la main ne sont pas touches.',
+    description: 'Rejoue les appels IGN et remplace ce qui en vient : contour cadastral, bâtiments et végétation importés, zonage PLU. Les objets dessinés à la main ne sont pas touchés.',
     permission: PERMISSION_ECRITURE, actif: () => !ctx.actualisationEnCours(), executer: () => ctx.ouvrirDialogueActualisation()
   });
 

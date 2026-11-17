@@ -166,7 +166,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
       telechargerBlob('plan_interactif_export.svg', new Blob([svgStr], { type: 'image/svg+xml' }));
       direTelechargement('plan_interactif_export.svg');
     } catch (err) {
-      showErrBanner('Le contenu SVG est affiche ci-dessus (copiable), mais le téléchargement automatique a echoue: ' + (err as Error).message);
+      showErrBanner('Le contenu SVG est affiche ci-dessus (copiable), mais le telechargement automatique a echoue: ' + (err as Error).message);
     }
   });
 
@@ -223,7 +223,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
       telechargerBlob('plan_interactif_export.dxf', new Blob([dxfStr], { type: 'application/dxf' }));
       direTelechargement('plan_interactif_export.dxf');
     } catch (err) {
-      showErrBanner('Le contenu DXF est affiche ci-dessus (copiable), mais le téléchargement automatique a echoue: ' + (err as Error).message);
+      showErrBanner('Le contenu DXF est affiche ci-dessus (copiable), mais le telechargement automatique a echoue: ' + (err as Error).message);
     }
   }, CAPACITES.exportDxf.code);
 
@@ -235,7 +235,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
         telechargerBlob('plan_interactif_export.pdf', new Blob([pdfStr], { type: 'application/pdf' }));
         direTelechargement('plan_interactif_export.pdf');
       } catch (err) {
-        showErrBanner('Échec du téléchargement PDF: ' + (err as Error).message);
+        showErrBanner('Echec du telechargement PDF: ' + (err as Error).message);
       }
     }, (err: unknown) => { showErrBanner('Erreur export PDF: ' + (err as Error).message); });
   });
@@ -246,7 +246,7 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
       telechargerTexte(slugFichier(ctx.nomProjet() || 'plan') + '-dossier-terrasses.pdf', res.pdf, 'application/pdf');
       const nbEquip = [...res.equipements.values()].reduce((s, l) => s + l.length, 0);
       showToast('Dossier PDF : ' + res.pages + ' page(s) — plan de masse + ' + res.terrasses.length +
-        ' terrasse(s), ' + nbEquip + ' équipement(s) cote(s).');
+        ' terrasse(s), ' + nbEquip + ' equipement(s) cote(s).');
     }, (err: unknown) => { showErrBanner('Erreur dossier PDF : ' + (err as Error).message); });
   }, CAPACITES.exportDossier.code);
 

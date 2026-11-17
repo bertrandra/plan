@@ -195,7 +195,8 @@ function Commande({ champ, c, inspecteur }: PropsChamp) {
         <span className="valeurCurseur">{champ.format(champ.lire(c))}</span>
       </span>;
     case 'lecture':
-      return <span className="lecture">{tactile ? aLaFrancaise(champ.valeur(c)) : champ.valeur(c)}</span>;
+      // Les decimales a la francaise dans toutes les classes (lot 4) : la valeur reste celle du calcul, seul l'affichage change.
+      return <span className="lecture">{aLaFrancaise(champ.valeur(c))}</span>;
     case 'texture':
       return <Texture champ={champ} c={c} inspecteur={inspecteur} />;
     case 'bouton':

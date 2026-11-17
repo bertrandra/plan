@@ -56,12 +56,12 @@ export function EnteteReglages({ vue, titre, idLieu, lieu, magasin }: { vue: 'vu
 export function LigneDate({ ids, soleil, avecEtiquette }: { ids: IdsSoleil; soleil: ServiceSoleil; avecEtiquette?: boolean }) {
   return (
     <div className="controls ligneReglage">
-      {avecEtiquette && <span className="etiquetteReglage" title="Position réelle du soleil (leve à l'Est, couche à l'Ouest) pour la date et l'heure choisies, au lieu indique">
+      {avecEtiquette && <span className="etiquetteReglage" title="Position réelle du soleil (levé à l'est, couché à l'ouest) pour la date et l'heure choisies, au lieu indiqué">
         <Icone nom="soleil" taille={20} /> Soleil</span>}
       <label htmlFor={ids.date} className="petitLibelle">Date</label>
       <input type="date" id={ids.date} data-controle={ids.vue + '.date'} value={soleil.etat.dateStr} onChange={(e) => soleil.date(e.target.value)} />
       <input type="range" id={ids.semaine} data-controle={ids.vue + '.semaine'} min={0} max={52} step={1} value={soleil.etat.semaineAffichee} aria-label="Semaine de l'année"
-        title="Semaine de l'année - avance/recule de 7 jours à chaque cran" style={{ width: 110 }}
+        title="Semaine de l'année — avance ou recule de 7 jours à chaque cran" style={{ width: 110 }}
         onChange={(e) => soleil.semaine(parseInt(e.target.value, 10))} />
     </div>
   );
@@ -70,7 +70,7 @@ export function LigneDate({ ids, soleil, avecEtiquette }: { ids: IdsSoleil; sole
 /** Les lumieres autres que le soleil : decochees, l'eclairage est entierement solaire. */
 export function CaseAppoint({ ids, soleil }: { ids: IdsSoleil; soleil: ServiceSoleil }) {
   return (
-    <label className="caseReglage" title="Lumières autres que le soleil (l'appoint qui eclaire faiblement le cote à l'ombre, et l'ambiante générale) - decoche pour un éclairage entièrement au soleil, jusqu'au noir complet une fois couche">
+    <label className="caseReglage" title="Lumières autres que le soleil (l'appoint qui éclaire faiblement le côté à l'ombre, et l'ambiante générale) — décochez pour un éclairage entièrement au soleil, jusqu'au noir complet une fois couché">
       <input type="checkbox" id={ids.appoint} data-controle={ids.vue + '.appoint'} checked={soleil.etat.lumiereAppoint} onChange={(e) => soleil.appoint(e.target.checked)} /> Lumière d'appoint
     </label>
   );
@@ -81,7 +81,7 @@ export function LigneIntensite({ ids, soleil, children }: { ids: IdsSoleil; sole
   const pourcent = Math.round(soleil.etat.intensiteSoleil * 100);
   return (
     <div className="controls ligneReglage">
-      <span className="etiquetteReglage" title="Multiplie l'intensité du soleil - 100 % = éclairage physique pour l'heure choisie ; au-delà, la scène est volontairement sureclairee pour mieux voir les détails">
+      <span className="etiquetteReglage" title="Multiplie l'intensité du soleil — 100 % = éclairage physique pour l'heure choisie ; au-delà, la scène est volontairement suréclairée pour mieux voir les détails">
         <Icone nom="soleil" taille={20} /> Intensité</span>
       <input type="range" id={ids.intensite} data-controle={ids.vue + '.intensite'} min={25} max={300} step={5} value={pourcent} aria-label="Intensité du soleil" style={{ flex: 1, maxWidth: 160 }}
         onChange={(e) => soleil.intensite(parseInt(e.target.value, 10))} />
@@ -99,7 +99,7 @@ export function BarreHeure({ ids, id, soleil, formatHeure, heureLegale, info }: 
       <input type="range" id={ids.heure} data-controle={ids.vue + '.heure'} min={0} max={1439} step={5} value={soleil.etat.minutes} aria-label="Heure" style={{ flex: 1, maxWidth: 260 }}
         onChange={(e) => soleil.heure(parseInt(e.target.value, 10))} />
       <span id={ids.heureTexte} className="valeurReglage">{formatHeure(soleil.etat.minutes)}</span>
-      {info !== undefined && <span id={ids.info} className="infoSoleil" title="Hauteur du soleil au-dessus de l'horizon et direction d'ou il vient, pour la date, l'heure et le lieu choisis">{info}</span>}
+      {info !== undefined && <span id={ids.info} className="infoSoleil" title="Hauteur du soleil au-dessus de l'horizon et direction d'où il vient, pour la date, l'heure et le lieu choisis">{info}</span>}
     </div>
   );
 }
@@ -117,7 +117,7 @@ export function ListePointsDeVue({ vue, id, magasin, aller }: { vue: 'vue3d' | '
   return (
     <select id={id} data-controle={vue + '.pointDeVue'} aria-label="Aller à un point de vue enregistré" value="" disabled={vues.length === 0}
       onChange={(e) => { const vp = vues.find(v => v.key === e.target.value); if (vp) aller(vp); }}>
-      <option value="">Aller a un point de vue enregistre…</option>
+      <option value="">Aller à un point de vue enregistré…</option>
       {vues.map(v => <option key={v.key} value={v.key}>{v.name}</option>)}
     </select>
   );

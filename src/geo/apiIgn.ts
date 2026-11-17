@@ -99,13 +99,13 @@ export async function fetchJSONReseau(url: string): Promise<unknown> {
     return await fetchJSONTimeout(url);
   } catch(e){
     const err = e as ErreurReseau;
-    if(err && err.name === 'AbortError') throw new Error('Le service ne repond pas (8 s). Reessaie.');
+    if(err && err.name === 'AbortError') throw new Error('Le service ne répond pas (8 s). Réessayez.');
     if(err && err.statut && err.statut < 500) throw e;
     try {
       return await fetchJSONTimeout(url);
     } catch(e2){
       const err2 = e2 as ErreurReseau;
-      if(err2 && err2.name === 'AbortError') throw new Error('Le service ne repond pas (8 s). Reessaie.');
+      if(err2 && err2.name === 'AbortError') throw new Error('Le service ne répond pas (8 s). Réessayez.');
       if(e2 instanceof TypeError && location.protocol === 'file:'){
         throw new Error('Import cadastre indisponible quand la page est ouverte en fichier local : sers-la par un serveur web.');
       }

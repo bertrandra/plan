@@ -143,7 +143,7 @@ export function EcranRegles(props: PropsEcranRegles) {
         <button type="button" onClick={() => { setNouveau(true); setOuvert(null); }}>Nouveau sujet</button>
         <button type="button" className="secondary" onClick={copierPrompt}>Copier le prompt</button>
         <button type="button" className="secondary" disabled={raisonFichiers !== null} title={raisonFichiers ?? 'prompt-analyse.md tel que le serveur le lirait'} onClick={() => telecharger('prompt-analyse.md', sortie.prompt, 'text/markdown')}>Télécharger le prompt</button>
-        <button type="button" className="secondary" disabled={raisonFichiers !== null} title={raisonFichiers ?? 'schéma-analyse.json tel que le serveur le lirait'} onClick={() => telecharger('schema-analyse.json', sortie.schema, 'application/json')}>Télécharger le schéma</button>
+        <button type="button" className="secondary" disabled={raisonFichiers !== null} title={raisonFichiers ?? 'schema-analyse.json tel que le serveur le lirait'} onClick={() => telecharger('schema-analyse.json', sortie.schema, 'application/json')}>Télécharger le schéma</button>
         <button type="button" className="secondary" disabled={identique && !exclus.length} onClick={toutRevenir}>Revenir au livré</button>
         {serveur && <>
           <button type="button" disabled={occupe || erreurs > 0 || (identique && !exclus.length)}

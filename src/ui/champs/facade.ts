@@ -25,6 +25,7 @@ import { RECUL_TRAVEE_MAX_M } from '../../model/corpsToitEtendu.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { nomDuCote } from '../nomCote.js';
 
 /** Un batiment : le seul objet qui porte des facades et un toit. */
 export { estBatiment };
@@ -521,7 +522,7 @@ export function sectionReleve(c: ContexteChamps): Section {
           libelle: 'Relevé',
           valeur: () => {
             const r = releve();
-            const nom = o.segmentNames?.[i] ? `${o.segmentNames[i]} · ` : '';
+            const nom = o.segmentNames?.[i] ? `${nomDuCote(o.segmentNames[i], i)} · ` : '';
             // Une photo restee sur l'appareil du releve (io/photosLocales.ts) : les mesures sont la, pas l'image.
             const photo = r && r.photoLocale && !r.texture ? ' · photo restée sur l’appareil du relevé' : '';
             return r ? `${nom}${fr(f.largeur)} m · ${pluriel(r.ouvertures.length, 'ouverture')}${photo}` : `${nom}${fr(f.largeur)} m · non relevée`;

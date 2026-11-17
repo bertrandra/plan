@@ -106,7 +106,7 @@ export function Coupe({ obj, objets = [] }: { obj: ObjetPlan; objets?: ObjetPlan
           {couches}
         </svg>
       </div>
-      <div className="hint">Empilement des couches à l'endroit le plus charge (appui / solive / lambourde / lame), à l'échelle. Le fut de la vis est enterre : seul son dépassement de tête souleve la terrasse. Tout se regle dans Construction.</div>
+      <div className="hint">Empilement des couches à l'endroit le plus chargé (appui / solive / lambourde / lame), à l'échelle. Le fût de la vis est enterré : seul son dépassement de tête soulève la terrasse. Tout se règle dans Construction.</div>
     </>
   );
 }

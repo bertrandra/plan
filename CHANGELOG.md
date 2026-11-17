@@ -59,6 +59,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   contrôle de la Vue 3D par le catalogue (`app/controlesInterface.ts`). Point de fumée 177 ; le harnais de la fumée allume le
   mode expert pour les points d'avant, qui jouent ce qu'il cache.
 
+### Modifié
+
+- **Les textes de l'écran** (lot 4 de la simplification de l'IHM) : accents rétablis dans les menus, l'inspecteur, les
+  résultats, les dialogues et les notifications (« Créer le projet », « Parcelle trouvée », « bâtiments », « mètres »…), le
+  vouvoiement partout (« Saisissez une adresse », « Cliquez sur un côté du plan… », « chez votre fournisseur »), la virgule
+  décimale dans les valeurs lues de l'inspecteur dans les trois classes d'écran ; « Nomenclature » au lieu de « BOM » ; les côtés
+  d'une forme s'appellent « Côté n » à l'écran (le nom par défaut « Cote n » reste la donnée du projet, `ui/nomCote.ts`) ; les
+  postes et activités du moteur prennent leurs accents à l'écran seulement (`ui/tableau.ts`). Aucun export ne change : le résumé
+  garde « Cote n », les libellés du moteur restent sans accents dans les PDF, le DXF, le SVG et le CSV. La requête de vérification
+  de l'assistant suit (« Rive · Côté n »). Points de fumée 184 et 185.
 ### Corrigé
 
 - **« Copier le résumé » de la barre d'estimation** répond de nouveau en mode simple : passé au mode expert avec l'onglet Résumé

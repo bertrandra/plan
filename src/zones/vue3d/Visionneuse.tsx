@@ -77,7 +77,7 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
             </div>
             <LigneIntensite ids={IDS_SOLEIL} soleil={soleil} />
             <div id="glbViewerHint" className="hint">{affichage3d.indicationGlb}</div>
-            <div className="hint">Glisser = tourner, molette = zoom, clic droit + glisser = déplacer. Necessite une connexion internet (bibliothèque 3D chargée à la demande, pas embarquée dans ce fichier).</div>
+            <div className="hint">Glisser = tourner, molette = zoom, clic droit + glisser = déplacer. Nécessite une connexion internet (bibliothèque 3D chargée à la demande, pas embarquée dans ce fichier).</div>
           </div>
         </div>
         <BarreHeure ids={IDS_SOLEIL} id="barreSoleilGlb" soleil={soleil} formatHeure={vues.formatHeure} heureLegale={vues.heureLegale()} />
@@ -87,7 +87,7 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
             <Bouton3d commandes={commandes} id="visionneuse.zoomAvant" domId="glbViewerZoomIn" icone="plus" libelle="Zoom avant" titre="Zoom avant" />
             <Bouton3d commandes={commandes} id="visionneuse.zoomArriere" domId="glbViewerZoomOut" icone="moins" libelle="Zoom arrière" titre="Zoom arrière" />
             <div className="separateur3d"></div>
-            <Bouton3d commandes={commandes} id="visionneuse.hauteurDesYeux" domId="glbViewerEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" />
+            <Bouton3d commandes={commandes} id="visionneuse.hauteurDesYeux" domId="glbViewerEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur des yeux (1,60 m au-dessus du platelage) : ne change que l'altitude de la caméra, pas sa position au sol" />
             <button id="reglagesGlbBtn" data-controle="visionneuse.reglages" type="button" className="bouton3d boutonReglages" aria-label="Réglages de la visionneuse"
               onClick={() => magasin.definirFeuille(magasin.store.getState().feuille === 'reglages3d' ? null : 'reglages3d')}>
               <Icone nom="reglages" taille={20} />

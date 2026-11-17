@@ -71,7 +71,7 @@ function verifiee(cle: string, objets: readonly ObjetPlan[]): string {
         return `« ${o?.name || k} » (${champQuiDiffere(avant.get(k) ?? '{}', j)})`;
       });
       if (changes.length || avant.size !== plan.size) {
-        console.error('[clé de version] le plan a change sans que rien ne soit touche : ' + (changes.join(', ') || 'objets ajoutes ou retires')
+        console.error('[cle de version] le plan a change sans que rien ne soit touche : ' + (changes.join(', ') || 'objets ajoutes ou retires')
           + ' ; le chiffrage, les cotes ou les doublons seraient restes ceux d\'avant');
         vus.set(cle, plan);
       }

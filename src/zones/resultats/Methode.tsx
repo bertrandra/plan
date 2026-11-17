@@ -189,7 +189,7 @@ function DebitEtSuite({ c }: Donnees) {
         <p>Rien n'est chiffré en surface majorée d'un pourcentage de chute : tout part du linéaire réellement tracé, découpé dans les longueurs
           du fournisseur. Deux débits séparés, parce que ce sont deux produits achetés séparément :</p>
         <ul>
-          <li><b>Lames</b> — les lames du platelage et la bordure à plat, même produit acheté en même temps, donc un seul débit et une seule ligne au BOM.</li>
+          <li><b>Lames</b> — les lames du platelage et la bordure à plat, même produit acheté en même temps, donc un seul débit et une seule ligne dans la nomenclature.</li>
           <li><b>Bois porteur</b> — cadre et solives. Les lambourdes les rejoignent tant qu'elles partagent leur section : même pièce, même
             commande. Dès que la section diffère, elles deviennent un produit à part et prennent leur propre débit, leurs propres longueurs
             achetables et leurs propres prix — les mélanger reviendrait à les couper et les chiffrer sur la mauvaise pièce.</li>
@@ -213,7 +213,7 @@ function DebitEtSuite({ c }: Donnees) {
           son tableau de débit, <b>au choix à la barre ou au m²</b> : les deux colonnes se déduisent l'une de l'autre par la surface de la barre,
           on saisit celle que le marchand donne et l'autre suit. Afficher les deux rend d'ailleurs visible quelle longueur est la mieux placée au
           m². Tant qu'aucun prix n'est saisi, il est estimé (tarif au m² de l'essence × largeur × longueur pour les lames, tarif au ml × longueur
-          pour le bois porteur). Les totaux remontent dans les lignes « Lames », « Bois porteur » et « Vis » du BOM, qui ne sont pas saisissables
+          pour le bois porteur). Les totaux remontent dans les lignes « Lames », « Bois porteur » et « Vis » de la nomenclature, qui ne sont pas saisissables
           à la main : deux sources de vérité pour un même coût finissent par diverger.</p>
         <p className="hint">Le problème de découpe pris globalement est NP-difficile ; par travée il est petit et exactement soluble, et le passage
           de mutualisation récupère l'essentiel du reste. Il subsiste 1 à 2 % : une gamme de longueurs plus courte produit des chutes identiques

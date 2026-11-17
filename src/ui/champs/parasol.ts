@@ -59,7 +59,7 @@ export const sectionParasol: Section = {
       executer: (c) => {
         const obj = c.obj;
         const terr = terrasseDuParasol(obj, c.objets, c.etat.terrasseSelectedKey);
-        if (!terr) { c.toast('Aucune terrasse : cree d\'abord un objet avec Fonction = terrasse.'); return; }
+        if (!terr) { c.toast('Aucune terrasse : créez d\'abord un objet avec Fonction = terrasse.'); return; }
         // Le calcul bloque le fil d'execution : on laisse le navigateur peindre avant de le lancer.
         setTimeout(() => {
           const res = chercherMeilleurePositionParasol(obj, c.contexteSoleil(), c.objets);

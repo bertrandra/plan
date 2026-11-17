@@ -50,7 +50,7 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
           {murs ? 'Murs (photos)' : 'Toits LiDAR'} : {toits.faits.toLocaleString('fr-FR')} / {toits.total.toLocaleString('fr-FR')}{suite}
         </span>
       )}
-      <span className="etatSelection" title="Objet selectionne">{selection ? selection.name : 'Aucune sélection'}</span>
+      <span className="etatSelection" title="Objet sélectionné">{selection ? selection.name : 'Aucune sélection'}</span>
       <span className="etatEchelle" title="Échelle du plan à l'écran">1 m = {Math.round(etat.scene.scale)} px</span>
       <span className="etatPointeur" title="Position du pointeur sur le plan, en mètres">
         {pointeur ? 'x ' + metres(pointeur.x) + ' · y ' + metres(pointeur.y) + ' m' : ''}

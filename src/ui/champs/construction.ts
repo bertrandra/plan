@@ -32,6 +32,7 @@ import { estTrou } from '../../model/fonctions.js';
 import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/bois/portees.js';
 import type { Construction } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
+import { nomDuCote } from '../nomCote.js';
 
 /** Ce que les champs de construction lisent de la terrasse courante, calcule une fois par rendu. */
 interface Lecture {
@@ -106,7 +107,7 @@ const plotLePlusHautCm = (l: Lecture): number => (l.pente ? Math.round(l.pente.m
 const teteLaPlusHauteCm = (l: Lecture): number => (l.pente ? Math.round(l.pente.maxMm / 10) : (l.c.depassementVis || 0));
 
 /** Ou se regle une propriete de `Construction` quand ce n'est pas ici. */
-type Ailleurs = { ailleurs: 'onglet BOM' | 'onglet Chantier' | 'onglet Implantation' | 'Vue 3D' | 'calcul' };
+type Ailleurs = { ailleurs: 'onglet Nomenclature' | 'onglet Chantier' | 'onglet Implantation' | 'Vue 3D' | 'calcul' };
 
 /**
  * Chaque cle de `Construction`, et son descripteur — ou l'endroit qui l'edite. Le type impose que
@@ -154,7 +155,7 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
     lire: (cx) => !!cx.construction().plotAvecSolives, ecrire: (cx, v) => { cx.construction().plotAvecSolives = v; }
   }),
   supportType: reglage({
-    type: 'choix', cle: 'supportType', libelle: 'Assise sous les plots', visible: (cx) => lire(cx).plots, note: () => 'chiffrée au BOM',
+    type: 'choix', cle: 'supportType', libelle: 'Assise sous les plots', visible: (cx) => lire(cx).plots, note: () => 'chiffrée dans la nomenclature',
     options: () => Object.entries(SUPPORT_TYPES).map(([k, t]) => ({ valeur: k, libelle: t.label })),
     lire: (cx) => cx.construction().supportType || 'concasse', ecrire: (cx, v) => { cx.construction().supportType = v; }
   }),
@@ -247,7 +248,7 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
   // ---- Lames et sens de pose ----------------------------------------------------------------
   segmentReference: reglage({
     type: 'choix', cle: 'segmentReference', libelle: 'Côté de référence',
-    options: (cx) => (aDesSommets(cx.obj) ? cx.obj.segmentNames || [] : []).map((sn, i) => ({ valeur: String(i), libelle: sn || ('Côté ' + (i + 1)) })),
+    options: (cx) => (aDesSommets(cx.obj) ? cx.obj.segmentNames || [] : []).map((sn, i) => ({ valeur: String(i), libelle: nomDuCote(sn, i) })),
     lire: (cx) => String(cx.construction().segmentReference || 0), ecrire: (cx, v) => { cx.construction().segmentReference = parseInt(v, 10) || 0; }
   }),
   sensPose: nombre('sensPose', 'Sens de pose', { pas: 1, unite: '° / côté de référence', defaut: 0, aide: '0 = parallèle au côté de référence',
@@ -281,7 +282,7 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
   cotesSansRive: {
     type: 'lecture', cle: 'cotesSansRive', libelle: 'Côtés sans rive', visible: (cx) => !!cx.construction().avecLameRive,
     valeur: (cx) => { const sans = cx.construction().cotesSansRive ?? []; const noms = cx.obj.type === 'polygon' ? cx.obj.segmentNames : [];
-      return sans.length ? sans.map(i => noms?.[i] || 'Côté ' + (i + 1)).join(', ') : 'aucun : la rive fait tout le tour'; }
+      return sans.length ? sans.map(i => nomDuCote(noms?.[i], i)).join(', ') : 'aucun : la rive fait tout le tour'; }
   },
   riveOuvertures: {
     type: 'case', cle: 'riveOuvertures', libelle: 'Rive autour des trous', historique: true, effets: ['terrasse', 'scene3d'],
@@ -311,16 +312,16 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
     lire: (cx) => cx.construction().jointsSurAppui !== false, ecrire: (cx, v) => { cx.construction().jointsSurAppui = v; } }),
   epaisseurLameRive: nombre('epaisseurLameRive', 'Épaisseur lame de rive', { pas: 1, min: 5, unite: 'mm', defaut: 22, note: () => 'épaisseur de l\'habillage périphérique' }),
   // ---- Edites ailleurs ---------------------------------------------------------------------
-  longueursLames: { ailleurs: 'onglet BOM' },
-  longueursBois: { ailleurs: 'onglet BOM' },
-  longueursLambourde: { ailleurs: 'onglet BOM' },
-  prixLongueurs: { ailleurs: 'onglet BOM' },
-  prixLongueursBois: { ailleurs: 'onglet BOM' },
-  prixLongueursLambourde: { ailleurs: 'onglet BOM' },
-  prixPlots: { ailleurs: 'onglet BOM' },
-  prixVisUnite: { ailleurs: 'onglet BOM' },
-  visParBoite: { ailleurs: 'onglet BOM' },
-  bom: { ailleurs: 'onglet BOM' },
+  longueursLames: { ailleurs: 'onglet Nomenclature' },
+  longueursBois: { ailleurs: 'onglet Nomenclature' },
+  longueursLambourde: { ailleurs: 'onglet Nomenclature' },
+  prixLongueurs: { ailleurs: 'onglet Nomenclature' },
+  prixLongueursBois: { ailleurs: 'onglet Nomenclature' },
+  prixLongueursLambourde: { ailleurs: 'onglet Nomenclature' },
+  prixPlots: { ailleurs: 'onglet Nomenclature' },
+  prixVisUnite: { ailleurs: 'onglet Nomenclature' },
+  visParBoite: { ailleurs: 'onglet Nomenclature' },
+  bom: { ailleurs: 'onglet Nomenclature' },
   cadences: { ailleurs: 'onglet Chantier' },
   equipe: { ailleurs: 'onglet Chantier' },
   heuresJour: { ailleurs: 'onglet Chantier' },
@@ -432,7 +433,7 @@ function champsRiveParCote(c?: ContexteChamps): Champ[] {
   const noms = c.obj.segmentNames ?? [];
   // Cote par cote, la rive se replie : le reglage general (avec ou sans, sa hauteur) reste ouvert.
   return c.obj.pts.map((_, i): Champ => ({
-    type: 'case', cle: 'rive' + i, libelle: 'Rive · ' + (noms[i] || 'Côté ' + (i + 1)), historique: true, effets: ['terrasse', 'scene3d'], repli: 'Rive côté par côté',
+    type: 'case', cle: 'rive' + i, libelle: 'Rive · ' + nomDuCote(noms[i], i), historique: true, effets: ['terrasse', 'scene3d'], repli: 'Rive côté par côté',
     aide: 'Décocher pour ne pas poser de lame de rive sur ce côté (contre un mur, une marche, une jardinière)',
     visible: (cx) => !!cx.construction().avecLameRive,
     surbrillance: (cx) => cx.etat.highlight.type === 'segment' && cx.etat.highlight.index === i,
@@ -469,7 +470,7 @@ export function sectionsConstruction(c?: ContexteChamps): Section[] {
           const obj = cx.obj;
           if (obj.type !== 'polygon') return '—';
           const m3 = volumeDecaissementPose({ pts: obj.pts, construction: cx.construction() }, ouverturesDe(obj.pts, cx.objets));
-          return (decaissementPoseMm(obj) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm, ' + m3.toFixed(2).replace('.', ',') + ' m³ de terre à évacuer — chiffré au BOM';
+          return (decaissementPoseMm(obj) / 10).toFixed(1).replace('.', ',').replace(/,0$/, '') + ' cm, ' + m3.toFixed(2).replace('.', ',') + ' m³ de terre à évacuer — chiffré dans la nomenclature';
         }
       },
       {
@@ -516,12 +517,12 @@ export function sectionsConstruction(c?: ContexteChamps): Section[] {
   };
   const parametres: Section = {
     id: 'parametres', titre: 'Paramètres de calcul', repliee: true, expert: true,
-    explication: 'Les constantes du moteur, modifiables. Elles pilotent toutes les quantités du BOM — les valeurs par défaut sont celles calées sur le NF DTU 51.4 et l\'usage du métier (voir l\'onglet Méthode).',
+    explication: 'Les constantes du moteur, modifiables. Elles pilotent toutes les quantités de la nomenclature — les valeurs par défaut sont celles calées sur le NF DTU 51.4 et l\'usage du métier (voir l\'onglet Méthode).',
     champs: [
       champ('kPortee'), champ('kEntraxeLame'),
       { type: 'lecture', cle: 'chargeRef', libelle: 'Charge de référence', valeur: () => CHARGE_REF + ' kg/m² — charge sur laquelle K portée est calé' },
       champ('jeuLames'),
-      { type: 'lecture', cle: 'longueurs', libelle: 'Longueurs achetables', valeur: (cx) => { const c = cx.construction(); return 'lames ' + longueursDispo(c).join(' / ') + '  ·  bois ' + longueursBois(c).join(' / ') + (sectionLambourde(c) !== c.soliveSection ? '  ·  lambourdes ' + longueursLambourde(c).join(' / ') : '') + ' — se règlent au-dessus de chaque tableau de débit, onglet BOM'; } },
+      { type: 'lecture', cle: 'longueurs', libelle: 'Longueurs achetables', valeur: (cx) => { const c = cx.construction(); return 'lames ' + longueursDispo(c).join(' / ') + '  ·  bois ' + longueursBois(c).join(' / ') + (sectionLambourde(c) !== c.soliveSection ? '  ·  lambourdes ' + longueursLambourde(c).join(' / ') : '') + ' — se règlent au-dessus de chaque tableau de débit, onglet Nomenclature'; } },
       champ('jointsBoisSurAppui'), champ('chuteMinReutilisable'), champ('jointsSurAppui'), champ('epaisseurLameRive'),
       { type: 'lecture', cle: 'raideurs', libelle: 'Raideur par essence', valeur: () => Object.entries(LAME_RAIDEUR).map(([k, r]) => k.replace('-classe4', '') + ' ' + r.toFixed(2)).join(' · ') },
       { type: 'lecture', cle: 'sections', libelle: 'Sections de solive', valeur: () => SOLIVE_SECTIONS.map(s => { const d = SOLIVE_SECTION_DIMS[s]; return s + (d ? ' (' + d.b + '×' + d.h + ')' : ''); }).join(' · ') + ' — largeur × hauteur en mm, posée sur chant' },

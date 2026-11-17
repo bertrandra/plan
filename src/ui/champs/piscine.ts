@@ -21,6 +21,7 @@ import { terrasseDeLaPiscine, terrasseHote } from '../../engine/ouvrages/liens.j
 import { euros } from '../chiffrage.js';
 import type { Piscine, PlagePiscine, StructurePiscine } from '../../model/types.js';
 import type { Champ, ChampChoix, ContexteChamps, Effet, Section } from './types.js';
+import { nomDuCote } from '../nomCote.js';
 
 const EFFETS: Effet[] = ['rendu', 'scene3d', 'inspecteur', 'terrasse'];
 
@@ -37,7 +38,7 @@ function poser<K extends keyof Piscine>(c: ContexteChamps, cle: K, v: Piscine[K]
 const estPolygone = (c: ContexteChamps) => c.obj.type === 'polygon';
 const fondPente = (c: ContexteChamps) => reglages(c).fond !== 'plat';
 const horsSol = (c: ContexteChamps) => reglages(c).implantation !== 'enterree';
-const cotes = (c: ContexteChamps) => c.obj.type === 'polygon' ? c.obj.pts.map((_, i) => ({ valeur: String(i), libelle: c.obj.segmentNames?.[i] || ('Côté ' + (i + 1)) })) : [];
+const cotes = (c: ContexteChamps) => c.obj.type === 'polygon' ? c.obj.pts.map((_, i) => ({ valeur: String(i), libelle: nomDuCote(c.obj.segmentNames?.[i], i) })) : [];
 
 /**
  * Un menu d'un reglage a vocabulaire ferme, quand le fichier y porte un mot inconnu (une version plus recente) : la piscine se

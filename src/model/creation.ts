@@ -511,7 +511,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
      */
     dupliquer() {
       const src = etat.objects.find(o => o.key === etat.selectedKey);
-      if (!src) { ctx.showToast('Selectionne d\'abord un objet a dupliquer.'); return; }
+      if (!src) { ctx.showToast('Sélectionnez d’abord un objet à dupliquer.'); return; }
       ctx.pushHistory();
       const plain = au(ctx.serializeObjects([src]), 0);
       plain.key = cle('dup');
@@ -531,13 +531,13 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
      * verrouille — le verrou existe justement pour empecher le geste distrait.
      */
     supprimer() {
-      if (!etat.selectedKey) { ctx.showToast('Sélectionne d\'abord un objet à supprimer.'); return; }
+      if (!etat.selectedKey) { ctx.showToast('Sélectionnez d’abord un objet à supprimer.'); return; }
       if (etat.selectedKey === 'parcelle') { ctx.showToast('La parcelle ne peut pas être supprimée.'); return; }
       const idx = etat.objects.findIndex(o => o.key === etat.selectedKey);
       if (idx === -1) return;
       const obj = au(etat.objects, idx);
-      if (obj.locked) { ctx.showToast('Cet objet est verrouille. Decoche "Verrouiller objet" avant de le supprimer.'); return; }
-      ctx.showConfirm('Supprimer definitivement "' + obj.name + '" ?', () => {
+      if (obj.locked) { ctx.showToast('Cet objet est verrouillé : décochez « Verrouiller l’objet » avant de le supprimer.'); return; }
+      ctx.showConfirm('Supprimer définitivement « ' + obj.name + ' » ?', () => {
         ctx.pushHistory();
         // La carte des vues oublie l'objet, et tout ce qui le tenait par sa cle (cotes, plage, parasol, toit a cheval : l'historique a touche tout).
         ctx.detruireVue(obj);

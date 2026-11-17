@@ -452,7 +452,7 @@ export function texteBilanToitsLidar(b: BilanToitsLidar): string | null {
     b.ajustes ? b.ajustes + ' toit(s) ajuste(s) sur le LiDAR HD' : '',
     b.mesures ? b.mesures + ' toit(s) de la parcelle garde(s) tel(s) que mesure(s)' : '',
     b.corpsVoisins ? b.corpsVoisins + ' toit(s) du voisinage en corps et pignons' : '',
-    b.recales ? b.recales + ' bâtiment(s) recale(s) sur le LiDAR' : '',
+    b.recales ? b.recales + ' batiment(s) recale(s) sur le LiDAR' : '',
     b.gardes ? b.gardes + ' garde(s) tel(s) quel(s) (forme trop complexe)' : '',
   ].filter(Boolean);
   return parts.join(', ');

@@ -303,7 +303,7 @@ function MenuAide({ magasin, commandes, tiroir }: { magasin: Magasin; commandes:
     <Deroulant id="menuAide" titre="Aide">
       <ul role="menu">
         {montrerMethode && <li role="menuitem">
-          <button type="button" data-controle="aide.methode" disabled={!methode} title={methode ? undefined : 'Sélectionne une terrasse : la méthode décrit son calcul'} onClick={(e) => { tiroir.activer('methode'); fermer(e); }}>
+          <button type="button" data-controle="aide.methode" disabled={!methode} title={methode ? undefined : 'Sélectionnez une terrasse : la méthode décrit son calcul'} onClick={(e) => { tiroir.activer('methode'); fermer(e); }}>
             <span className="coche" aria-hidden="true" />Méthode de calcul
           </button>
         </li>}

@@ -26,10 +26,10 @@ function Brouillon({ resultats, commandes }: { resultats: Resultats; commandes: 
   const choixCibles = mesure.pointage && mesure.pointage.mode === 'target';
   return (
     <div id="measureControls">
-      <div className="hint" style={{ marginBottom: 8 }}>Choisis un segment de référence et l'extrémité d'origine, puis sélectionne un ou plusieurs
+      <div className="hint" style={{ marginBottom: 8 }}>Choisissez un segment de référence et l'extrémité d'origine, puis sélectionnez un ou plusieurs
         coins sur le plan : pour chacun, la mesure est la distance entre son point projeté (perpendiculaire au segment) et l'origine choisie.</div>
       <button type="button" data-commande="mesure.choisirReference" className="secondary small" disabled={!utilisable('mesure.choisirReference')} onClick={() => commandes.executer('mesure.choisirReference')}>
-        {choixRef ? 'Clique sur un côté du plan…' : 'Choisir le segment de référence'}
+        {choixRef ? 'Cliquez sur un côté du plan…' : 'Choisir le segment de référence'}
       </button>
       <div className="infoCote">{'Référence : ' + resultats.refLabel(mesure.ref)}</div>
       <label className="origineCote">Origine (extrémité du segment) :{' '}
@@ -38,8 +38,8 @@ function Brouillon({ resultats, commandes }: { resultats: Resultats; commandes: 
         </select>
       </label>
       <button type="button" data-commande="mesure.selectionnerCoins" className="secondary small" disabled={!utilisable('mesure.selectionnerCoins')}
-        title={!mesure.ref ? 'Choisis d\'abord le segment de référence' : ''} onClick={() => commandes.executer('mesure.selectionnerCoins')}>
-        {choixCibles ? 'Clique des coins sur le plan… (reclique pour finir)' : 'Sélectionner des coins'}
+        title={!mesure.ref ? 'Choisissez d\'abord le segment de référence' : ''} onClick={() => commandes.executer('mesure.selectionnerCoins')}>
+        {choixCibles ? 'Cliquez des coins sur le plan… (cliquez de nouveau pour finir)' : 'Sélectionner des coins'}
       </button>
       <div className="infoCote">{'Points sélectionnés : ' + (mesure.cibles.length ? mesure.cibles.map(resultats.targetLabel).join(', ') : '(aucun)')}</div>
       <br />

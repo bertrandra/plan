@@ -1105,13 +1105,13 @@ const POINTS = {
     // attend plutot que deux secondes fixes.
     await boite.locator('[data-controle="cadastre.suggestion"]').first().waitFor({ timeout: 15000 }).catch(() => {});
     await boite.locator('input.promptInput').first().press('Enter');
-    await page.locator('.dialogueCadastre', { hasText: 'Parcelle trouvee (2/3)' }).waitFor({ timeout: 30000 });
+    await page.locator('.dialogueCadastre', { hasText: 'Parcelle trouvée (2/3)' }).waitFor({ timeout: 30000 });
     await boite.getByRole('button', { name: /Parcelles voisines/ }).click();
     await page.locator('.dialogueCadastre', { hasText: 'creation (3/3)' }).waitFor({ timeout: 30000 });
     // Aucune mitoyenne n'est cochee : l'import initial ne pose pas le drapeau « voisinage » de
     // toute facon (voir le point 13), et en importer une trentaine pour rien allongerait chaque
     // passage sans rien prouver.
-    await boite.getByRole('button', { name: /Creer le projet/ }).click();
+    await boite.getByRole('button', { name: /Créer le projet/ }).click();
     // La creation lit d'abord les toits des trente batiments les plus proches sur le LiDAR : 12 a 24 s
     // mesurees, puis la page repart sur le nouveau projet. Cinq secondes d'attente relisaient l'etat
     // d'avant (la demonstration) : on attend que le plan soit de nouveau la, avec autre chose qu'avant.
@@ -4160,6 +4160,66 @@ const POINTS = {
     const ok = enTete === 'export.ouvrirDevis' && /^devis-[a-z0-9-]+\.pdf$/.test(nom) && octets.length > 1000 && pages === 1 && emetteur && toast === 'Devis téléchargé : ' + nom + '.'
       && salAvant === salApres && !debordeDialogue && (pied === 'sans objet' || pied === 'ouvre le dialogue');
     return { ok, mesure: `en tête du menu : ${enTete} ; « ${nom} », ${octets.length} octets, ${pages} page(s), émetteur ${emetteur ? 'imprimé' : 'ABSENT'} ; toast « ${toast} » ; projet ${salAvant === salApres ? 'inchangé par l’émetteur' : 'MARQUÉ MODIFIÉ'} ; pied du chiffrage ${pied} ; débordement ${debordeDialogue ? 'OUI' : 'non'}` };
+  },
+  184: async (page, f) => {
+    // Les textes de l'ecran (lot 4) : accents, vouvoiement, virgule decimale. La terrasse de la demonstration choisie, tous les menus de
+    // la barre ouverts, toutes les sections de l'inspecteur et l'onglet Nomenclature : ni mot connu sans son accent (« Cree »,
+    // « metres », « batiment », « deja »…), ni tutoiement (« Saisis », « Clique », « ton fournisseur »…), dans le texte, les infobulles,
+    // les aria-label et les indications des champs ; les valeurs lues de l'inspecteur ecrivent leurs decimales a la virgule.
+    await selectionner(page, TERRASSE);
+    await inspecteur(page);
+    await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+    await page.waitForTimeout(300);
+    const releve = await page.evaluate(() => {
+      document.querySelectorAll('details.menu').forEach((d) => d.setAttribute('open', ''));
+      document.querySelectorAll('#zoneInspecteur details').forEach((d) => { d.open = true; });
+      const zones = ['#projectBar', '#zoneInspecteur', '#zoneResultats', '#zonePalette', '#zoneEtat'].map((s) => document.querySelector(s)).filter(Boolean);
+      const morceaux = [];
+      for (const z of zones) {
+        morceaux.push(z.textContent);
+        z.querySelectorAll('[title], [aria-label], [placeholder]').forEach((e) => ['title', 'aria-label', 'placeholder'].forEach((a) => { const v = e.getAttribute(a); if (v) morceaux.push(v); }));
+      }
+      // Les noms des objets sont des donnees du projet (« Dalle beton ») : on les retire du texte lu.
+      const noms = window.__plan.etat().objects.map((o) => o.name).filter((n) => n && n.length > 3);
+      let texte = morceaux.join(' \n ');
+      for (const n of noms) texte = texte.split(n).join(' ');
+      const lectures = [...document.querySelectorAll('#zoneInspecteur .lecture')].map((e) => e.textContent);
+      return { texte, lectures };
+    });
+    // Bornes de mot a la Unicode : « mètres » ne contient pas le mot « tres ».
+    const SANS_ACCENT = /(?<!\p{L})(Cree|Creer|creer|selectionne|Selectionne|reglage|reglages|metres|batiment|batiments|vegetation|deja|apres|tres|schema|defaut|resultat|resultats|parametres|equipement|echelle|Echelle|ecran|reference|quantite|lineaire|reellement|debiter|estimes|memorise|Methode|Geoportail|Necessite|enregistre(?= pour)|telechargement|reseau|donnees)(?!\p{L})/gu;
+    const TUTOIEMENT = /(?<!\p{L})(Saisis|Clique|Choisis|Coche|Glisse un point|ton fournisseur|si tu|ta recherche|ton terrain|Reessaie|Autorise les)(?!\p{L})/gu;
+    const fautes = [...new Set([...(releve.texte.match(SANS_ACCENT) ?? []), ...(releve.texte.match(TUTOIEMENT) ?? [])])];
+    const points = releve.lectures.filter((t) => /\d\.\d/.test(t));
+    const ok = !fautes.length && !points.length && releve.lectures.length > 0;
+    return { ok, mesure: `${releve.texte.length} caractères lus (menus, inspecteur, résultats, palette, barre d'état), ${releve.lectures.length} valeurs de l'inspecteur ; sans accent ou tutoiement : ${fautes.length ? fautes.join(', ') : 'aucun'} ; décimales au point : ${points.length ? points.slice(0, 3).join(' | ') : 'aucune'}` };
+  },
+  185: async (page, f) => {
+    // Les mots de l'ecran (lot 4) : « Nomenclature » et jamais « BOM » ; les cotes d'une terrasse s'appellent « Côté n » (le nom par
+    // defaut « Cote n » du projet reste une donnee, ecrit « Côté n » a l'ecran) ; chaque icone de la Vue 3D a son nom (aria-label) et
+    // son infobulle (title).
+    await selectionner(page, TERRASSE);
+    await inspecteur(page);
+    await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+    await page.waitForTimeout(300);
+    const plan = await page.evaluate(() => {
+      document.querySelectorAll('#zoneInspecteur details').forEach((d) => { d.open = true; });
+      const zones = ['#projectBar', '#zoneInspecteur', '#zoneResultats'].map((s) => document.querySelector(s)).filter(Boolean);
+      const texte = zones.map((z) => z.textContent + ' ' + [...z.querySelectorAll('[title]')].map((e) => e.getAttribute('title')).join(' ')).join(' ');
+      const rives = [...document.querySelectorAll('#zoneInspecteur label, #zoneInspecteur .libelle, #zoneInspecteur span')].map((e) => e.textContent.trim()).filter((t) => /^Rive · /.test(t));
+      const onglet = [...document.querySelectorAll('#zoneResultats [role="tab"]')].map((t) => t.textContent.trim());
+      return { bom: (texte.match(/\bBOM\b/g) ?? []).length, rives: [...new Set(rives)], onglet };
+    });
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 });
+    await page.waitForTimeout(500);
+    const icones = await page.evaluate(() => [...document.querySelectorAll('#terrasse3dZoomControls button')].map((b) => ({
+      id: b.id || b.getAttribute('data-commande') || '?', nom: (b.getAttribute('aria-label') || '').trim(), titre: (b.getAttribute('title') || '').trim()
+    })));
+    const muettes = icones.filter((i) => !i.nom || !i.titre);
+    const rivesCote = plan.rives.filter((r) => /Cote \d/.test(r));
+    const ok = plan.bom === 0 && plan.onglet.includes('Nomenclature') && !rivesCote.length && icones.length >= 8 && !muettes.length;
+    return { ok, mesure: `« BOM » ${plan.bom} fois ; onglet ${plan.onglet.includes('Nomenclature') ? '« Nomenclature »' : 'NOMENCLATURE ABSENTE'} ; rives ${plan.rives.length ? plan.rives.slice(0, 2).join(', ') + (rivesCote.length ? ' — « Cote n » : ' + rivesCote.join(', ') : '') : '(aucune rive affichée)'} ; Vue 3D : ${icones.length} icônes, ${muettes.length ? 'SANS NOM OU INFOBULLE : ' + muettes.map((m) => m.id).join(', ') : 'toutes nommées et avec infobulle'}` };
   },
   158: async (page, f) => {
     // Les reponses du proprietaire du 9 novembre 2026 a la PR #646. (1) « Nouveau cas depuis des photos » : les deux vues de l'etalon
@@ -9718,7 +9778,9 @@ function pointsPour(nomClasse) {
   // 180 : les gestes en double retires (liste des projets, position initiale, doublons) et un seul libelle pour creer un projet.
   // 181 : les onglets des resultats ramenes a cinq en mode simple ; les autres reviennent avec le mode expert.
   // 182 : l'audit d'une facade sans « É7 » ni « V1 » pour la personne ordinaire ; le mode expert les rend.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182];
+  // 184 : les textes de l'ecran : accents, vouvoiement, virgule decimale (menus, inspecteur de la terrasse, nomenclature).
+  // 185 : « Nomenclature » et jamais « BOM », « Côté n », les icones de la Vue 3D nommees et avec infobulle.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 184, 185];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

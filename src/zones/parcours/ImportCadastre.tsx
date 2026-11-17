@@ -4,6 +4,7 @@
 // changements. Le champ d'adresse garde le focus pendant la frappe : seules les suggestions se
 // redessinent sous lui.
 
+import { chiffreFr } from '../../util/format.js';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { centroid } from '../../geometry/basic.js';
 import { libelleParcelle } from '../../geo/bdtopo.js';
@@ -220,10 +221,10 @@ function Etape2({ importe }: Props) {
           {(geo.genre === 'position' ? 'Adresse la plus proche : ' : 'Adresse : ') + geo.label}<br />
           {/* Le point d'une position est celui de l'appareil, pas un point d'adresse pose sur la voirie. */}
           {geo.genre === 'position'
-            ? 'Votre position' + (e.position.precisionM !== null ? ' (à ' + e.position.precisionM + ' m près)' : '') + ' : ' + (p.dedans ? 'dans la parcelle' : 'à ' + p.distance.toFixed(2) + ' m du bord')
-            : 'Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'a ' + p.distance.toFixed(2) + ' m du bord (il est pose devant la porte, sur la voirie)')}
+            ? 'Votre position' + (e.position.precisionM !== null ? ' (à ' + e.position.precisionM + ' m près)' : '') + ' : ' + (p.dedans ? 'dans la parcelle' : 'à ' + chiffreFr(p.distance) + ' m du bord')
+            : 'Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'à ' + chiffreFr(p.distance) + ' m du bord (il est posé devant la porte, sur la voirie)')}
           {geo.genre && geo.genre !== 'housenumber' && geo.genre !== 'coordonnees' && geo.genre !== 'position' && <><br /><i>{'Adresse imprécise (' + niveauAdresse(geo.genre) + ') : la parcelle proposée est approximative.'}</i></>}
-          {ecartAuto < ECART_AUTO_M && <><br /><i>Plusieurs parcelles sont à distance comparable : verifie le choix ci-dessous.</i></>}
+          {ecartAuto < ECART_AUTO_M && <><br /><i>Plusieurs parcelles sont à distance comparable : vérifiez le choix ci-dessous.</i></>}
         </div>
         <div className="titreListe">Autre parcelle ? (clic sur l'aperçu ou dans la liste)</div>
         <div className="listeParcelles">
@@ -231,7 +232,7 @@ function Etape2({ importe }: Props) {
             <button key={c.idu} type="button" data-controle="cadastre.parcelle" className={c.idu === p.idu ? undefined : 'secondary'}
               onMouseEnter={() => importe.survoler(c.idu)} onMouseLeave={() => importe.survoler(null)}
               onClick={() => void importe.choisirPrincipale(c)}>
-              {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + ' — ' + c.distance.toFixed(2) + ' m de l\'adresse'}
+              {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + ' — ' + chiffreFr(c.distance) + ' m de l\'adresse'}
             </button>
           ))}
         </div>
@@ -256,14 +257,14 @@ function LigneVoisine({ importe, c }: Props & { c: Candidate }) {
   return (
     <div className={'ligneVoisine' + (e.survol === c.idu ? ' survolee' : '')}
       onMouseEnter={() => importe.survoler(c.idu)} onMouseLeave={() => { if (e.survol === c.idu) importe.survoler(null); }}>
-      <label title="Cette parcelle fait partie de la propriété : elle sera fusionnée avec la parcelle principale, sa limite interne restant en pointille.">
+      <label title="Cette parcelle fait partie de la propriété : elle sera fusionnée avec la parcelle principale, sa limite interne restant en pointillé.">
         <input type="checkbox" data-controle="cadastre.propriete" checked={prop} onChange={() => importe.basculerPropriete(c)} /> propriété
       </label>
-      <label title="Importer cette parcelle comme voisine, en decor de référence.">
+      <label title="Importer cette parcelle comme voisine, en décor de référence.">
         <input type="checkbox" data-controle="cadastre.importerVoisine" checked={e.selection.has(c.idu) || prop} disabled={prop} onChange={() => importe.basculerVoisine(c)} /> importer
       </label>
       <span className="texteVoisine" onClick={() => importe.basculerVoisine(c)}>
-        {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + (c.frontiere ? ' — ' + c.frontiere.toFixed(1) + ' m de limite commune' : ' — a ' + (c.distancePrincipale || 0).toFixed(1) + ' m')}
+        {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + (c.frontiere ? ' — ' + chiffreFr(c.frontiere, 1) + ' m de limite commune' : ' — à ' + chiffreFr(c.distancePrincipale || 0, 1) + ' m')}
       </span>
       {/* Permuter la principale sans repasser par l'etape 2 : c'est ici qu'on voit le voisinage en
           entier, donc ici qu'on se rend compte qu'on a designe la mauvaise parcelle. */}
@@ -292,9 +293,9 @@ function DonneesIgn({ importe }: Props) {
       {hauteurs.length > 0 && <div className="detailIgn">{'Sur la propriété : ' + hauteurs.length + ' bâtiment(s), hauteurs ' + hauteurs.map(x => x.toFixed(1).replace('.', ',') + ' m').join(', ')}</div>}
       {ligne('importerHaies', 'Haies (géométrie + hauteur)', importe.elementsRetenus(e.haies).length,
         'Couche haie de la BD TOPO : renseignée surtout en zone de bocage, souvent vide en ville.')}
-      {ligne('importerVegetation', 'Zones de végétation', vegs.length, 'Bois, forets, vergers... hauteur déduite de la nature de la zone.')}
+      {ligne('importerVegetation', 'Zones de végétation', vegs.length, 'Bois, forêts, vergers… hauteur déduite de la nature de la zone.')}
       {ligne('importerArbres', 'Arbres estimés dans ces zones (~' + importe.nombreArbresEstimes() + ')', vegs.length,
-        'ESTIMATION : la BD TOPO ne cartographie pas les arbres isolés. Une grille régulière d\'un arbre pour 64 m2 est répartie dans les zones de végétation - un ordre de grandeur du couvert, pas un releve.')}
+        'ESTIMATION : la BD TOPO ne cartographie pas les arbres isolés. Une grille régulière d\'un arbre pour 64 m² est répartie dans les zones de végétation - un ordre de grandeur du couvert, pas un relevé.')}
       <ReglageRelief importe={importe} />
       <div className="pluParcours">
         {plu?.zones?.[0] ? (() => {
@@ -380,9 +381,9 @@ function Etape3({ importe }: Props) {
         <Apercu importe={importe} />
         <div className={'resumePropriete' + (resume.alerte ? ' alerte' : '')}>{resume.texte}</div>
         <div className="aideParcours">
-          Coche « propriété » pour les parcelles qui forment ton terrain (elles seront fusionnées en une seule), « importer » pour celles qui
-          restent un simple décor de référence. Un clic sur l'aperçu bascule « importer ». Un objet coche « contraint à la parcelle » reste
-          enferme dans la parcelle principale : pour construire à cheval sur une voisine, decoche cette contrainte dans le panneau Objet.
+          Cochez « propriété » pour les parcelles qui forment votre terrain (elles seront fusionnées en une seule), « importer » pour celles qui
+          restent un simple décor de référence. Un clic sur l'aperçu bascule « importer ». Un objet coché « contraint à la parcelle » reste
+          enfermé dans la parcelle principale : pour construire à cheval sur une voisine, décochez cette contrainte dans le panneau Objet.
         </div>
         <div className="barreSelection">
           <Bouton controle="cadastre.cocherMitoyennes" onClick={importe.cocherMitoyennes}>Cocher toutes les mitoyennes</Bouton>
