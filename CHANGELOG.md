@@ -117,6 +117,12 @@ de la 5.33.0, s'il n'est pas déjà appliqué) :
 
 ### Corrigé
 
+- **Les erreurs d'un fichier fait ou lu sur l'appareil sont dites en clair** (lot 4), comme celles du réseau (#714) : exporter
+  en SVG, PNG, DXF, PDF, GLB (le plan, le dossier, la note de calcul, la liste d'achat, le devis, la vue 3D) ou ouvrir un
+  projet JSON, un SVG ou un modèle GLB qui échoue dit ce qui se passe et quoi faire — la bibliothèque qui ne s'est pas chargée,
+  la mémoire de l'appareil, le téléchargement bloqué, l'accélération graphique refusée, le fichier qui n'est pas du bon format
+  et lequel choisir — le message du moteur en « Détail technique », à copier (`util/erreurFichier.ts`). Avant : « Import annule -
+  fichier illisible : Unexpected token… », « Erreur export PNG: conversion en image impossible. ». Point de fumée 187.
 - **L'assistant ne change plus la lame quand on ne lui demande que l'essence.** « Passez les lames en douglas » écrivait aussi
   la lame du commerce (douglas 145 × 27), donc la largeur et l'épaisseur, des quantités que la personne n'avait pas demandées
   (demande de référence `01-lames-douglas`, rouge aux runs 43978457531 et 43978821312 de « Vérifier l'API Claude »). Le champ

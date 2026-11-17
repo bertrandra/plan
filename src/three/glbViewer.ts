@@ -12,7 +12,8 @@ import { libererRendu } from './rendu.js';
 import { debrancherPincementFacade } from './pincementFacade.js';
 import type * as THREE_NS from 'three';
 import { vue3d, glb, chargement, affichage3d, hotes3d, signaler3d, type SceneGlb } from './etat3d.js';
-import { showErrBanner } from '../shell/dialogs.js';
+import { showErreur } from '../shell/dialogs.js';
+import { erreurImport } from '../util/erreurFichier.js';
 import { chargerExemple, ECHELLE_LUMIERE } from './bibliotheque.js';
 import { preparerEzTree } from './ezTree.js';
 import { reglerSoleil } from './lumiere.js';
@@ -90,7 +91,7 @@ export function ensureThreeLoaded(cb: () => void): void {
   // Puis EZ-tree, s'il y a des essences d'arbres a dessiner : il ne leve jamais, hors ligne les arbres restent simplifies.
   chargerExemple('controls/OrbitControls.js', ['OrbitControls']).then(preparerEzTree).then(
     () => { chargement.three = true; cb(); },
-    () => showErrBanner('Impossible de charger la bibliotheque 3D (connexion internet requise pour cette fonctionnalite).')
+    (err: unknown) => showErreur('La bibliothèque 3D ne s’est pas chargée : vérifiez votre connexion, puis réessayez.', String((err as Error | undefined)?.message ?? err ?? ''))
   );
 }
 
@@ -98,7 +99,7 @@ export function ensureGLTFExporterLoaded(cb: () => void): void {
   if (chargement.exporteurGltf && window.THREE && window.THREE.GLTFExporter) { cb(); return; }
   chargerExemple('exporters/GLTFExporter.js', ['GLTFExporter']).then(
     () => { chargement.exporteurGltf = true; cb(); },
-    () => showErrBanner('Impossible de charger l\'exporteur GLB (connexion internet requise pour cette fonctionnalite).')
+    (err: unknown) => showErreur('L’exporteur GLB ne s’est pas chargé : vérifiez votre connexion, puis réessayez.', String((err as Error | undefined)?.message ?? err ?? ''))
   );
 }
 
@@ -296,7 +297,7 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
     // here with a real error rather than letting THREE crash a few calls further down.
     const glCtx = renderer.getContext && renderer.getContext();
     if(!glCtx || (glCtx.isContextLost && glCtx.isContextLost())){
-      showErrBanner('Visionneuse GLB : le navigateur a refuse de creer un contexte 3D (trop d\'onglets/vues 3D ouverts ?). Ferme quelques onglets ou recharge la page, puis reessaie.');
+      showErreur('La visionneuse n’a pas pu s’ouvrir : le navigateur refuse un contexte 3D de plus (trop d’onglets ou de vues 3D ouverts). Fermez quelques onglets ou rechargez la page, puis réessayez.', 'WebGL : contexte refuse ou perdu');
       return;
     }
     renderer.setSize(w,h);
@@ -358,6 +359,7 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
     // Le modele illisible n'est pas montre : on revient a « aucun modele », d'ou le regenerer.
     affichage3d.glb = 'vide';
     signaler3d();
-    showErrBanner('Visionneuse GLB : ' + (err && err.message ? err.message : 'fichier illisible'));
+    const { texte, detail } = erreurImport(err && err.message ? err : new Error('fichier illisible'), 'modèle 3D (GLB)', 'Exportez de nouveau la scène 3D (menu Exporter), puis rouvrez la visionneuse.');
+    showErreur(texte, detail);
   });
 }

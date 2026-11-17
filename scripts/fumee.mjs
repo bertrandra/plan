@@ -4179,6 +4179,44 @@ const POINTS = {
       && salAvant === salApres && !debordeDialogue && (pied === 'sans objet' || pied === 'ouvre le dialogue');
     return { ok, mesure: `en tête du menu : ${enTete} ; « ${nom} », ${octets.length} octets, ${pages} page(s), émetteur ${emetteur ? 'imprimé' : 'ABSENT'} ; toast « ${toast} » ; projet ${salAvant === salApres ? 'inchangé par l’émetteur' : 'MARQUÉ MODIFIÉ'} ; pied du chiffrage ${pied} ; débordement ${debordeDialogue ? 'OUI' : 'non'}` };
   },
+  187: async (page, f) => {
+    // Les erreurs d'un fichier fait ou lu sur l'appareil, dites en clair (lot 4, util/erreurFichier.ts) : une phrase qui dit ce qui se
+    // passe et quoi faire, le message du moteur en « Détail technique ». Un .json qui n'est pas du JSON et un .svg mal forme choisis
+    // dans les champs d'import ; le PNG du plan quand le navigateur ne rend pas l'image (toBlob nul) ; le DXF quand le telechargement
+    // est bloque (URL.createObjectURL refuse). Avant : « Import annule - fichier illisible : Unexpected token… », « Erreur import SVG:
+    // SVG invalide ou mal forme », « Erreur export PNG: conversion en image impossible. », « … le telechargement automatique a echoue: … ».
+    const echecs = [];
+    const lus = [];
+    const lire = async (attendu, quoi) => {
+      const bandeau = page.locator('.bandeauErreur').last();
+      try { await bandeau.waitFor({ timeout: 10000 }); } catch { echecs.push(quoi + ' : aucun bandeau'); return; }
+      const { texte, detail } = await bandeau.evaluate((b) => {
+        const t = b.querySelector('.texte');
+        const d = t?.querySelector('.detailErreur')?.textContent ?? '';
+        return { texte: (t?.firstChild?.textContent ?? '').trim(), detail: d.trim() };
+      });
+      lus.push(quoi + ' « ' + texte.slice(0, 70) + '… »');
+      if (!attendu.test(texte)) echecs.push(quoi + ' : « ' + texte + ' »');
+      if (/Erreur |Echec|Import annule|Unexpected|Failed|invalid|null/.test(texte)) echecs.push(quoi + ' : jargon dans la phrase');
+      if (!/^Détail technique : .+/.test(detail)) echecs.push(quoi + ' : détail technique absent');
+      await bandeau.locator('[data-controle="notification.fermer"]').click().catch(() => {});
+      await page.waitForTimeout(150);
+    };
+    const n = () => page.evaluate(() => window.__plan.etat().objects.length);
+    const avant = await n();
+    await page.setInputFiles('#importJsonFile', { name: 'pas-un-projet.json', mimeType: 'application/json', buffer: Buffer.from('<html>pas du json</html>') });
+    await lire(/^Ce fichier n’est pas un projet Plan \(JSON\) lisible\. Choisissez un fichier \.json enregistré par « Exporter le projet \(JSON\) »\.$/, 'JSON');
+    if ((await n()) !== avant) echecs.push('le plan a changé après le JSON refusé');
+    await page.setInputFiles('#importSvgFile', { name: 'casse.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><g></svg>') });
+    await lire(/^Ce fichier n’est pas un SVG lisible\. Choisissez un fichier \.svg/, 'SVG');
+    await page.evaluate(() => { HTMLCanvasElement.prototype.toBlob = function (cb) { cb(null); }; window.__plan.executer('export.png'); });
+    await lire(/^Le plan en PNG est trop lourd pour la mémoire de cet appareil\. Fermez d’autres onglets, puis réessayez/, 'PNG');
+    await page.evaluate(() => { URL.createObjectURL = () => { throw new DOMException('Blocked by policy', 'SecurityError'); }; window.__plan.executer('export.dxf'); });
+    await lire(/^Le téléchargement du DXF n’est pas parti : le navigateur l’a peut-être bloqué\. Autorisez les téléchargements pour ce site, puis réessayez\.$/, 'DXF');
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    if (deborde) echecs.push('débordement');
+    return { ok: !echecs.length, mesure: lus.join(' ; ') + (echecs.length ? ' — ' + echecs.join(' ; ') : '') };
+  },
   186: async (page, f) => {
     // Les raccourcis (lot 4) : une seule table (app/clavier.ts) que le clavier ecoute et que le menu Aide montre. Au clavier, sur la
     // terrasse de la demonstration : « Dupliquer » ajoute un objet, Ctrl+Z le retire, Ctrl+Y le rend, Ctrl+Z puis Ctrl+Maj+Z de meme ;
@@ -9845,9 +9883,10 @@ function pointsPour(nomClasse) {
   // 180 : les gestes en double retires (liste des projets, position initiale, doublons) et un seul libelle pour creer un projet.
   // 181 : les onglets des resultats ramenes a cinq en mode simple ; les autres reviennent avec le mode expert.
   // 182 : l'audit d'une facade sans « É7 » ni « V1 » pour la personne ordinaire ; le mode expert les rend.
-  // 186 : les raccourcis : Ctrl+Z, Ctrl+Y et Ctrl+Maj+Z, le bouton « Rétablir », Suppr (confirme, pas dans un champ) ; la liste du menu Aide.
+  // 187 : les erreurs d'un fichier dites en clair : un JSON et un SVG illisibles, le PNG qui ne se rend pas, le DXF bloque.
   // 183 : le nom de l'emetteur du devis vient du compte meme hors du cache du contexte (`token_expires_at` nul), propose et imprime.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 186];
+  // 186 : les raccourcis : Ctrl+Z, Ctrl+Y et Ctrl+Maj+Z, le bouton « Rétablir », Suppr (confirme, pas dans un champ) ; la liste du menu Aide.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 186, 187];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

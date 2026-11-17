@@ -4,7 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const journal = { toasts: [] as string[], bannieres: [] as string[], blobs: [] as string[] };
 vi.mock('../../../../src/shell/dialogs.js', () => ({
   showToast: (m: string) => { journal.toasts.push(m); },
-  showErrBanner: (m: string) => { journal.bannieres.push(m); }
+  showErrBanner: (m: string) => { journal.bannieres.push(m); },
+  // Une erreur dite en clair (util/erreurFichier.ts) : la phrase, et le detail technique apres « | ».
+  showErreur: (t: string, d = '') => { journal.bannieres.push(t + (d ? ' | ' + d : '')); }
 }));
 vi.mock('../../../../src/shell/download.js', () => ({ telechargerBlob: (nom: string) => { journal.blobs.push(nom); } }));
 
@@ -66,7 +68,8 @@ describe('Vue 3D', () => {
   it('capture la vue en PNG, nommee d apres la terrasse ; sans scene, le dit', () => {
     const { cmd } = monter();
     cmd.executer('3d.enregistrerPng');
-    expect(journal.bannieres).toEqual(['Vue 3D pas encore chargee.']);
+    expect(journal.toasts).toEqual(['La Vue 3D se prépare encore : attendez qu’elle s’affiche, puis réessayez.']);
+    expect(journal.bannieres).toEqual([]);
     vue3d.scene = fausseScene() as never;
     cmd.executer('3d.enregistrerPng');
     expect(journal.blobs).toHaveLength(1);
