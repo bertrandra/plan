@@ -25,9 +25,12 @@ import { etatToit, modeToitCourant, sessionToit } from '../toits/modeToit.js';
  * Ctrl+Z, meme depuis un champ ou une liste. Il defaisait sinon l'etape du projet d'avant la session, sous elle, et la validation
  * ecrivait ensuite un melange des deux (audit du 6 novembre 2026). Sans geste a annuler dans la session, il est grise.
  */
-function declarerAnnuler(a: Atelier, commande: (id: string, libelle: string, executer: () => void, extra: { raccourci?: string; actif?: () => boolean; sansDroit?: boolean }) => void): void {
+function declarerAnnuler(a: Atelier, commande: (id: string, libelle: string, executer: () => void, extra: { actif?: () => boolean; sansDroit?: boolean }) => void): void {
   commande('objet.annuler', 'Annuler', () => { const m = sessionToit() ? modeToitCourant() : null; if (m) m.annuler(); else a.undo(); },
-    { raccourci: 'Ctrl+Z', sansDroit: true, actif: () => !sessionToit() || etatToit().peutAnnuler });
+    { sansDroit: true, actif: () => !sessionToit() || etatToit().peutAnnuler });
+  // Retablir suit la meme regle : pendant une session du mode Toit, c'est le pas de la session qui revient.
+  commande('objet.retablir', 'Rétablir', () => { const m = sessionToit() ? modeToitCourant() : null; if (m) m.retablir(); else a.redo(); },
+    { sansDroit: true, actif: () => (sessionToit() ? etatToit().peutRetablir : a.peutRetablir()) });
 }
 
 export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
@@ -40,7 +43,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
    * `sansDroit` sert a l'annulation, et a elle seule : elle ne peut defaire que ce qu'on a eu le
    * droit de faire, donc en lecture seule sa pile est vide et la grisier serait un bruit de plus.
    */
-  const commande = (id: string, libelle: string, executer: () => void, extra: { raccourci?: string; actif?: () => boolean; sansDroit?: boolean; assistant?: { bascule?: () => boolean } } = {}) => {
+  const commande = (id: string, libelle: string, executer: () => void, extra: { actif?: () => boolean; sansDroit?: boolean; assistant?: { bascule?: () => boolean } } = {}) => {
     const { sansDroit, ...reste } = extra;
     cmd.declarer({ id, libelle, groupe: 'objet', executer, ...reste, ...(sansDroit ? {} : { permission: PERMISSION_ECRITURE }) });
   };

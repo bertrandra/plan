@@ -38,6 +38,7 @@ import { useCle, useMagasinZone } from './composants/abonnement.js';
 import { APP_VERSION, versionLongue } from '../model/version.js';
 import { sessionToit } from '../app/toits/modeToit.js';
 import { controleMontre } from '../app/modeExpert.js';
+import { raccourcisAffiches } from '../app/clavier.js';
 
 export interface PropsBarreApplication {
   magasin: Magasin;
@@ -299,6 +300,8 @@ function MenuAide({ magasin, commandes, tiroir }: { magasin: Magasin; commandes:
   const methode = tiroir.onglets().some(o => o.id === 'methode');
   // La methode de calcul est un onglet du mode expert (app/tiroir.ts) : son entree le suit (app/controlesInterface.ts).
   const montrerMethode = controleMontre(magasin.store.getState(), 'aide.methode');
+  // Les raccourcis, tires de la seule table qui les ecoute (app/clavier.ts) et des libelles du registre ; au telephone, pas de clavier.
+  const raccourcis = magasin.store.getState().classe === 'compact' ? [] : raccourcisAffiches(commandes);
   return (
     <Deroulant id="menuAide" titre="Aide">
       <ul role="menu">
@@ -312,6 +315,20 @@ function MenuAide({ magasin, commandes, tiroir }: { magasin: Magasin; commandes:
         </li>
         {/* L'assistant en langue naturelle (lot L6) : il ouvre son dialogue (Z8). */}
         <Entree commandes={commandes} id="assistant.demander" libelle="Demander à l’assistant…" />
+        {raccourcis.length > 0 && <li className="separateur" role="separator" />}
+        {raccourcis.length > 0 && (
+          <li className="menuRaccourcis" data-controle="aide.raccourcis" role="none">
+            <span className="titreRaccourcis">Raccourcis clavier</span>
+            <dl>
+              {raccourcis.map((r) => (
+                <div key={r.commande} data-commande-raccourci={r.commande}>
+                  <dt>{r.libelle}</dt>
+                  <dd>{r.touches.map((t, i) => <span key={t}>{i > 0 && ' ou '}<kbd>{t}</kbd></span>)}</dd>
+                </div>
+              ))}
+            </dl>
+          </li>
+        )}
       </ul>
     </Deroulant>
   );
@@ -563,12 +580,13 @@ export function BarreApplication({ magasin, commandes, tiroir }: PropsBarreAppli
   const classe = useStore(magasin.store, (s) => s.classe);
   const feuille = useStore(magasin.store, (s) => s.feuille);
   const peutAnnuler = useStore(magasin.store, (s) => s.peutAnnuler);
+  const peutRetablir = useStore(magasin.store, (s) => s.peutRetablir);
   // Ce que la barre lit du plan : l'etat de « Enregistrer », la lecture seule, les vues et Annuler offerts ou non, et qui est
   // connecte (le compte et le menu Admin). Les entrees des menus suivent chacune leur commande.
   useCle(magasin, 'barre d\'application', (s) => {
     const c = contexteCourant()?.courant();
     return JSON.stringify([commandes.etat('projet.enregistrer'), s.etat.lectureSeule, Object.values(COMMANDE_DE_VUE).map((id) => commandes.effacee(id)),
-      commandes.effacee('objet.annuler'), commandes.etat('objet.annuler'), !!sessionToit(), enAdmin(), estAdministrateur(), c ? [c.user.display_name, c.user.email, c.tenant.name, c.tenant.slug] : null]);
+      commandes.effacee('objet.annuler'), commandes.etat('objet.annuler'), commandes.etat('objet.retablir'), !!sessionToit(), enAdmin(), estAdministrateur(), c ? [c.user.display_name, c.user.email, c.tenant.name, c.tenant.slug] : null]);
   });
   const executer = (id: string) => (e: React.MouseEvent<HTMLButtonElement>) => { commandes.executer(id, e.currentTarget); };
   // Pendant une session du mode Toit, Annuler est celui de la session (app/ecouteurs/objets.ts).
@@ -649,6 +667,14 @@ export function BarreApplication({ magasin, commandes, tiroir }: PropsBarreAppli
               disabled={!(commandes.etat('objet.annuler').utilisable && (peutAnnuler || enSessionToit))}
               onClick={() => { commandes.executer('objet.annuler'); }}>
               <Icone nom="annuler" />
+            </button>
+          )}
+          {/* Retablir se grise par sa commande : elle lit la pile du projet, ou celle d'une session du mode Toit. */}
+          {!commandes.effacee('objet.retablir') && (
+            <button type="button" className="boutonIcone" data-commande="objet.retablir" aria-label={enSessionToit ? 'Rétablir le dernier geste sur la toiture (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}
+              disabled={!(commandes.etat('objet.retablir').utilisable && (peutRetablir || enSessionToit))}
+              onClick={() => { commandes.executer('objet.retablir'); }}>
+              <Icone nom="retablir" />
             </button>
           )}
           {!compact && vues}

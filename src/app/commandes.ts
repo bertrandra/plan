@@ -85,8 +85,6 @@ export interface Commande {
   id: string;
   libelle: string;
   groupe: GroupeCommande;
-  /** Presentation seulement : le registre n'ecoute pas le clavier, `core/historique.ts` le fait. */
-  raccourci?: string;
   description?: string;
   /** Absente : toujours active. */
   actif?: () => boolean;

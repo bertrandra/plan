@@ -18,7 +18,7 @@ export function fauxAtelier(etat: Partial<EtatApp>, initiaux: ObjetPlan[] = []):
     objByKey: (k) => e.objects.find((o) => o.key === k),
     initialState: () => initiaux,
     initialMeasures: () => [],
-    pushHistory: vi.fn(), markDirty: vi.fn(), undo: vi.fn(), restoreState: vi.fn(),
+    pushHistory: vi.fn(), markDirty: vi.fn(), undo: vi.fn(), redo: vi.fn(), peutRetablir: () => false, restoreState: vi.fn(),
     render: vi.fn(), rebuildSelector: vi.fn(), rebuildHandles: vi.fn(), reapplyStackingOrder: vi.fn(), fitToObject: vi.fn(),
     addNewObject: vi.fn(), addNewPath: vi.fn(), addNewCircle: vi.fn(), addNewParasol: vi.fn(), addNewPergola: vi.fn(), addNewCarport: vi.fn(), addNewPiscine: vi.fn(), addNewTerrasse: vi.fn(), addNewViewpoint: vi.fn(), addTerrassePiscine: vi.fn(), addTrouTerrasse: vi.fn(), selectObject: vi.fn(),
     duplicateSelectedObject: vi.fn(), deleteSelectedObject: vi.fn(), sendObjectBackward: vi.fn()

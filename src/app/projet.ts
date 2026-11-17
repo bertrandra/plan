@@ -371,7 +371,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   });
 
   cmd.declarer({
-    id: 'projet.enregistrer', libelle: 'Enregistrer', groupe: 'projet', raccourci: 'Ctrl+S',
+    id: 'projet.enregistrer', libelle: 'Enregistrer', groupe: 'projet',
     permission: PERMISSION_ECRITURE,
     actif: () => seed.apiAvailable && !!courant,
     executer: () => { void enregistrer('Projet enregistre.'); }

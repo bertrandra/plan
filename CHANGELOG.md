@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Rétablir** (Ctrl+Y, ou Ctrl+Maj+Z) refait le dernier pas défait du plan, par la commande `objet.retablir` : un bouton à côté
+  d'« Annuler » (palette, rail, barre haute au doigt), une seconde pile dans l'historique, qu'une modification nouvelle, l'ouverture
+  d'un projet ou « Réinitialiser tout » effacent ; pendant une session du mode Toit, c'est le pas de la session qui revient.
+  **Suppr** supprime l'objet sélectionné (avec la même confirmation que le bouton), jamais dans un champ de saisie ni sous un
+  dialogue. Une seule table des raccourcis (`app/clavier.ts`) : le clavier l'écoute, les infobulles la citent et le menu Aide
+  la montre, libellés tirés du registre (pas au téléphone). Point de fumée 186.
 - **L'audit d'une façade sans le jargon des étapes** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Pour la personne
   ordinaire, l'administrateur d'une organisation compris, la barre d'avancement, les lignes des étapes, l'étape ouverte et ce
   qu'elle a fait disent le nom des étapes (« Mur », « Calage du mur », « Façade ») sans « É1 » à « É14 » ni « V1 » à « V4 » ; un
@@ -69,11 +75,30 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   postes et activités du moteur prennent leurs accents à l'écran seulement (`ui/tableau.ts`). Aucun export ne change : le résumé
   garde « Cote n », les libellés du moteur restent sans accents dans les PDF, le DXF, le SVG et le CSV. La requête de vérification
   de l'assistant suit (« Rive · Côté n »). Points de fumée 184 et 185.
+- **La démonstration du premier pas s'ouvre aussi sur sa terrasse** (lot 2 de la simplification de l'IHM, demande du propriétaire,
+  16 novembre 2026). La démonstration que « Par quoi commencer ? » crée après connexion s'ouvrait sur le terrain entier, quand
+  l'essai sans compte se cadre sur la terrasse et la maison qu'elle touche ; elle se cadre désormais de même, par le même
+  `Cadrage.cadrerTerrasse`, quand le premier pas vient de la créer (`io/api.ts`, `ouvrirSurLaTerrasse`). Rouverte ensuite, comme
+  tout projet, elle garde le cadrage du terrain. Seul le cadrage de la vue change : aucune quantité, aucun export (empreintes
+  identiques ; AE 101 identique). Le point de fumée 173 mesure aussi la démonstration du premier pas ; le point 111 cadre sur le
+  regard qu'il pose (« Ajuster ») avant de le mesurer au plan, et doit le trouver à l'écran ; le point 35 glisse depuis le fond
+  du plan là où il est à l'écran (la parcelle couvre désormais le bord gauche, d'où il partait).
+
 ### Corrigé
 
+- **L'assistant ne change plus la lame quand on ne lui demande que l'essence.** « Passez les lames en douglas » écrivait aussi
+  la lame du commerce (douglas 145 × 27), donc la largeur et l'épaisseur, des quantités que la personne n'avait pas demandées
+  (demande de référence `01-lames-douglas`, rouge aux runs 43978457531 et 43978821312 de « Vérifier l'API Claude »). Le champ
+  « Lame » porte désormais une consigne propre à l'assistant, ajoutée à sa ligne du catalogue et jamais montrée à l'écran
+  (`consigneAssistant`, `ui/champs/types.ts`) : ne l'écrire que si la demande nomme une lame du commerce ou des cotes ; pour
+  l'essence seule, « Essence de bois » seule. Le catalogue passe à la version 2 ; le prompt et le schéma ne changent pas ; la
+  requête témoin (`tests/fixtures/assistant/requete-verification.json`) est régénérée. Aucune quantité ni aucun export ne change.
 - **« Copier le résumé » de la barre d'estimation** répond de nouveau en mode simple : passé au mode expert avec l'onglet Résumé
   (#729), il restait affiché et ne faisait rien. Il reste à tous ; seuls l'onglet Résumé et l'entrée « Résumé à copier » du menu
   Exporter sont du mode expert.
+- **Le nom de l'émetteur du devis** vient du compte même quand la plateforme ne laisse pas garder son contexte
+  (`token_expires_at` nul) : le champ « Émetteur » le propose et le devis l'imprime, au lieu de partir sans nom. Le contexte
+  garde l'identité lue (`identite()`), qui ne décide d'aucun droit ; le PDF d'un émetteur donné ne change pas (point de fumée 183).
 
 ## [5.34.0] — 2026-11-16
 

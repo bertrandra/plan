@@ -93,11 +93,11 @@ describe('toute commande qui change le dessin demande le droit d ecrire', () => 
     expect(objets).toContain('sansDroit ? {} : { permission: PERMISSION_ECRITURE }');
   });
 
-  it('dispense l annulation, et elle seule', () => {
-    // Elle ne peut defaire que ce qu'on a eu le droit de faire : en lecture seule sa pile est vide.
+  it('dispense l annulation et le retablissement, et eux seuls', () => {
+    // Ils ne peuvent defaire et refaire que ce qu'on a eu le droit de faire : en lecture seule leurs piles sont vides.
     const objets = readFileSync(resolve(__dirname, '../../../src/app/ecouteurs/objets.ts'), 'utf8');
     expect(objets).toContain("sansDroit: true");
-    expect(objets.split('sansDroit: true').length - 1).toBe(1);
+    expect(objets.split('sansDroit: true').length - 1).toBe(2);
   });
 
   it('laisse les reglages de vue disponibles', () => {

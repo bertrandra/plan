@@ -61,6 +61,18 @@ describe('le cache du contexte', () => {
     expect(contexte.courant()).toBeNull();
   });
 
+  it('garde l identite lue meme hors du cache, et l oublie avec lui', async () => {
+    // Le nom propose de l'emetteur d'un devis : vide quand `token_expires_at` etait nul (lot 6).
+    const { contexte, avancer } = monter({ ...CONTEXTE, token_expires_at: null } as Contexte);
+    expect(contexte.identite()).toBeNull();
+    await contexte.charger();
+    expect(contexte.identite()).toEqual({ user: CONTEXTE.user, tenant: CONTEXTE.tenant });
+    avancer(48 * 3600 * 1000);
+    expect(contexte.identite()?.tenant.name).toBe('Acme Ltd');
+    contexte.oublier();
+    expect(contexte.identite()).toBeNull();
+  });
+
   it('oublie sur demande', async () => {
     const { contexte, lectures } = monter();
     await contexte.charger();
