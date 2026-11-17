@@ -139,7 +139,7 @@ export function partageCourant(): InfoPartage | null { return partage; }
 /** Les familles de commandes absentes d'un projet partage : le projet, l'audit, l'admin, l'assistant, le PLU, les facades, les toits, le relief, les cotes. */
 const GROUPES_HORS_PARTAGE = new Set(['projet', 'audit', 'admin', 'assistant', 'plu', 'facade', 'toit', 'relief', 'mesure']);
 /** Et une a une, celles qui ecrivent sans porter le droit d'ecrire, ou qui menent a un dossier a remplir. */
-const COMMANDES_HORS_PARTAGE = new Set(['objet.annuler', 'fichier.importerSvg', 'fichier.importerJson', '3d.enregistrerPointDeVue',
+const COMMANDES_HORS_PARTAGE = new Set(['objet.annuler', 'objet.retablir', 'fichier.importerSvg', 'fichier.importerJson', '3d.enregistrerPointDeVue',
   'export.ouvrirDeclaration', 'export.declaration', 'export.redigerTexte', 'export.validerTexte', 'export.retirerTexte', 'export.choisirPhoto', 'export.retirerPhoto']);
 
 /**

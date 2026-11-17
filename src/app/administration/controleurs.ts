@@ -10,6 +10,7 @@
 // Ce module ne fait que des donnees : construire l'arbre, le comparer a celui qui est enregistre.
 // Aucune commande n'est executee, aucun champ n'est lu ni ecrit.
 
+import { raccourcisDe } from '../clavier.js';
 import { estOuvrage, AUTRE, TERRASSE, TERRAIN } from '../../model/ouvrages/index.js';
 import type { Commande } from '../commandes.js';
 import type { Classe, Emplacement } from '../exposition.js';
@@ -59,7 +60,8 @@ type Ligne = Record<Classe, Emplacement[]>;
  */
 function detailsCommande(c: Commande, classes?: Classe[], ligne?: Ligne): Record<string, string> {
   const d: Record<string, string> = { groupe: NOMS_GROUPES[c.groupe] ?? c.groupe };
-  if (c.raccourci) d.raccourci = c.raccourci;
+  const touches = raccourcisDe(c.id);
+  if (touches.length) d.raccourci = touches.join(' ou ');
   if (c.description) d.description = c.description;
   if (c.capacite) d.capacite = c.capacite;
   if (c.permission) d.permission = c.permission;

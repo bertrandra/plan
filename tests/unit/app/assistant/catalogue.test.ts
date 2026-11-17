@@ -81,12 +81,15 @@ describe('le catalogue de l assistant', () => {
 
   it('s ecrit en texte : commandes et leur etat, objets, champs par section, bornes et options', () => {
     const t = texteCatalogue(construireCatalogue(planDeReference({ selection: 'terrasse' }).source()));
-    expect(t).toMatch(/^# Catalogue de Plan \(version 1\)\n\nÉcran : bureau\. Lecture seule : non\./);
+    expect(t).toMatch(/^# Catalogue de Plan \(version 2\)\n\nÉcran : bureau\. Lecture seule : non\./);
     expect(t).toMatch(/- `affichage\.grille` : Grille — .*\. Bascule d’affichage : actuellement MASQUÉ, absent de l’écran ; l’exécuter l’affiche\. État : utilisable\./);
     expect(t).toMatch(/- `objet\.terrassePiscine` : .*État : refusée : Indisponible dans l’état actuel du plan\.\n/);
     expect(t).toMatch(/- `terrasse` : « Terrasse » \(terrasse\) — sélectionné/);
     expect(t).toMatch(/### Lames et finitions \(`lames`\)\n\n/);
     expect(t).toMatch(/- `lames\.essenceBois` \(choix\) : Essence de bois = `pin-classe4` ; options : `pin-classe4` \(Pin classe 4 \(autoclave\)\), `douglas` \(Douglas\)/);
+    // La consigne propre a l'assistant finit la ligne de la lame du commerce : l'essence seule ne choisit pas une lame (16 novembre 2026).
+    expect(t).toMatch(/- `lames\.lameCommerce` \(choix\) : Lame = .* — À n’écrire que si la demande nomme une lame du commerce ou des cotes de lame ; pour changer seulement l’essence, écrivez « Essence de bois » seule\.\n/);
+    expect(t).not.toMatch(/- `lames\.essenceBois` [^\n]* — À n’écrire/);
     expect(t).toMatch(/- `structure\.hauteurVis` \(nombre, en cm, au moins 10 cm, pas 5\) : Longueur vis dans le sol = `40`/);
     // Quelques milliers de tokens : le cout estime d'une demande (spec §6) tient.
     expect(t.length).toBeLessThan(12000);

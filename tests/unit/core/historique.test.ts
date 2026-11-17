@@ -3,8 +3,7 @@ import { creerHistorique, objetsChanges } from '../../../src/core/historique.js'
 import { LIMITE_HISTORIQUE } from '../../../src/core/history.js';
 
 // Ces tests figent le comportement ACTUEL de l'historique, parce qu'il va etre reecrit : ils
-// servent de filet a la reecriture. Chacun dit une propriete qu'on veut garder — ou, pour le
-// retablissement, une absence qu'on veut voir disparaitre.
+// servent de filet a la reecriture. Chacun dit une propriete qu'on veut garder.
 
 /** Un etat de plan minimal, et des dependances qui ne font que compter leurs appels. */
 function monter(objetsInitiaux: { key: string; x?: number }[] = [{ key: 'a', x: 1 }]) {
@@ -184,16 +183,72 @@ describe('le bouton Annuler', () => {
   });
 });
 
-describe('ce qui manque, et qu on veut voir changer', () => {
-  it('n a pas de retablissement : annuler perd l avenir', () => {
-    // Ce test documente une absence. Le jour ou le retablissement existe, il doit echouer — et
-    // c'est le signal qu'on attend de lui.
-    const { etat, h } = monter();
-    h.empiler();
+describe('le retablissement (lot 4 de la simplification de l IHM)', () => {
+  it('retablir refait le pas defait, et annuler le defait de nouveau', () => {
+    // Ce test documentait une absence (« annuler perd l'avenir ») ; le retablissement l'a fait echouer, comme prevu.
+    const { etat, h, appels } = monter();
+    const retablir: boolean[] = [];
+    const h2 = creerHistorique(etat, { ...monter().ctx, signalerRetablir: (p: boolean) => { retablir.push(p); } });
+    h2.empiler();
     etat.objects[0]!.x = 42;
-    h.annuler();
+    expect(h2.peutRetablir()).toBe(false);
+    h2.annuler();
     expect(etat.objects[0]!.x).toBe(1);
-    expect('retablir' in h).toBe(false);
+    expect(h2.peutRetablir()).toBe(true);
+    expect(retablir.at(-1)).toBe(true);
+    h2.retablir();
+    expect(etat.objects[0]!.x).toBe(42);
+    expect(h2.peutRetablir()).toBe(false);
+    expect(retablir.at(-1)).toBe(false);
+    h2.annuler();
+    expect(etat.objects[0]!.x).toBe(1);
+    void h; void appels;
+  });
+
+  it('plusieurs pas se refont dans l ordre ou ils ont ete defaits', () => {
+    const { etat, h } = monter();
+    h.empiler(); etat.objects[0]!.x = 2;
+    h.empiler(); etat.objects[0]!.x = 3;
+    h.annuler(); h.annuler();
+    expect(etat.objects[0]!.x).toBe(1);
+    h.retablir();
+    expect(etat.objects[0]!.x).toBe(2);
+    h.retablir();
+    expect(etat.objects[0]!.x).toBe(3);
+    h.retablir();
+    expect(etat.objects[0]!.x).toBe(3);
+  });
+
+  it('une modification nouvelle efface ce qui restait a retablir', () => {
+    const { etat, h } = monter();
+    h.empiler(); etat.objects[0]!.x = 2;
+    h.annuler();
+    expect(h.peutRetablir()).toBe(true);
+    h.empiler(); etat.objects[0]!.x = 5;
+    expect(h.peutRetablir()).toBe(false);
+    h.retablir();
+    expect(etat.objects[0]!.x).toBe(5);
+  });
+
+  it('une ecriture preparee ou une transaction aboutie l efface aussi ; une transaction refusee non', () => {
+    const { etat, h } = monter();
+    h.empiler(); etat.objects[0]!.x = 2;
+    h.annuler();
+    expect(h.transaction(() => { h.empiler(); etat.objects[0]!.x = 9; return false; })).toBe(false);
+    expect(h.peutRetablir()).toBe(true);
+    const fin = h.preparer();
+    etat.objects[0]!.x = 7;
+    fin();
+    expect(h.peutRetablir()).toBe(false);
+  });
+
+  it('une restauration venue d ailleurs (ouvrir un projet) l efface', () => {
+    const { etat, h } = monter();
+    h.empiler(); etat.objects[0]!.x = 2;
+    h.annuler();
+    h.restaurer({ objects: [{ key: 'b', x: 8 }], measures: [] });
+    expect(h.peutRetablir()).toBe(false);
+    expect(etat.objects.map((o) => o.key)).toEqual(['b']);
   });
 });
 
@@ -301,7 +356,8 @@ describe('ce que la restauration a change (point 7)', () => {
     etat.objects[1]!.x = 5;
     serialisations = 0;
     h.annuler();
-    expect(serialisations).toBe(0);
+    // Une seule : l'etat quitte, que « Rétablir » reprendra (point 5) ; aucune de plus pour comparer.
+    expect(serialisations).toBe(1);
     expect(recus).toEqual([]);
     expect(etat.objects[1]!.x).toBe(2);
     // Ouverte : la comparaison se fait, et nomme l'objet change.

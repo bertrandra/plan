@@ -22,7 +22,7 @@ function source(commandes: Commande[], sections: Section[] = [SECTION]): SourceC
 
 describe('arbre des controleurs', () => {
   it('range chaque commande sous les emplacements qui l exposent, avec cle et nom explicite', () => {
-    const arbre = construireArbre(source([cmd('projet.enregistrer', 'Enregistrer', 'projet', { raccourci: 'Ctrl+S' })]));
+    const arbre = construireArbre(source([cmd('projet.enregistrer', 'Enregistrer', 'projet')]));
     const tous = aplatir(arbre);
     const n = tous.get('plan/zones/Z1/menuFichier/projet.enregistrer');
     expect(n).toMatchObject({ cle: 'projet.enregistrer', nom: 'Enregistrer', genre: 'commande' });

@@ -14,6 +14,7 @@ import type { Magasin } from '../app/magasin.js';
 import { useCle } from './composants/abonnement.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import { Icone, type NomIcone } from './icones.js';
+import { raccourcisDe } from '../app/clavier.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 
 export interface PropsPalette { magasin: Magasin; commandes: RegistreCommandes }
@@ -22,7 +23,7 @@ interface Outil { id: string; icone: NomIcone; libelle: string }
 interface Groupe { titre: string; outils: Outil[] }
 
 const GROUPES: Groupe[] = [
-  { titre: 'Historique', outils: [{ id: 'objet.annuler', icone: 'annuler', libelle: 'Annuler' }] },
+  { titre: 'Historique', outils: [{ id: 'objet.annuler', icone: 'annuler', libelle: 'Annuler' }, { id: 'objet.retablir', icone: 'retablir', libelle: 'Rétablir' }] },
   // Les ouvrages d'abord, dans l'ordre ou on les pense pour un jardin : c'est pour eux qu'on vient.
   // Les formes purement geometriques (sans fonction, a qualifier ensuite) ferment la creation.
   { titre: 'Créer', outils: [
@@ -61,6 +62,8 @@ export function Palette({ magasin, commandes }: PropsPalette) {
     return JSON.stringify([GROUPES.map((g) => g.outils.map((o) => commandes.etat(o.id))), e.objects.find((o) => o.key === e.selectedKey)?.name, !!sessionToit()]);
   }, 'palette');
   const peutAnnuler = useStore(magasin.store, (s) => s.peutAnnuler);
+  // Retablir lit sa pile par sa commande ; l'abonnement redessine la palette quand elle change.
+  useStore(magasin.store, (s) => s.peutRetablir);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';
   const etatPlan = magasin.store.getState().etat;
@@ -84,7 +87,8 @@ export function Palette({ magasin, commandes }: PropsPalette) {
           const actif = o.id === 'objet.annuler' ? etat.utilisable && (peutAnnuler || !!sessionToit()) : etat.utilisable;
           const refus = !etat.utilisable && 'message' in etat ? etat.message : null;
           if (refus) refusDuGroupe.add(o.libelle + ' : ' + refus);
-          const titre = (c ? c.libelle : o.libelle) + (c && c.raccourci ? ' (' + c.raccourci + ')' : '')
+          const touches = raccourcisDe(o.id);
+          const titre = (c ? c.libelle : o.libelle) + (touches.length ? ' (' + touches.join(' ou ') + ')' : '')
             + (refus ? ' — ' + refus : '');
           return (
             <button key={o.id} type="button" className={'outil' + (o.id === 'objet.supprimer' ? ' outilDanger' : '')} id={o.id === 'objet.annuler' ? 'undoBtn' : undefined}
