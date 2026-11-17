@@ -13,6 +13,45 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   **Suppr** supprime l'objet sélectionné (avec la même confirmation que le bouton), jamais dans un champ de saisie ni sous un
   dialogue. Une seule table des raccourcis (`app/clavier.ts`) : le clavier l'écoute, les infobulles la citent et le menu Aide
   la montre, libellés tirés du registre (pas au téléphone). Point de fumée 186.
+
+## [5.35.0] — 2026-11-17
+
+Version **mineure** au sens de `MD/RELEASE.md` : le lot 3 de la simplification de l'IHM range l'écran sans rien retirer du
+programme ni changer un nombre (§2.1 : « new feature, new panel » ; ni retrait, ni fonction mise derrière un droit qu'elle n'avait
+pas). Le **mode expert** (#724) est une préférence de l'appareil que chacun allume, pas une fonction d'offre : ce qu'il cache
+(formats techniques, constantes de calcul, réglages fins de la 3D, entrées du menu Fichier #726, onglets de résultats #729, numéros
+des étapes de l'audit #730) revient à sa place quand on l'allume, et un champ caché garde sa valeur que le calcul lit toujours.
+L'inspecteur d'une terrasse passe en trois groupes (#725) sans changer un réglage ni un défaut ; les gestes en double retirés
+(#727) restent chacun à un autre endroit, les commandes ne changent pas. La démonstration du premier pas se cadre sur sa terrasse
+(#728, la vue seule) ; le nom de l'émetteur du devis vient du compte même hors du cache du contexte (#731, correctif ; le devis d'un
+émetteur donné ne change pas) ; l'assistant ne choisit plus une lame du commerce quand on ne lui demande que l'essence (#733,
+correctif : consigne propre à l'assistant sur le champ « Lame », catalogue en version 2). Aucune quantité ni aucun export ne bouge : les neuf témoins qui portent le numéro ne changent qu'à
+lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ;
+`projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101
+identique. Schéma inchangé (16), aucun champ de fichier nouveau (le mode expert reste dans le navigateur). Ni `deploy/`, ni
+`regles/`, ni `banc/` ne changent depuis la 5.34.0. Requêtes vérifiées avec les dix demandes de l'assistant, la requête
+témoin ayant été régénérée par #725 (identifiants des champs de la terrasse suivant leur section) puis par #733 (catalogue
+version 2). Sur main après #728, deux runs rouges sur la demande `01-lames-douglas` : l'assistant écrivait aussi la lame du
+commerce, donc des cotes non demandées (runs 43978457531 et 43978821312, 8 puis 9 listes justes sur 10). Après la correction
+#733, run 43981990207 sur son commit, dont l'arbre est celui de main à la fusion de #733, hors #732 qui ne change pas la requête :
+9 requêtes sur 9 acceptées, dix listes justes sur dix, 0,034 $ ; prompts et schémas inchangés. Les raccourcis Rétablir et Suppr
+(#732), fusionnés après le gel de cette version, restent sous « Non publié ».
+
+**À faire en production, dans cet ordre, avant de déposer cette livraison** (le lot 3 ne demande rien de plus ; ce qui suit reste
+de la 5.33.0, s'il n'est pas déjà appliqué) :
+
+- appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` : le schéma 16 de la 5.19.0 doit être
+  accepté par la plateforme ;
+- appliquer la migration de la plateforme `Version20261116090000` (liens de partage, backprod #256, ADR-073) : sans elle, « Partager
+  par un lien… » et l'ouverture d'un lien partagé échouent ;
+- publier une version d'offre qui accorde la fonction `project_sharing` avant que quiconque puisse partager (sans elle, la commande
+  reste effacée : c'est voulu) ;
+- déposer le `.htaccess` de la livraison (`deploy/htaccess.template` : `Referrer-Policy: no-referrer` et `X-Robots-Tag: noindex`
+  sur une adresse avec `?product=`) ;
+- rappel : le `api.php` du banc demande à l'hébergement le cURL sortant en HTTPS (depuis la 5.30.0).
+
+### Ajouté
+
 - **L'audit d'une façade sans le jargon des étapes** (lot 3 de la simplification de l'IHM, 16 novembre 2026). Pour la personne
   ordinaire, l'administrateur d'une organisation compris, la barre d'avancement, les lignes des étapes, l'étape ouverte et ce
   qu'elle a fait disent le nom des étapes (« Mur », « Calage du mur », « Façade ») sans « É1 » à « É14 » ni « V1 » à « V4 » ; un
