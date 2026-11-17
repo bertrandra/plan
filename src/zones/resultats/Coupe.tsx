@@ -69,7 +69,7 @@ export function Coupe({ obj, objets = [] }: { obj: ObjetPlan; objets?: ObjetPlan
     // Dessinee plus large que le fut : c'est la platine qui recoit la solive.
     if (hauteurVisMm > 0) {
       const tete = Math.max(hauteurVisMm * ECHELLE, 2);
-      appui(62, solY - tete, tete, 16, '#B8C2CE', 'Tete reglable — ' + (c.depassementVis || 0) + ' cm hors sol', solY - tete / 2);
+      appui(62, solY - tete, tete, 16, '#B8C2CE', 'Tête réglable — ' + (c.depassementVis || 0) + ' cm hors sol', solY - tete / 2);
     }
   }
   let y0 = hauteurVisMm;
@@ -106,7 +106,7 @@ export function Coupe({ obj, objets = [] }: { obj: ObjetPlan; objets?: ObjetPlan
           {couches}
         </svg>
       </div>
-      <div className="hint">Empilement des couches a l'endroit le plus charge (appui / solive / lambourde / lame), a l'echelle. Le fut de la vis est enterre : seul son depassement de tete souleve la terrasse. Tout se regle dans Construction.</div>
+      <div className="hint">Empilement des couches à l'endroit le plus chargé (appui / solive / lambourde / lame), à l'échelle. Le fût de la vis est enterré : seul son dépassement de tête soulève la terrasse. Tout se règle dans Construction.</div>
     </>
   );
 }

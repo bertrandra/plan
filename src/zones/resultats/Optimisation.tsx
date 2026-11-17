@@ -70,12 +70,12 @@ export function Optimisation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
     <div id="terrasseOptimResult">
       <div className="hint">
         {'Lames de ' + (c.epaisseurLame || 25) + ' mm en ' + ((ESSENCE_PRICES[c.essenceBois ?? ''] || { label: undefined }).label || c.essenceBois) +
-          ' : appuis a ' + maxEntraxeLameCm(c) + ' cm maximum. Une ligne par strategie de construction (section × avec ou sans lambourdes), ' +
-          'a chaque fois son meilleur entraxe ; toutes respectent cette limite et la portee de chaque piece. Classement par cout de structure ' +
-          '(vis + bois porteur) : les lames sont identiques dans tous les cas, donc exclues. Detail du calcul dans l\'onglet Methode.'}
+          ' : appuis à ' + maxEntraxeLameCm(c) + ' cm maximum. Une ligne par stratégie de construction (section × avec ou sans lambourdes), ' +
+          'à chaque fois son meilleur entraxe ; toutes respectent cette limite et la portée de chaque pièce. Classement par coût de structure ' +
+          '(vis + bois porteur) : les lames sont identiques dans tous les cas, donc exclues. Détail du calcul dans l\'onglet Méthode.'}
       </div>
       <table className="attrTable"><tbody>
-        <tr><th>Section</th><th>Lambourdes</th><th>Entraxe solives</th><th>Portee vis</th><th>Vis</th><th>Bois</th><th>Densite</th><th>Cout structure</th><th></th></tr>
+        <tr><th>Section</th><th>Lambourdes</th><th>Entraxe solives</th><th>Portée vis</th><th>Vis</th><th>Bois</th><th>Densité</th><th>Coût structure</th><th></th></tr>
         {distincts.map((r, i) => {
           const courante = estActuelle(r);
           return (
@@ -98,10 +98,10 @@ export function Optimisation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
         })}
       </tbody></table>
       <div className="hint">
-        {res.length + ' configurations testees. Config actuelle : ' + actuel.vis + ' vis, ' + actuel.densite + '/m², ' + actuel.cout + ' € — optimum : ' +
+        {res.length + ' configurations testées. Config actuelle : ' + actuel.vis + ' vis, ' + actuel.densite + '/m², ' + actuel.cout + ' € — optimum : ' +
           meilleur.vis + ' vis, ' + meilleur.densite + '/m², ' + meilleur.cout + ' €' +
-          (gain > 0 ? ', soit ' + gain + ' € et ' + (actuel.vis - meilleur.vis) + ' vis en moins.' : '. La config actuelle est deja au niveau de l\'optimum.') +
-          ' Pre-dimensionnement indicatif sur base 250 kg/m², sans valeur de note de calcul.'}
+          (gain > 0 ? ', soit ' + gain + ' € et ' + (actuel.vis - meilleur.vis) + ' vis en moins.' : '. La config actuelle est déjà au niveau de l\'optimum.') +
+          ' Prédimensionnement indicatif sur base 250 kg/m², sans valeur de note de calcul.'}
       </div>
     </div>
   );

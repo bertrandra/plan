@@ -163,17 +163,17 @@ function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: Regist
         titre={pleinePage ? 'Format normal (Échap)' : 'Plein écran'} actif={pleinePage} />
       <div className="separateur3d"></div>
       <Bouton3d commandes={commandes} id="3d.zoomAvant" domId="terrasse3dZoomIn" icone="plus" libelle="Zoom avant" titre="Zoom avant" />
-      <Bouton3d commandes={commandes} id="3d.zoomArriere" domId="terrasse3dZoomOut" icone="moins" libelle="Zoom arrière" titre="Zoom arriere" />
+      <Bouton3d commandes={commandes} id="3d.zoomArriere" domId="terrasse3dZoomOut" icone="moins" libelle="Zoom arrière" titre="Zoom arrière" />
       <Bouton3d commandes={commandes} id="3d.tournerGauche" domId="terrasse3dTournerGauche" icone="tourner" libelle="Tourner la vue à gauche" titre="Tourner la vue à gauche (15°, flèche gauche)" />
       <Bouton3d commandes={commandes} id="3d.tournerDroite" domId="terrasse3dTournerDroite" icone="tournerDroite" libelle="Tourner la vue à droite" titre="Tourner la vue à droite (15°, flèche droite)" />
       <div className="separateur3d"></div>
-      <Bouton3d commandes={commandes} id="3d.modeOrbite" domId="terrasse3dModeOrbit" icone="orbite" libelle="Glisser pour tourner" titre="Tourner (glisser fait pivoter la vue) — mode par defaut" actif={affichage3d.mode === 'orbit'} />
-      <Bouton3d commandes={commandes} id="3d.modeDeplacement" domId="terrasse3dModePan" icone="deplacer" libelle="Glisser pour déplacer" titre="Deplacer (glisser translate la vue, un seul doigt suffit)" actif={affichage3d.mode === 'pan'} />
-      <Bouton3d commandes={commandes} id="3d.modeZoom" domId="terrasse3dModeZoom" icone="loupe" libelle="Glisser pour zoomer" titre="Zoom (glisser vers le haut rapproche, vers le bas eloigne)" actif={affichage3d.mode === 'zoom'} />
+      <Bouton3d commandes={commandes} id="3d.modeOrbite" domId="terrasse3dModeOrbit" icone="orbite" libelle="Glisser pour tourner" titre="Tourner (glisser fait pivoter la vue) — mode par défaut" actif={affichage3d.mode === 'orbit'} />
+      <Bouton3d commandes={commandes} id="3d.modeDeplacement" domId="terrasse3dModePan" icone="deplacer" libelle="Glisser pour déplacer" titre="Déplacer (glisser translate la vue, un seul doigt suffit)" actif={affichage3d.mode === 'pan'} />
+      <Bouton3d commandes={commandes} id="3d.modeZoom" domId="terrasse3dModeZoom" icone="loupe" libelle="Glisser pour zoomer" titre="Zoom (glisser vers le haut rapproche, vers le bas éloigne)" actif={affichage3d.mode === 'zoom'} />
       <div className="separateur3d"></div>
       <Bouton3d commandes={commandes} id="3d.enregistrerPng" domId="terrasse3dSavePng" icone="image" libelle="Enregistrer la vue en PNG" titre="Enregistrer la vue actuelle en PNG" />
       <div className="separateur3d"></div>
-      <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" />
+      <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur des yeux (1,60 m au-dessus du platelage) : ne change que l'altitude de la caméra, pas sa position au sol" />
       {commandes.etat('terrasse.isoler').utilisable && (
         <Bouton3d commandes={commandes} id="terrasse.isoler" domId="terrasse3dIsoler" icone="isoler" libelle={libIsoler}
           titre={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer rend la vue d\'avant'}
@@ -297,7 +297,7 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
         <button type="button" data-commande="audit.cas" title="Les bâtiments notés, puis le partage du fichier de la promenade"
           onClick={(e) => { commandes.executer('audit.cas', e.currentTarget); }}>{'Cas notés (' + audit.cas + ')'}</button>
       </div>}
-      <div id="terrasse3dLoading" className="hint" style={{ display: affichage3d.vue3d === 'chargement' ? undefined : 'none' }}>Chargement de la bibliotheque 3D…</div>
+      <div id="terrasse3dLoading" className="hint" style={{ display: affichage3d.vue3d === 'chargement' ? undefined : 'none' }}>Chargement de la bibliothèque 3D…</div>
       <div id="terrasse3dWrap" style={{ display: affichage3d.vue3d === 'pret' ? 'block' : 'none', marginTop: 6 }}>
         <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { poserHote3d('vue3d', el); }}
           style={pleinePage ? { height: 'calc(100dvh - 60px)' } : undefined}>

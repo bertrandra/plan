@@ -53,11 +53,11 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
   const parcelle = ctx.trouverParcelleCloture();
   const cad = parcelle && parcelle.cadastre;
   if(!cad || !cad.section || !cad.numero || !cad.codeInsee){
-    showToast('Ce plan n\'a pas d\'origine cadastrale : cree-le avec « Fichier › Nouveau projet depuis une adresse » pour pouvoir l\'actualiser.');
+    showToast('Ce plan n\'a pas d\'origine cadastrale : créez-le avec « Fichier › Nouveau projet depuis une adresse » pour pouvoir l\'actualiser.');
     return;
   }
   if(!origineValide(cad)){
-    showToast('Ce plan n\'a pas de point de calage enregistre : actualiser deplacerait tout le contenu.');
+    showToast('Ce plan n\'a pas de point de calage enregistré : actualiser déplacerait tout le contenu.');
     return;
   }
   parcours.ouvrir({
@@ -134,12 +134,12 @@ async function couchesFraiches(objets: ObjetPlan[], proj: ProjecteurLocal, bilan
 
 /** Ce que l'import du voisinage a ajoute, au bilan. */
 function bilanVoisinage(ajouts: { objets: ObjetBrut[]; parcelles?: number; batiments?: number; vegetation?: number; arbres?: number; rayonM?: number; tronque?: boolean }, bilan: string[]): void {
-  if(ajouts.parcelles) bilan.push(ajouts.parcelles + (ajouts.rayonM ? ' parcelle(s) a moins de ' + ajouts.rayonM + ' m ajoutee(s)' : ' parcelle(s) adjacente(s) ajoutee(s)'));
-  if(ajouts.tronque) bilan.push('voisinage tronque a ' + MAX_OBJETS_RAYON + ' objets par famille, les plus proches');
-  if(ajouts.batiments) bilan.push(ajouts.batiments + ' batiment(s) ajoute(s)');
-  if(ajouts.vegetation) bilan.push(ajouts.vegetation + ' zone(s) de vegetation ajoutee(s)');
-  if(ajouts.arbres) bilan.push(ajouts.arbres + ' arbre(s) estime(s)');
-  if(!ajouts.objets.length) bilan.push('voisinage : rien de nouveau a ajouter');
+  if(ajouts.parcelles) bilan.push(ajouts.parcelles + (ajouts.rayonM ? ' parcelle(s) à moins de ' + ajouts.rayonM + ' m ajoutée(s)' : ' parcelle(s) adjacente(s) ajoutée(s)'));
+  if(ajouts.tronque) bilan.push('voisinage tronqué à ' + MAX_OBJETS_RAYON + ' objets par famille, les plus proches');
+  if(ajouts.batiments) bilan.push(ajouts.batiments + ' bâtiment(s) ajouté(s)');
+  if(ajouts.vegetation) bilan.push(ajouts.vegetation + ' zone(s) de végétation ajoutée(s)');
+  if(ajouts.arbres) bilan.push(ajouts.arbres + ' arbre(s) estimé(s)');
+  if(!ajouts.objets.length) bilan.push('voisinage : rien de nouveau à ajouter');
 }
 
 
@@ -183,7 +183,7 @@ async function batimentsDeLaParcelle(parcelle: PtBrut[], proj: ProjecteurLocal, 
  */
 async function recreation(parcelle: PtBrut[], proj: ProjecteurLocal, simplifier: boolean, bilan: string[], gardes: ReturnType<typeof batimentsGardes>): Promise<{ batiFrais: ElementIgn[] | null; aRecreer: (o: ObjetBrut) => boolean }> {
   const lus = await batimentsDeLaParcelle(parcelle, proj, simplifier);
-  if(!lus){ bilan.push('batiments de la parcelle non relus (BD TOPO indisponible) : conserves'); return { batiFrais: lus, aRecreer: () => false }; }
+  if(!lus){ bilan.push('bâtiments de la parcelle non relus (BD TOPO indisponible) : conservés'); return { batiFrais: lus, aRecreer: () => false }; }
   const batiFrais = lus.filter(b => !b.id || !gardes.ids.has(b.id));
   const ids = new Set(batiFrais.map(b => b.id));
   return { batiFrais, aRecreer: (o) => !gardes.garde(o) && (batimentSurLaParcelle(o, parcelle) || batimentRattache(o, ids)) };
@@ -196,7 +196,7 @@ async function recreation(parcelle: PtBrut[], proj: ProjecteurLocal, simplifier:
  * reponse a la question du toit a cheval (model/aCheval.ts) est un choix de la personne : elle suit le batiment par son identifiant.
  */
 function batimentsRecrees(frais: ElementIgn[], anciens: ObjetBrut[], dejaLa: ObjetBrut[], ctx: ContexteActualisation, bilan: string[]): ObjetBrut[] {
-  bilan.push(anciens.length + ' batiment(s) de la parcelle supprime(s), ' + frais.length + ' recree(s) depuis la BD TOPO');
+  bilan.push(anciens.length + ' bâtiment(s) de la parcelle supprimé(s), ' + frais.length + ' recréé(s) depuis la BD TOPO');
   const idDe = (o: ObjetBrut) => (o.bdtopo as { id?: string } | null | undefined)?.id;
   // La cle d'un ancien, par son identifiant BD TOPO (le premier s'il y en avait deux) ; reservee d'emblee, pour qu'un frais sans
   // ancien ne la prenne pas.
@@ -247,7 +247,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     // celui d'une seule de ses composantes amputerait le terrain.
     const fusionDe = cad.fusionDe as unknown[] | undefined;
     if(fusionDe && fusionDe.length > 1){
-      bilan.push('propriete fusionnee : contour conserve');
+      bilan.push('propriété fusionnée : contour conservé');
       ptsParcelle = null;
     }
 
@@ -306,7 +306,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         bilanVoisinage(ajouts, bilan);
         serialises.push(...ajouts.objets);
       } catch(e){
-        bilan.push('voisinage non ajoute : ' + ((e as Error).message || e));
+        bilan.push('voisinage non ajouté : ' + ((e as Error).message || e));
       }
     }
     // ---- 3 ter. La couverture des toits (orthophoto), leur forme (MNH LiDAR HD, spec §10), la couleur des murs (§6.5)
@@ -337,11 +337,11 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     ctx.rebuildSelector();
     ctx.syncLieuTitre();
     ctx.render();
-    if(ptsParcelle) bilan.unshift('parcelle actualisee (ecart max ' + Math.round(ecartMax*100) + ' cm)');
-    if(nToits) bilan.push(nToits + ' toit(s) deduit(s) de la BD TOPO');
-    if(nMaj) bilan.unshift(nMaj + ' objet(s) IGN remplace(s)');
-    if(nAbsents) bilan.push(nAbsents + ' objet(s) absent(s) de la base actuelle, conserve(s) tels quels');
-    if(nGardes) bilan.push(nGardes + ' batiment(s) verifie(s) sur place conserve(s) tel(s) quel(s)');
+    if(ptsParcelle) bilan.unshift('parcelle actualisée (écart max ' + Math.round(ecartMax*100) + ' cm)');
+    if(nToits) bilan.push(nToits + ' toit(s) déduit(s) de la BD TOPO');
+    if(nMaj) bilan.unshift(nMaj + ' objet(s) IGN remplacé(s)');
+    if(nAbsents) bilan.push(nAbsents + ' objet(s) absent(s) de la base actuelle, conservé(s) tels quels');
+    if(nGardes) bilan.push(nGardes + ' bâtiment(s) vérifié(s) sur place conservé(s) tel(s) quel(s)');
     if(nRetouches) bilan.push(nRetouches + ' objet(s) retouché(s) à la main conservé(s) tel(s) quel(s)');
     if(nFiges) bilan.push(nFiges + ' bâtiment(s) au toit réglé à la main (« Règles » coupées) conservé(s) tel(s) quel(s)');
     showToast((options.parDefaut ? 'Projet actualisé — ' : 'Actualisation IGN — ') + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
@@ -360,7 +360,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
 function sansVoisinesDeLaPropriete(objets: ObjetBrut[], parcelle: ObjetPlan, bilan: string[]): ObjetBrut[] {
   const dansLaPropriete = new Set(idusCadastraux(parcelle));
   const gardes = objets.filter(o => !(o.voisinage && o.key !== parcelle.key && typeof o.cadastre?.idu === 'string' && dansLaPropriete.has(o.cadastre.idu)));
-  if(gardes.length < objets.length) bilan.push((objets.length - gardes.length) + ' parcelle(s) de la propriete retiree(s) du voisinage');
+  if(gardes.length < objets.length) bilan.push((objets.length - gardes.length) + ' parcelle(s) de la propriété retirée(s) du voisinage');
   return gardes;
 }
 
@@ -401,7 +401,7 @@ export async function construireVoisinage(
   etape('le voisinage…');
   const resultat: { objets: ObjetBrut[]; parcelles: number; batiments: number; vegetation: number; arbres: number; rayonM?: number; tronque?: boolean } = { objets:[], parcelles:0, batiments:0, vegetation:0, arbres:0 };
   const anneauSource = cad.geometrieSource && cad.geometrieSource.coordinates && cad.geometrieSource.coordinates[0];
-  if(!anneauSource) throw new Error('geometrie source de la parcelle absente');
+  if(!anneauSource) throw new Error('géométrie source de la parcelle absente');
   const centreParc = choix.centre ?? centroid(sommetsDe(parcelle)); // ou la position du mode audit (app/audit/)
   const principale = { idu: cad.idu as string, pts: sommetsDe(parcelle) };
   // Le voisinage etendu : un disque de `rayonM` autour du centre de la parcelle. L'emprise

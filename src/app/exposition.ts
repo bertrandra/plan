@@ -278,8 +278,8 @@ export const EXPOSITION: Record<string, Ligne> = {
  * fermee : le test refuse toute autre commande marquee ainsi.
  */
 export const SANS_OBJET_ADMIS: Record<string, string> = {
-  '3d.pleinePage': 'Sur telephone et tablette, la vue 3D occupe deja tout l\'ecran.',
-  'visionneuse.pleinePage': 'Sur telephone et tablette, la visionneuse occupe deja tout l\'ecran.'
+  '3d.pleinePage': 'Sur téléphone et tablette, la vue 3D occupe déjà tout l\'écran.',
+  'visionneuse.pleinePage': 'Sur téléphone et tablette, la visionneuse occupe déjà tout l\'écran.'
 };
 
 /**
@@ -290,21 +290,21 @@ export const SANS_OBJET_ADMIS: Record<string, string> = {
  * logiciel relit (DAO, scene 3D, fichier du projet), pas ceux qu'on imprime ou qu'on envoie a un client (devis, PDF, PNG).
  */
 export const MODE_EXPERT: Record<string, string> = {
-  'export.svg': 'Format technique : un dessin vectoriel a reprendre dans un autre logiciel.',
+  'export.svg': 'Format technique : un dessin vectoriel à reprendre dans un autre logiciel.',
   'export.dxf': 'Format technique : un fichier de DAO.',
-  'export.glb': 'Format technique : la scene 3D, pour un autre logiciel.',
-  'vue.visionneuse': 'Relit le dernier GLB exporte, un format technique.',
+  'export.glb': 'Format technique : la scène 3D, pour un autre logiciel.',
+  'vue.visionneuse': 'Relit le dernier GLB exporté, un format technique.',
   'fichier.importerSvg': 'Format technique : un dessin vectoriel venu d\'un autre logiciel.',
   'fichier.importerJson': 'Format technique : le fichier brut d\'un projet.',
   'fichier.exporterJson': 'Format technique : le fichier brut d\'un projet ; le projet s\'enregistre et se partage sans lui.',
   // Le menu Fichier ramene a l'essentiel (sujet 3 du lot) : ce qui suit repare ou affine un plan venu de l'IGN, et « Actualiser le
   // projet » le fait pour tout le monde en un geste.
   'projet.actualiserIgn': 'Actualiser le projet relit l\'IGN et recalcule tout ; celle-ci ne remplace que ce qui en vient, au choix.',
-  'projet.toitsFond': 'La lecture des toits du voisinage en tache de fond se suspend ou reprend d\'elle-meme.',
-  'projet.supprimerVoisinage': 'Une reparation : le voisinage se masque (menu Affichage) sans etre supprime.',
-  'projet.doublons': 'Une reparation d\'un plan importe deux fois.',
+  'projet.toitsFond': 'La lecture des toits du voisinage en tache de fond se suspend ou reprend d\'elle-même.',
+  'projet.supprimerVoisinage': 'Une réparation : le voisinage se masque (menu Affichage) sans être supprime.',
+  'projet.doublons': 'Une réparation d\'un plan importé deux fois.',
   // Les onglets des resultats ramenes a cinq (sujet 5 du lot) : l'entree « Résumé à copier » ouvre l'onglet Résumé, du mode expert.
   // « Copier le résumé » (export.copierResume) reste a tous : un geste de la barre d'estimation, qui ne demande pas l'onglet.
-  'export.resume': 'Le resume a copier, un texte technique ; son onglet Résumé est du mode expert.',
+  'export.resume': 'Le résumé à copier, un texte technique ; son onglet Résumé est du mode expert.',
   'audit.importerParcelle': 'Le fichier d\'un audit fait sur un autre appareil (l\'administrateur pour un client) : un fichier technique, comme le JSON.'
 };

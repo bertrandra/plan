@@ -45,8 +45,8 @@ function Pastille({ plateforme }: { plateforme: string }) {
     return () => { vivant = false; stop.abort(); };
   }, [plateforme]);
 
-  const titre = etat === 'oui' ? 'La plateforme repond : ' + plateforme
-    : etat === 'non' ? 'La plateforme ne repond pas : ' + plateforme
+  const titre = etat === 'oui' ? 'La plateforme répond : ' + plateforme
+    : etat === 'non' ? 'La plateforme ne répond pas : ' + plateforme
     : 'Test de la plateforme en cours…';
   return (
     <p className="portePastille" title={titre}>

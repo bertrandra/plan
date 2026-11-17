@@ -54,7 +54,7 @@ const contourParcelle = (c: ContexteChamps): PtBrut[] | null =>
 export function titreObjet(c: ContexteChamps): string {
   const s = surfaceMontree(c);
   const quoi = (c.obj.fonction && LIBELLE_FONCTION[c.obj.fonction]) || c.libelleType(c.obj);
-  return quoi + ' — ' + c.obj.name + (s !== null ? '  (' + s.toFixed(2) + ' m²)' : '');
+  return quoi + ' — ' + c.obj.name + (s !== null ? '  (' + s.toFixed(2).replace('.', ',') + ' m²)' : '');
 }
 
 /** Un champ texture : la vignette, le nom, choisir, retirer. */
@@ -195,7 +195,7 @@ const sectionObjet: Section = {
         const nouveaux = obj.pts.map((_, i) => ({ ...au(coins, (depart + i) % 4) }));
         const contour = contourParcelle(c);
         if (contour && !nouveaux.every(p => pointInPolygon(p, contour))) {
-          c.toast('Le rectangle sortirait de la parcelle - mode rectangle non active.');
+          c.toast('Le rectangle sortirait de la parcelle — mode rectangle non activé.');
           return false;
         }
         obj.pts = nouveaux;

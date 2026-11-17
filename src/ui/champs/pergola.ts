@@ -18,6 +18,7 @@ import { euros } from '../chiffrage.js';
 import { sectionNoteCalcul } from './noteCalcul.js';
 import type { MateriauPergola, Pergola, ToitPergola } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
+import { nomDuCote } from '../nomCote.js';
 
 const EFFETS: Effet[] = ['rendu', 'scene3d', 'inspecteur'];
 
@@ -32,7 +33,7 @@ const fr = (v: number, d = 2): string => v.toFixed(d).replace('.', ',');
 const inconnu = (mot: string | null, libelle: (mot: string) => string) => (mot === null ? [] : [{ valeur: mot, libelle: libelle(mot) }]);
 const toitEst = (...t: ToitPergola[]) => (c: ContexteChamps) => t.includes(reglages(c).toit);
 const enBois = (c: ContexteChamps) => reglages(c).materiau === 'bois';
-const cotes = (c: ContexteChamps) => c.obj.type === 'polygon' ? c.obj.pts.map((_, i) => ({ valeur: String(i), libelle: c.obj.segmentNames?.[i] || ('Côté ' + (i + 1)) })) : [];
+const cotes = (c: ContexteChamps) => c.obj.type === 'polygon' ? c.obj.pts.map((_, i) => ({ valeur: String(i), libelle: nomDuCote(c.obj.segmentNames?.[i], i) })) : [];
 
 type CleSection = 'sectionPoteau' | 'sectionPoutre' | 'sectionContrefiche' | 'sectionChevron';
 function choixSection(cle: CleSection, libelle: string, liste: (c: ContexteChamps) => string[], aide: string, visible?: (c: ContexteChamps) => boolean): Champ {

@@ -50,24 +50,24 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
   return (
     <div className="dialogueImperatif dialogueActualisation" role="dialog" aria-modal="true" aria-label="Actualiser depuis l'IGN">
       <div className="titreParcours">Actualiser depuis l'IGN</div>
-      <div className="sousTitreParcours">{infos.parcelle + '. Les objets dessines a la main ne sont jamais touches.'}</div>
+      <div className="sousTitreParcours">{infos.parcelle + '. Les objets dessinés à la main ne sont jamais touchés.'}</div>
       <label className="choixRadio">
         <input type="radio" data-controle="actualisation.portee" name="porteeActualisation" value="parcelle" checked={portee === 'parcelle'} onChange={() => setPortee('parcelle')} />
-        <Choix libelle="La parcelle seule" aide="Contour cadastral de la parcelle et zonage PLU. Rien d'autre n'est interroge." />
+        <Choix libelle="La parcelle seule" aide="Contour cadastral de la parcelle et zonage PLU. Rien d'autre n'est interrogé." />
       </label>
       <label className="choixRadio">
         <input type="radio" data-controle="actualisation.portee" name="porteeActualisation" value="tout" checked={portee === 'tout'} onChange={() => setPortee('tout')} />
-        <Choix libelle="Tout ce qui vient de l'IGN" aide={'La parcelle, le PLU, et les ' + infos.nbIgn + ' objet(s) importes de la BD TOPO (batiments, vegetation) deja presents dans ce plan.'} />
+        <Choix libelle="Tout ce qui vient de l'IGN" aide={'La parcelle, le PLU, et les ' + infos.nbIgn + ' objet(s) importés de la BD TOPO (bâtiments, végétation) déjà présents dans ce plan.'} />
       </label>
       <div className="separateurParcours" />
       <label className="choixRadio">
         <input type="checkbox" data-controle="actualisation.voisinage" checked={voisinage} onChange={(e) => setVoisinage(e.target.checked)} />
         <Choix libelle="Ajouter le voisinage" aide={'Import de voisinage : les parcelles absentes du plan' +
-          (infos.nbVoisines ? ' (' + infos.nbVoisines + ' deja presente(s), elles ne seront pas dupliquees)' : '') + '.'} />
+          (infos.nbVoisines ? ' (' + infos.nbVoisines + ' déjà présente(s), elles ne seront pas dupliquées)' : '') + '.'} />
       </label>
       <div className={'sousOptions' + (voisinage ? '' : ' inactives')}>
-        <label title="Les parcelles qui touchent la parcelle du projet, et ce qui est bati dessus."><input type="radio" data-controle="actualisation.rayon" name="rayonVoisinage" checked={!enRayon} disabled={!voisinage} onChange={() => setEnRayon(false)} /> Parcelles adjacentes</label>
-        <label title={'Toutes les parcelles et tout le bati a moins de ce rayon du centre de la parcelle, en plusieurs requetes a l\'IGN ; au-dela de ' + MAX_OBJETS_RAYON + ' par famille, les plus proches seulement.'}>
+        <label title="Les parcelles qui touchent la parcelle du projet, et ce qui est bâti dessus."><input type="radio" data-controle="actualisation.rayon" name="rayonVoisinage" checked={!enRayon} disabled={!voisinage} onChange={() => setEnRayon(false)} /> Parcelles adjacentes</label>
+        <label title={'Toutes les parcelles et tout le bâti à moins de ce rayon du centre de la parcelle, en plusieurs requêtes à l\'IGN ; au-delà de ' + MAX_OBJETS_RAYON + ' par famille, les plus proches seulement.'}>
           <input type="radio" data-controle="actualisation.rayon" name="rayonVoisinage" checked={enRayon} disabled={!voisinage} onChange={() => setEnRayon(true)} /> {'Tout dans un rayon de ' + rayon + ' m'}
         </label>
         <label className={'caseParcours curseurRayon' + (voisinage && enRayon ? '' : ' vide')}>
@@ -81,12 +81,12 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
             : 'Lecture du voisinage…'}
         </div>}
         {voisinage && enRayon && rayon > RAYON_LEGER_M && <div className="detailIgn avertissementRayon" role="note">{avertissementRayon(rayon)}</div>}
-        {sousCase('Bâti principal et annexes (BD TOPO, avec hauteur)', batiments, setBatiments, 'Emprise et hauteur reelles ; les batiments des voisins arrivent verrouilles.')}
+        {sousCase('Bâti principal et annexes (BD TOPO, avec hauteur)', batiments, setBatiments, 'Emprise et hauteur réelles ; les bâtiments des voisins arrivent verrouillés.')}
         {sousCase('Haies et zones de végétation', vegetation, setVegetation, 'Couches haie et zone_de_vegetation de la BD TOPO.')}
-        {sousCase('Arbres estimés dans ces zones', arbres, setArbres, 'ESTIMATION : la BD TOPO ne cartographie pas les arbres isoles. Une grille d\'un arbre pour 64 m2 est repartie dans les zones de vegetation' + (enRayon ? ', a moins de 100 m de la parcelle seulement' : '') + '.')}
+        {sousCase('Arbres estimés dans ces zones', arbres, setArbres, 'ESTIMATION : la BD TOPO ne cartographie pas les arbres isolés. Une grille d\'un arbre pour 64 m² est répartie dans les zones de végétation' + (enRayon ? ', à moins de 100 m de la parcelle seulement' : '') + '.')}
       </div>
       <div className={'noteVoisinage' + (voisinage ? '' : ' inactives')}>
-        Tout ce qui arrive par cet import est marque « voisinage » : l'oeil « Voisinage » de l'explorateur (ou Affichage › Voisinage) le masque d'un coup, sans le supprimer.
+        Tout ce qui arrive par cet import est marqué « voisinage » : l'œil « Voisinage » de l'explorateur (ou Affichage › Voisinage) le masque d'un coup, sans le supprimer.
       </div>
       {infos.reliefPermis && <>
         <div className="separateurParcours" />

@@ -61,7 +61,7 @@ describe('les exports, regeneres depuis le code, redonnent les temoins (FF-4)', 
   it('resume.txt', () => {
     const e = etatTemoin();
     const m = creerMesures(e);
-    const txt = construireResume(e.objects, e.measures, { appVersion: VERSION, computeMeasureGeom: m.computeMeasureGeom, refLabel: m.refLabel, targetLabel: m.targetLabel });
+    const txt = construireResume(e.objects, e.measures, { appVersion: VERSION, computeMeasureGeom: m.computeMeasureGeom, refLabel: m.refLabelExport, targetLabel: m.targetLabel });
     expect(empreinte(ecrire('resume.txt', txt))).toBe(empreinte(lire('resume.txt')));
   });
   it('quantites-demo.txt : chaque surface et chaque longueur se retrouvent, dans l ordre, dans le resume regenere', () => {
@@ -69,7 +69,7 @@ describe('les exports, regeneres depuis le code, redonnent les temoins (FF-4)', 
     // que quelque chose a change. Il n'etait verifie par rien.
     const e = etatTemoin();
     const m = creerMesures(e);
-    const txt = construireResume(e.objects, e.measures, { appVersion: VERSION, computeMeasureGeom: m.computeMeasureGeom, refLabel: m.refLabel, targetLabel: m.targetLabel });
+    const txt = construireResume(e.objects, e.measures, { appVersion: VERSION, computeMeasureGeom: m.computeMeasureGeom, refLabel: m.refLabelExport, targetLabel: m.targetLabel });
     let depuis = 0;
     for (const ligne of readFileSync(resolve(dorees, 'quantites-demo.txt'), 'utf8').split('\n').filter((l) => l.trim())) {
       const k = txt.indexOf(ligne, depuis);

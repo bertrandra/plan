@@ -349,7 +349,7 @@ function lectures(n: Noyau): Lectures {
     resumePropriete() {
       const parcelles = parcellesPropriete();
       if (parcelles.length <= 1) {
-        return { texte: 'Propriété : ' + libelleParcelle(principale()) + ' seule. Coche « propriété » sur une mitoyenne pour fusionner plusieurs parcelles en un seul terrain.', alerte: false };
+        return { texte: 'Propriété : ' + libelleParcelle(principale()) + ' seule. Cochez « propriété » sur une mitoyenne pour fusionner plusieurs parcelles en un seul terrain.', alerte: false };
       }
       const fusion = fusionnerAnneaux(parcelles.map(p => p.pts), FUSION_TOL_M);
       if (!fusion) {
@@ -493,16 +493,16 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
       }
       occuper(false);
       if (!features.length) {
-        e.erreur = 'Aucune parcelle cadastrale trouvee dans un rayon de ' + RAYONS_RECHERCHE_M[RAYONS_RECHERCHE_M.length - 1] + ' m.';
+        e.erreur = 'Aucune parcelle cadastrale trouvée dans un rayon de ' + RAYONS_RECHERCHE_M[RAYONS_RECHERCHE_M.length - 1] + ' m.';
         signaler(); return;
       }
       const cands = classerCandidats(construireCandidats(features, pr, ptRef, e.simplifier));
       const premiere = cands[0];
-      if (!premiere) { e.erreur = 'Geometrie inexploitable renvoyee par le service cadastre.'; signaler(); return; }
+      if (!premiere) { e.erreur = 'Géométrie inexploitable renvoyée par le service cadastre.'; signaler(); return; }
       // Le filtre geom pourrait etre ignore sans que rien ne le signale : une « plus proche » parcelle
       // a 200 m de l'adresse trahirait ce cas mieux que n'importe quel code HTTP.
       if (premiere.distance > 120) {
-        e.erreur = 'Reponse incoherente du service cadastre (parcelle la plus proche a ' + Math.round(premiere.distance) + ' m de l\'adresse).';
+        e.erreur = 'Réponse incohérente du service cadastre (parcelle la plus proche a ' + Math.round(premiere.distance) + ' m de l\'adresse).';
         signaler(); return;
       }
       e.proj = pr;
@@ -534,14 +534,14 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
   }
 
   async function rechercher(texte: string): Promise<void> {
-    if (!texte || texte.length < 3) { e.erreur = 'Saisis une adresse (au moins 3 caracteres).'; signaler(); return; }
+    if (!texte || texte.length < 3) { e.erreur = 'Saisissez une adresse (au moins 3 caractères).'; signaler(); return; }
     const m = texte.match(RE_COORDS);
     if (m) {
       const lat = parseFloat((m[1] ?? '').replace(',', '.')), lon = parseFloat((m[2] ?? '').replace(',', '.'));
       void choisirAdresse({ label: 'Point ' + lat.toFixed(6) + ', ' + lon.toFixed(6), score: 1, genre: 'coordonnees', citycode: '', ville: '', lon, lat });
       return;
     }
-    occuper(true, 'Geocodage en cours…');
+    occuper(true, 'Géocodage en cours…');
     try {
       const res = await geocoderBAN(texte, false);
       occuper(false);
@@ -781,11 +781,11 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         // JSON), en le disant clairement plutot que de faire semblant d'enregistrer.
         fermer();
         ctx.appliquerProjetImporte({ meta: {}, objets, mesures: [], ignores: 0 }, true);
-        showToast('Mode local : le plan cadastral est charge mais ne sera pas enregistre. Utilise Export JSON pour le conserver.' + (relief ? ' ' + relief : ''));
+        showToast('Mode local : le plan cadastral est chargé mais ne sera pas enregistré. Exportez le projet (JSON) pour le conserver.' + (relief ? ' ' + relief : ''));
         return;
       }
       const cible = ctx.projetCible?.() ?? null;
-      occuper(true, cible ? 'Enregistrement du projet…' : 'Creation du projet…');
+      occuper(true, cible ? 'Enregistrement du projet…' : 'Création du projet…');
       try {
         // Enregistre sous sa forme ecrite (io/serialisation.ts) : relief compacte, voisinage allege —
         // en memoire, un voisinage de 200 m et son relief depassaient ce que la plateforme accepte.

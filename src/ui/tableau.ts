@@ -45,7 +45,12 @@ export function etiqueterTableaux(racine: ParentNode): void {
 const ACCENTS: [RegExp, string][] = [
   [/\bachetees\b/g, 'achetées'], [/\bachetee\b/g, 'achetée'], [/\bcalcule\b/g, 'calculé'], [/\bdebit\b/g, 'débit'],
   [/\bGeotextile\b/g, 'Géotextile'], [/\bConcasse\b/g, 'Concassé'], [/\bcompacte\b/g, 'compacté'],
-  [/\breellement\b/g, 'réellement'], [/\breutilisables\b/g, 'réutilisables'], [/\brapporte\b/g, 'rapporté']
+  [/\breellement\b/g, 'réellement'], [/\breutilisables\b/g, 'réutilisables'], [/\brapporte\b/g, 'rapporté'],
+  // Les postes et les activites du moteur (engine/bom.ts, engine/chantier.ts, engine/constantes.ts), lot 4 : a l'ecran seulement.
+  [/\bPreparation\b/g, 'Préparation'], [/\bDecaissement\b/g, 'Décaissement'], [/\bEvacuation\b/g, 'Évacuation'], [/\bevacuation\b/g, 'évacuation'],
+  [/\bgeotextile\b/g, 'géotextile'], [/\bconcasse\b/g, 'concassé'], [/\bbeton\b/g, 'béton'], [/\bReglage\b/g, 'Réglage'],
+  [/\bReglable\b/g, 'Réglable'], [/\bDebit\b/g, 'Débit'], [/\bperipherique\b/g, 'périphérique'], [/\bControle\b/g, 'Contrôle'],
+  [/\bplaneite\b/g, 'planéité'], [/\btracage\b/g, 'traçage'], [/\bbordure a plat\b/g, 'bordure à plat']
 ];
 
 /**

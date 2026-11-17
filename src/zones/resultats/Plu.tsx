@@ -26,20 +26,20 @@ const discret = (texte: string) => <><br /><span className="discret">{texte}</sp
 function Contenu({ resultats }: { resultats: Resultats }) {
   const parcelle = resultats.parcelle();
   if (!parcelle) {
-    return <div className="hint">Aucune parcelle dans ce plan : le PLU s'interroge au centre de la parcelle. Importe une parcelle depuis une adresse, ou regle "Fonction" sur "terrain" pour l'objet concerne.</div>;
+    return <div className="hint">Aucune parcelle dans ce plan : le PLU s'interroge au centre de la parcelle. Importez une parcelle depuis une adresse, ou réglez « Fonction » sur « terrain » pour l'objet concerné.</div>;
   }
   const lieu = resultats.lieu();
-  const point = <div className="hint">{'Point interroge : ' + lieu.latitude.toFixed(6).replace('.', ',') + '° N, ' +
+  const point = <div className="hint">{'Point interrogé : ' + lieu.latitude.toFixed(6).replace('.', ',') + '° N, ' +
     lieu.longitude.toFixed(6).replace('.', ',') + '° E (centre de « ' + parcelle.name + ' »).'}</div>;
   const plu = parcelle.plu;
-  if (!plu) return <>{point}<div className="hint">Aucun zonage enregistre pour cette parcelle. Clique sur « Interroger le Geoportail de l'urbanisme ».</div></>;
+  if (!plu) return <>{point}<div className="hint">Aucun zonage enregistré pour cette parcelle. Cliquez sur « Interroger le Géoportail de l'urbanisme ».</div></>;
 
   const lignes: Ligne[] = [];
   if (plu.commune) lignes.push(['Commune', plu.commune.nom + ' (INSEE ' + plu.commune.insee + ')' + (plu.commune.rnu ? ' — au RNU' : '')]);
   if (!plu.zones.length) {
     lignes.push(['Zonage', plu.commune && plu.commune.rnu
-      ? 'Commune au RNU : pas de document d\'urbanisme local, ce sont les regles nationales qui s\'appliquent.'
-      : 'Aucune zone renvoyee pour ce point (document non verse au Geoportail, ou parcelle hors zonage).']);
+      ? 'Commune au RNU : pas de document d\'urbanisme local, ce sont les règles nationales qui s\'appliquent.'
+      : 'Aucune zone renvoyée pour ce point (document non versé au Géoportail, ou parcelle hors zonage).']);
   }
   plu.zones.forEach((z, i) => {
     lignes.push([plu.zones.length > 1 ? 'Zone ' + (i + 1) : 'Zone', <><b>{z.libelle}</b>{z.typezone ? ' — type ' + z.typezone : ''}</>]);

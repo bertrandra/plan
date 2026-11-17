@@ -212,7 +212,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
             ? <EnteteFeuille magasin={magasin} titre="Propriétés" sousTitre="Aucune sélection" />
             : <div className="inspecteurEntete"><span className="inspecteurTitre">Aucune sélection</span><Pli ouvert inspecteur={inspecteur} /></div>}
           <div className={compact ? 'corpsFeuille' : undefined}>
-            <p className="hint" style={{ padding: '0 10px' }}>{compact ? 'Touchez un objet sur le plan, ou choisissez-le dans Objets, pour l\'éditer.' : 'Clique un objet sur le plan ou dans l\'explorateur pour l\'éditer.'}</p>
+            <p className="hint" style={{ padding: '0 10px' }}>{compact ? 'Touchez un objet sur le plan, ou choisissez-le dans Objets, pour l\'éditer.' : 'Cliquez un objet sur le plan ou dans l\'explorateur pour l\'éditer.'}</p>
             <div className="inspecteurPied">
               <BoutonPied commandes={commandes} id="projet.reinitialiser" libelle="Réinitialiser tout" />
               <RefusPied commandes={commandes} ids={['projet.reinitialiser']} tactile={tactile} />
@@ -231,7 +231,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
       <RefusPied commandes={commandes} ids={['projet.reinitialiser']} tactile={tactile} />
       <p className="hint">{tactile
         ? 'Glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer. Double toucher sur un côté = ajouter un point ; sur un coin = figer ou dégeler. Pincer = zoom. Trois doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'
-        : 'Glisse un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>
+        : 'Glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>
     </div>
   );
   const ouverteParDefaut = premiereOuverte(sections, c);

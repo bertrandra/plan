@@ -4,6 +4,7 @@
 // changements. Le champ d'adresse garde le focus pendant la frappe : seules les suggestions se
 // redessinent sous lui.
 
+import { chiffreFr } from '../../util/format.js';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { centroid } from '../../geometry/basic.js';
 import { libelleParcelle } from '../../geo/bdtopo.js';
@@ -121,7 +122,7 @@ function Etape1({ importe }: Props) {
     <>
       <div className="corpsParcours">
         <div className="libelleChamp ligneAdresse">
-          <span>Adresse du terrain (ou coordonnees « latitude, longitude ») :</span>
+          <span>Adresse du terrain (ou coordonnées « latitude, longitude ») :</span>
           {importe.positionDisponible() && (
             <button type="button" data-controle="cadastre.maPosition" className="secondary small" disabled={e.occupe || e.position.etat === 'demande'}
               title="Cherche la parcelle sous la position de cet appareil (GPS du téléphone, ou réseau). Le navigateur demande d’abord la permission."
@@ -130,7 +131,7 @@ function Etape1({ importe }: Props) {
             </button>
           )}
         </div>
-        <input ref={champ} type="text" data-controle="cadastre.adresse" className="promptInput" placeholder="2 allee des Limites 78110 Le Vesinet" value={texte}
+        <input ref={champ} type="text" data-controle="cadastre.adresse" className="promptInput" placeholder="2 allée des Limites 78110 Le Vésinet" value={texte}
           onChange={(ev) => { setTexte(ev.target.value); importe.saisirAdresse(ev.target.value); }}
           onKeyDown={(ev) => {
             if (ev.key !== 'Enter') return;
@@ -220,24 +221,24 @@ function Etape2({ importe }: Props) {
           {(geo.genre === 'position' ? 'Adresse la plus proche : ' : 'Adresse : ') + geo.label}<br />
           {/* Le point d'une position est celui de l'appareil, pas un point d'adresse pose sur la voirie. */}
           {geo.genre === 'position'
-            ? 'Votre position' + (e.position.precisionM !== null ? ' (à ' + e.position.precisionM + ' m près)' : '') + ' : ' + (p.dedans ? 'dans la parcelle' : 'à ' + p.distance.toFixed(2) + ' m du bord')
-            : 'Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'a ' + p.distance.toFixed(2) + ' m du bord (il est pose devant la porte, sur la voirie)')}
+            ? 'Votre position' + (e.position.precisionM !== null ? ' (à ' + e.position.precisionM + ' m près)' : '') + ' : ' + (p.dedans ? 'dans la parcelle' : 'à ' + chiffreFr(p.distance) + ' m du bord')
+            : 'Point d\'adresse : ' + (p.dedans ? 'dans la parcelle' : 'à ' + chiffreFr(p.distance) + ' m du bord (il est posé devant la porte, sur la voirie)')}
           {geo.genre && geo.genre !== 'housenumber' && geo.genre !== 'coordonnees' && geo.genre !== 'position' && <><br /><i>{'Adresse imprécise (' + niveauAdresse(geo.genre) + ') : la parcelle proposée est approximative.'}</i></>}
-          {ecartAuto < ECART_AUTO_M && <><br /><i>Plusieurs parcelles sont a distance comparable : verifie le choix ci-dessous.</i></>}
+          {ecartAuto < ECART_AUTO_M && <><br /><i>Plusieurs parcelles sont à distance comparable : vérifiez le choix ci-dessous.</i></>}
         </div>
-        <div className="titreListe">Autre parcelle ? (clic sur l'apercu ou dans la liste)</div>
+        <div className="titreListe">Autre parcelle ? (clic sur l'aperçu ou dans la liste)</div>
         <div className="listeParcelles">
           {e.candidats.map(c => (
             <button key={c.idu} type="button" data-controle="cadastre.parcelle" className={c.idu === p.idu ? undefined : 'secondary'}
               onMouseEnter={() => importe.survoler(c.idu)} onMouseLeave={() => importe.survoler(null)}
               onClick={() => void importe.choisirPrincipale(c)}>
-              {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + ' — ' + c.distance.toFixed(2) + ' m de l\'adresse'}
+              {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + ' — ' + chiffreFr(c.distance) + ' m de l\'adresse'}
             </button>
           ))}
         </div>
         <label className="caseParcours">
           <input type="checkbox" data-controle="cadastre.simplifier" checked={e.simplifier} onChange={(ev) => importe.basculerSimplifier(ev.target.checked)} />
-          Simplifier les contours (sommets alignes a moins de 2 cm)
+          Simplifier les contours (sommets alignés à moins de 2 cm)
         </label>
       </div>
       <Pied importe={importe}>
@@ -256,14 +257,14 @@ function LigneVoisine({ importe, c }: Props & { c: Candidate }) {
   return (
     <div className={'ligneVoisine' + (e.survol === c.idu ? ' survolee' : '')}
       onMouseEnter={() => importe.survoler(c.idu)} onMouseLeave={() => { if (e.survol === c.idu) importe.survoler(null); }}>
-      <label title="Cette parcelle fait partie de la propriete : elle sera fusionnee avec la parcelle principale, sa limite interne restant en pointille.">
+      <label title="Cette parcelle fait partie de la propriété : elle sera fusionnée avec la parcelle principale, sa limite interne restant en pointillé.">
         <input type="checkbox" data-controle="cadastre.propriete" checked={prop} onChange={() => importe.basculerPropriete(c)} /> propriété
       </label>
-      <label title="Importer cette parcelle comme voisine, en decor de reference.">
+      <label title="Importer cette parcelle comme voisine, en décor de référence.">
         <input type="checkbox" data-controle="cadastre.importerVoisine" checked={e.selection.has(c.idu) || prop} disabled={prop} onChange={() => importe.basculerVoisine(c)} /> importer
       </label>
       <span className="texteVoisine" onClick={() => importe.basculerVoisine(c)}>
-        {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + (c.frontiere ? ' — ' + c.frontiere.toFixed(1) + ' m de limite commune' : ' — a ' + (c.distancePrincipale || 0).toFixed(1) + ' m')}
+        {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + (c.frontiere ? ' — ' + chiffreFr(c.frontiere, 1) + ' m de limite commune' : ' — à ' + chiffreFr(c.distancePrincipale || 0, 1) + ' m')}
       </span>
       {/* Permuter la principale sans repasser par l'etape 2 : c'est ici qu'on voit le voisinage en
           entier, donc ici qu'on se rend compte qu'on a designe la mauvaise parcelle. */}
@@ -288,13 +289,13 @@ function DonneesIgn({ importe }: Props) {
   return (
     <div className="blocIgn">
       {ligne('importerBatiments', 'Bâtiments (BD TOPO, avec hauteur)', importe.elementsRetenus(e.batiments).length,
-        'Emprise et hauteur reelles des batiments. Ceux de la parcelle sont modifiables, ceux des voisins arrivent verrouilles.')}
+        'Emprise et hauteur réelles des bâtiments. Ceux de la parcelle sont modifiables, ceux des voisins arrivent verrouillés.')}
       {hauteurs.length > 0 && <div className="detailIgn">{'Sur la propriété : ' + hauteurs.length + ' bâtiment(s), hauteurs ' + hauteurs.map(x => x.toFixed(1).replace('.', ',') + ' m').join(', ')}</div>}
       {ligne('importerHaies', 'Haies (géométrie + hauteur)', importe.elementsRetenus(e.haies).length,
-        'Couche haie de la BD TOPO : renseignee surtout en zone de bocage, souvent vide en ville.')}
-      {ligne('importerVegetation', 'Zones de végétation', vegs.length, 'Bois, forets, vergers... hauteur deduite de la nature de la zone.')}
+        'Couche haie de la BD TOPO : renseignée surtout en zone de bocage, souvent vide en ville.')}
+      {ligne('importerVegetation', 'Zones de végétation', vegs.length, 'Bois, forêts, vergers… hauteur déduite de la nature de la zone.')}
       {ligne('importerArbres', 'Arbres estimés dans ces zones (~' + importe.nombreArbresEstimes() + ')', vegs.length,
-        'ESTIMATION : la BD TOPO ne cartographie pas les arbres isoles. Une grille reguliere d\'un arbre pour 64 m2 est repartie dans les zones de vegetation - un ordre de grandeur du couvert, pas un releve.')}
+        'ESTIMATION : la BD TOPO ne cartographie pas les arbres isolés. Une grille régulière d\'un arbre pour 64 m² est répartie dans les zones de végétation - un ordre de grandeur du couvert, pas un relevé.')}
       <ReglageRelief importe={importe} />
       <div className="pluParcours">
         {plu?.zones?.[0] ? (() => {
@@ -305,7 +306,7 @@ function DonneesIgn({ importe }: Props) {
             <br /><span className="discret">Le zonage est rattaché à la parcelle et consultable dans l'onglet PLU.</span></>;
         })() : plu && plu.commune && plu.commune.rnu
           ? 'PLU : commune au RNU (pas de document d\'urbanisme local).'
-          : 'PLU : aucun zonage renvoye par le Geoportail de l\'urbanisme pour ce point.'}
+          : 'PLU : aucun zonage renvoyé par le Géoportail de l\'urbanisme pour ce point.'}
       </div>
       {e.ignErreur && <div className="erreurParcours">{e.ignErreur}</div>}
     </div>
@@ -380,18 +381,18 @@ function Etape3({ importe }: Props) {
         <Apercu importe={importe} />
         <div className={'resumePropriete' + (resume.alerte ? ' alerte' : '')}>{resume.texte}</div>
         <div className="aideParcours">
-          Coche « propriété » pour les parcelles qui forment ton terrain (elles seront fusionnées en une seule), « importer » pour celles qui
-          restent un simple décor de référence. Un clic sur l'aperçu bascule « importer ». Un objet coche « contraint a la parcelle » reste
-          enferme dans la parcelle principale : pour construire a cheval sur une voisine, decoche cette contrainte dans le panneau Objet.
+          Cochez « propriété » pour les parcelles qui forment votre terrain (elles seront fusionnées en une seule), « importer » pour celles qui
+          restent un simple décor de référence. Un clic sur l'aperçu bascule « importer ». Un objet coché « contraint à la parcelle » reste
+          enfermé dans la parcelle principale : pour construire à cheval sur une voisine, décochez cette contrainte dans le panneau Objet.
         </div>
         <div className="barreSelection">
           <Bouton controle="cadastre.cocherMitoyennes" onClick={importe.cocherMitoyennes}>Cocher toutes les mitoyennes</Bouton>
-          <Bouton controle="cadastre.toutDecocher" onClick={importe.toutDecocher}>Tout decocher</Bouton>
+          <Bouton controle="cadastre.toutDecocher" onClick={importe.toutDecocher}>Tout décocher</Bouton>
         </div>
         <div className="listeVoisines">
           {groupe('Parcelles mitoyennes', e.adjacentes)}
           {groupe('Autres parcelles du secteur', e.autres)}
-          {e.tropDense && <div className="erreurParcours">{'Perimetre tres dense : seules les ' + MAX_VOISINES + ' plus grandes limites communes sont proposees.'}</div>}
+          {e.tropDense && <div className="erreurParcours">{'Périmètre très dense : seules les ' + MAX_VOISINES + ' plus grandes limites communes sont proposées.'}</div>}
         </div>
         <div className="titreListe">Voisinage étendu</div>
         <ReglageVoisinage importe={importe} />
@@ -404,7 +405,7 @@ function Etape3({ importe }: Props) {
       <Pied importe={importe}>
         <Bouton controle="cadastre.annuler" onClick={importe.fermer}>Annuler</Bouton>
         <Bouton controle="cadastre.retour" onClick={() => importe.allerA(2)}>← Retour</Bouton>
-        <Bouton controle="cadastre.creerProjet" principal onClick={() => void importe.creerProjet(nom)}>{importe.projetCible() ? 'Remplir le projet' : 'Creer le projet'}</Bouton>
+        <Bouton controle="cadastre.creerProjet" principal onClick={() => void importe.creerProjet(nom)}>{importe.projetCible() ? 'Remplir le projet' : 'Créer le projet'}</Bouton>
       </Pied>
     </>
   );
@@ -422,7 +423,7 @@ function Pied({ importe, children }: Props & { children: React.ReactNode }) {
 }
 
 const TITRE_DIRECT = 'Nouveau projet depuis une adresse';
-const TITRES = { 1: 'Nouveau projet depuis une adresse (1/3)', 2: 'Parcelle trouvee (2/3)', 3: 'Parcelles voisines et creation (3/3)' };
+const TITRES = { 1: 'Nouveau projet depuis une adresse (1/3)', 2: 'Parcelle trouvée (2/3)', 3: 'Parcelles voisines et création (3/3)' };
 
 export function ImportCadastre({ importe }: Props) {
   useSyncExternalStore(importe.abonner, importe.version);
@@ -436,7 +437,7 @@ export function ImportCadastre({ importe }: Props) {
       {etape === 2 && <Etape2 importe={importe} />}
       {/* Une autre principale refait l etape entiere, nom par defaut compris. */}
       {etape === 3 && <Etape3 key={importe.etat().principale?.idu} importe={importe} />}
-      <div className="mentionCadastre">Le plan cadastral (PCI, IGN) est un document fiscal de reference : il ne vaut pas bornage. Seul un geometre-expert peut etablir les limites reelles de propriete.</div>
+      <div className="mentionCadastre">Le plan cadastral (PCI, IGN) est un document fiscal de référence : il ne vaut pas bornage. Seul un géomètre-expert peut établir les limites réelles de propriété.</div>
     </div>
   );
 }

@@ -130,12 +130,12 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
    */
   commande('objet.reculer', 'Reculer d\'un plan', () => {
     const obj = a.objByKey(a.etat.selectedKey);
-    if (!obj) { showToast('Selectionne d\'abord un objet.'); return; }
+    if (!obj) { showToast('Sélectionnez d’abord un objet.'); return; }
     if (obj.key === 'parcelle') { showToast('La parcelle reste toujours au fond.'); return; }
     a.pushHistory();
     const avant = a.etat.objects.indexOf(obj);
     a.sendObjectBackward(obj);
-    if (a.etat.objects.indexOf(obj) === avant) showToast('Deja au fond de sa priorite d\'affichage.');
+    if (a.etat.objects.indexOf(obj) === avant) showToast('Déjà au fond de sa priorité d\'affichage.');
   }, { actif: selection });
 
   /**
@@ -147,9 +147,9 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
    */
   commande('objet.positionInitiale', 'Réinitialiser la position', () => {
     const obj = a.objByKey(a.etat.selectedKey);
-    if (!obj) { showToast('Selectionne d\'abord un objet.'); return; }
+    if (!obj) { showToast('Sélectionnez d’abord un objet.'); return; }
     const init = a.initialState().find(o => o.key === a.etat.selectedKey);
-    if (!init) { showToast('Aucune position initiale enregistree pour cet objet (il a ete cree apres le chargement).'); return; }
+    if (!init) { showToast('Aucune position initiale enregistrée pour cet objet (il a été créé après le chargement).'); return; }
     a.pushHistory(obj);
     if (obj.type === 'circle') {
       obj.center = { ...enCercle(init).center };
@@ -177,7 +177,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
    * D'où la confirmation : ce bouton efface d'un clic tout le travail fait depuis le chargement.
    */
   cmd.declarer({ id: 'projet.reinitialiser', libelle: 'Réinitialiser tout', groupe: 'projet', permission: PERMISSION_ECRITURE, executer: () => {
-    showConfirm('Reinitialiser tout le plan ? Les objets et les mesures reviennent a leur etat du chargement (annulable par Ctrl+Z).', () => {
+    showConfirm('Réinitialiser tout le plan ? Les objets et les mesures reviennent à leur état du chargement (annulable par Ctrl+Z).', () => {
       a.pushHistory();
       a.restoreState({ objects: a.initialState(), measures: a.initialMeasures() });
     });

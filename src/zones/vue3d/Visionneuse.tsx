@@ -49,7 +49,7 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
         Aucun modèle généré pour l'instant.
         <BoutonCommande commandes={commandes} id="visionneuse.generer" domId="glbViewerExporterBtn" className="objbtn small boutonGenerer" enCours={enCours}>Générer le modèle 3D</BoutonCommande>
       </div>
-      <div id="glbViewerLoading" className="hint" style={{ display: affichage3d.glb === 'chargement' ? 'block' : 'none' }}>Chargement du modele…</div>
+      <div id="glbViewerLoading" className="hint" style={{ display: affichage3d.glb === 'chargement' ? 'block' : 'none' }}>Chargement du modèle…</div>
       <div id="glbViewerContent" style={{ display: affichage3d.glb === 'pret' ? 'block' : 'none' }}>
         <div id="zoneReglagesGlb" className="reglages3d" role="group" aria-label="Réglages de la visionneuse">
           <EnteteReglages vue="visionneuse" titre="Réglages de la visionneuse" idLieu="glbViewerLieu" lieu={vues.libelleLieu()} magasin={magasin} />
@@ -77,7 +77,7 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
             </div>
             <LigneIntensite ids={IDS_SOLEIL} soleil={soleil} />
             <div id="glbViewerHint" className="hint">{affichage3d.indicationGlb}</div>
-            <div className="hint">Glisser = tourner, molette = zoom, clic droit + glisser = deplacer. Necessite une connexion internet (bibliotheque 3D chargee a la demande, pas embarquee dans ce fichier).</div>
+            <div className="hint">Glisser = tourner, molette = zoom, clic droit + glisser = déplacer. Nécessite une connexion internet (bibliothèque 3D chargée à la demande, pas embarquée dans ce fichier).</div>
           </div>
         </div>
         <BarreHeure ids={IDS_SOLEIL} id="barreSoleilGlb" soleil={soleil} formatHeure={vues.formatHeure} heureLegale={vues.heureLegale()} />
@@ -85,9 +85,9 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
           style={pleinePage ? { height: 'calc(100vh - 210px)' } : undefined}>
           <div className="commandes3d">
             <Bouton3d commandes={commandes} id="visionneuse.zoomAvant" domId="glbViewerZoomIn" icone="plus" libelle="Zoom avant" titre="Zoom avant" />
-            <Bouton3d commandes={commandes} id="visionneuse.zoomArriere" domId="glbViewerZoomOut" icone="moins" libelle="Zoom arrière" titre="Zoom arriere" />
+            <Bouton3d commandes={commandes} id="visionneuse.zoomArriere" domId="glbViewerZoomOut" icone="moins" libelle="Zoom arrière" titre="Zoom arrière" />
             <div className="separateur3d"></div>
-            <Bouton3d commandes={commandes} id="visionneuse.hauteurDesYeux" domId="glbViewerEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" />
+            <Bouton3d commandes={commandes} id="visionneuse.hauteurDesYeux" domId="glbViewerEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur des yeux (1,60 m au-dessus du platelage) : ne change que l'altitude de la caméra, pas sa position au sol" />
             <button id="reglagesGlbBtn" data-controle="visionneuse.reglages" type="button" className="bouton3d boutonReglages" aria-label="Réglages de la visionneuse"
               onClick={() => magasin.definirFeuille(magasin.store.getState().feuille === 'reglages3d' ? null : 'reglages3d')}>
               <Icone nom="reglages" taille={20} />

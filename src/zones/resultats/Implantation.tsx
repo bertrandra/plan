@@ -27,7 +27,7 @@ const COULEUR_APPUI: Record<string, string> = { rive: '#0f3d49', spa: '#a8452a',
 /** Une fenetre autonome, pour ne pas dependre de la mise en page de l'application. */
 function imprimer(titre: string, entete: string, contenu: string): void {
   const w = window.open('', '_blank');
-  if (!w) { showToast('Autorise les fenetres pop-up pour imprimer le plan.'); return; }
+  if (!w) { showToast('Autorisez les fenêtres pop-up pour imprimer le plan.'); return; }
   w.document.write('<!doctype html><meta charset="utf-8"><title>' + titre + '</title>' +
     '<style>@page{margin:10mm} body{margin:0;font-family:Arial,sans-serif;font-size:10pt}' +
     'h1{font-size:12pt;margin:0 0 4mm}' +
@@ -70,7 +70,7 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
   const lancerImpression = () => {
     const nomTerrasse = escapeHtml(obj.name || 'terrasse');
     imprimer('Implantation — ' + nomTerrasse + ' — 1/' + ech,
-      'Implantation ' + escapeHtml(nom) + ' — ' + nomTerrasse + ' — echelle 1/' + ech + ' — imprimer a 100 %',
+      'Implantation ' + escapeHtml(nom) + ' — ' + nomTerrasse + ' — échelle 1/' + ech + ' — imprimer à 100 %',
       imprimable.current?.innerHTML ?? '');
   };
 
@@ -79,7 +79,7 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
       <div className="sectionTitle">Plan d'implantation</div>
       <div id="terrasseImplantWrap">
         <div className="controls">
-          <label style={{ marginRight: 5, fontSize: '0.88rem' }}>Echelle : </label>
+          <label style={{ marginRight: 5, fontSize: '0.88rem' }}>Échelle : </label>
           <select data-controle="implantation.echelle" disabled={enLectureSeule()} value={String(ech)} onChange={(e) => { const v = parseInt(e.target.value, 10) || 200; resultats.saisir(() => { c.echelleImplant = v; }); }}>
             {ECHELLES.map(e => <option key={e} value={String(e)}>{'1/' + e}</option>)}
           </select>
@@ -115,41 +115,41 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
             <circle cx={O.x} cy={O.y} r={1.8} fill="none" stroke={ROUGE} strokeWidth={0.5} />
             <line x1={O.x} y1={O.y} x2={O.x + mm(I.R.longueurCote)} y2={O.y} stroke={ROUGE} strokeWidth={0.4} />
             {txt('R', O.x - 2.5, O.y + 3.5, 'R', 3, ROUGE)}
-            {txt('X', O.x + mm(I.R.longueurCote) / 2, O.y - 2.5, 'cordeau X — cote ' + (I.R.cote + 1), 2.2, ROUGE, 'middle')}
+            {txt('X', O.x + mm(I.R.longueurCote) / 2, O.y - 2.5, 'cordeau X — côté ' + (I.R.cote + 1), 2.2, ROUGE, 'middle')}
             {/* echelle graphique : le controle qui dit si l'impression a ete mise a l'echelle */}
             <line x1={xE} y1={yE} x2={xE + mm(1)} y2={yE} stroke={NOIR} strokeWidth={0.6} />
             <line x1={xE} y1={yE - 1} x2={xE} y2={yE + 1} stroke={NOIR} strokeWidth={0.4} />
             <line x1={xE + mm(1)} y1={yE - 1} x2={xE + mm(1)} y2={yE + 1} stroke={NOIR} strokeWidth={0.4} />
-            {txt('e', xE + mm(1) + 1.5, yE + 0.8, '1 m — echelle 1/' + ech, 2.4)}
+            {txt('e', xE + mm(1) + 1.5, yE + 0.8, '1 m — échelle 1/' + ech, 2.4)}
           </svg>
           <div className="hint">
-            {'Le dessin est en millimetres reels : imprime a 100 % (sans « ajuster a la page »), le segment temoin en bas mesure exactement 1 m a l\'echelle 1/' +
-              ech + '. Verifie-le au double-decimetre avant de tracer. Le repere R est le depart du cote de reference ; les deux cordeaux a tendre en premier sont X le long de ce cote et Y perpendiculaire.'}
+            {'Le dessin est en millimètres réels : imprimé à 100 % (sans « ajuster à la page »), le segment témoin en bas mesure exactement 1 m à l\'échelle 1/' +
+              ech + '. Vérifiez-le au double-décimètre avant de tracer. Le repère R est le départ du côté de référence ; les deux cordeaux à tendre en premier sont X le long de ce côté et Y perpendiculaire.'}
           </div>
 
-          <div className="sectionTitle" style={{ marginTop: 18 }}>Controle d'equerrage</div>
+          <div className="sectionTitle" style={{ marginTop: 18 }}>Contrôle d'équerrage</div>
           <table className="attrTable"><tbody>
-            <tr><th>Controle</th><th>Mesure</th><th>Role</th></tr>
+            <tr><th>Contrôle</th><th>Mesure</th><th>Rôle</th></tr>
             {I.diagonales.map((d, i) => (
-              <tr key={i}><td>{'Diagonale sommet ' + (d.de + 1) + ' → ' + (d.a + 1)}</td><td>{d.d.toFixed(3) + ' m'}</td><td>a mesurer au ruban avant de fixer quoi que ce soit</td></tr>
+              <tr key={i}><td>{'Diagonale sommet ' + (d.de + 1) + ' → ' + (d.a + 1)}</td><td>{d.d.toFixed(3) + ' m'}</td><td>à mesurer au ruban avant de fixer quoi que ce soit</td></tr>
             ))}
             {(() => {
               const [d1, d2, ...autres] = I.diagonales;
               if (!d1 || !d2 || autres.length) return null;
               const ecart = Math.abs(d1.d - d2.d);
-              return <tr style={{ fontWeight: 600 }}><td>Ecart entre diagonales</td><td>{(ecart * 1000).toFixed(0) + ' mm'}</td>
-                <td>{ecart < 0.005 ? 'contour d\'equerre' : 'contour non rectangle — normal si la forme ne l\'est pas'}</td></tr>;
+              return <tr style={{ fontWeight: 600 }}><td>Écart entre diagonales</td><td>{(ecart * 1000).toFixed(0) + ' mm'}</td>
+                <td>{ecart < 0.005 ? 'contour d\'équerre' : 'contour non rectangle — normal si la forme ne l\'est pas'}</td></tr>;
             })()}
           </tbody></table>
 
           <div className="sectionTitle" style={{ marginTop: 18 }}>{'Implantation des ' + nom + ' — pièce par pièce'}</div>
           <div className="hint">
-            {'Une pièce = un cordeau. On materialise la piece entre ses deux extremites (coordonnees X/Y depuis le repere R), puis on marque ses appuis au ruban le long d\'elle. ' +
-              I.appuis.length + ' ' + nom + ' repartis sur ' + I.lignes.length + ' pieces.' +
-              (enPente ? ' Sol en pente (relief IGN) : entre parentheses, la hauteur de chaque appui du sol au dessous de la structure, en cm.' : '')}
+            {'Une pièce = un cordeau. On matérialise la pièce entre ses deux extrémités (coordonnées X/Y depuis le repère R), puis on marque ses appuis au ruban le long d\'elle. ' +
+              I.appuis.length + ' ' + nom + ' répartis sur ' + I.lignes.length + ' pièces.' +
+              (enPente ? ' Sol en pente (relief IGN) : entre parenthèses, la hauteur de chaque appui du sol au-dessous de la structure, en cm.' : '')}
           </div>
           <table className="attrTable"><tbody>
-            <tr><th>Piece</th><th>Depart X / Y</th><th>Fin X / Y</th><th>Nb</th><th>Appuis, distance depuis le depart (m)</th></tr>
+            <tr><th>Pièce</th><th>Départ X / Y</th><th>Fin X / Y</th><th>Nb</th><th>Appuis, distance depuis le départ (m)</th></tr>
             {I.lignes.map((l, i) => (
               <tr key={i}>
                 <td>{l.ref + ' — ' + l.type}</td>
@@ -163,9 +163,9 @@ export function Implantation({ obj, resultats }: { obj: ObjetPlan; resultats: Re
 
           <div className="sectionTitle" style={{ marginTop: 18 }}>Sommets du contour</div>
           <table className="attrTable"><tbody>
-            <tr><th>Sommet</th><th>X (m)</th><th>Y (m)</th><th>Cote suivant (m)</th></tr>
+            <tr><th>Sommet</th><th>X (m)</th><th>Y (m)</th><th>Côté suivant (m)</th></tr>
             {I.sommets.map((v, i) => (
-              <tr key={i}><td>{(i + 1) + (i === I.R.cote ? ' (repere R)' : '')}</td><td>{v.x.toFixed(3)}</td><td>{v.y.toFixed(3)}</td><td>{cote(i).toFixed(3)}</td></tr>
+              <tr key={i}><td>{(i + 1) + (i === I.R.cote ? ' (repère R)' : '')}</td><td>{v.x.toFixed(3)}</td><td>{v.y.toFixed(3)}</td><td>{cote(i).toFixed(3)}</td></tr>
             ))}
           </tbody></table>
         </div>

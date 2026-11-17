@@ -167,7 +167,7 @@ function declarerMiseAJour(cmd: RegistreCommandes, etat: EtatApp, courant: Proje
   cmd.declarer({
     id: 'projet.mettreAJourModele', libelle: 'Mettre à jour le modèle', groupe: 'projet',
     permission: PERMISSION_ECRITURE,
-    description: 'Enregistre le projet au schema de cette version de Plan',
+    description: 'Enregistre le projet au schéma de cette version de Plan',
     actif: p.enRetard,
     executer: demander
   });
@@ -231,7 +231,7 @@ function declarerSuppression(cmd: RegistreCommandes, seed: SeedProjet, ctx: Cont
     actif: () => seed.apiAvailable && !!courant && seed.list.length > 1,
     executer: () => {
       if (!courant) return;
-      showConfirm('Supprimer definitivement le projet "' + courant.name + '" ? Cette action est irreversible.', async () => {
+      showConfirm('Supprimer définitivement le projet "' + courant.name + '" ? Cette action est irreversible.', async () => {
         try {
           await ctx.apiDelete(courant.id);
           localStorage.removeItem(ctx.cleDernierProjet);
@@ -355,7 +355,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   cmd.declarer({
     id: 'projet.nouveau', libelle: 'Enregistrer sous…', groupe: 'projet',
     permission: PERMISSION_ECRITURE, quota: QUOTA_PROJETS,
-    description: 'Cree un projet sur le serveur, copie du plan actuel',
+    description: 'Crée un projet sur le serveur, copie du plan actuel',
     actif: () => seed.apiAvailable,
     executer: () => {
       showPrompt('Nom du nouveau projet (copie du plan actuel) :', courant ? (courant.name + ' (copie)') : 'Nouveau projet', async (name) => {
@@ -380,7 +380,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   /** Change de projet ; demande avant de perdre des modifications. */
   function ouvrir(id: string): void {
     if (ctx.etat.dirty) {
-      showConfirm('Des modifications ne sont pas enregistrees. Changer de projet quand meme (elles seront perdues) ?', () => aller(id));
+      showConfirm('Des modifications ne sont pas enregistrées. Changer de projet quand même (elles seront perdues) ?', () => aller(id));
       return;
     }
     aller(id);
@@ -395,10 +395,10 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     id: 'projet.depuisAdresse', libelle: 'Nouveau projet depuis une adresse', groupe: 'projet',
     capacite: CAPACITES.cadastre.code, permission: PERMISSION_ECRITURE,
     quota: () => (projetARemplir(seed, ctx.etat) ? null : QUOTA_PROJETS),
-    description: 'Cree un projet a partir du plan cadastral : adresse, parcelle, parcelles voisines',
+    description: 'Crée un projet à partir du plan cadastral : adresse, parcelle, parcelles voisines',
     executer: () => {
       if (ctx.etat.dirty && seed.apiAvailable) {
-        showConfirm('Des modifications ne sont pas enregistrees. Ouvrir l\'import cadastre quand meme ?', () => ctx.ouvrirImportCadastre());
+        showConfirm('Des modifications ne sont pas enregistrées. Ouvrir l\'import cadastre quand même ?', () => ctx.ouvrirImportCadastre());
         return;
       }
       ctx.ouvrirImportCadastre();
@@ -408,7 +408,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
   cmd.declarer({
     id: 'projet.actualiserIgn', libelle: 'Actualiser IGN', groupe: 'projet',
     capacite: CAPACITES.cadastre.code,
-    description: 'Rejoue les appels IGN et remplace ce qui en vient : contour cadastral, batiments et vegetation importes, zonage PLU. Les objets dessines a la main ne sont pas touches.',
+    description: 'Rejoue les appels IGN et remplace ce qui en vient : contour cadastral, bâtiments et végétation importés, zonage PLU. Les objets dessinés à la main ne sont pas touchés.',
     permission: PERMISSION_ECRITURE, actif: () => !ctx.actualisationEnCours(), executer: () => ctx.ouvrirDialogueActualisation()
   });
 

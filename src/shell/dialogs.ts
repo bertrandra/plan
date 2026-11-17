@@ -59,10 +59,10 @@ export function showToast(msg: string): void {
 // Indexe par une chaine venue du reseau : elle n'est pas garantie d'etre une des quatre clefs,
 // d'ou le repli en dessous. Le type le dit au lieu de le sous-entendre.
 const RAISONS: Record<string, string> = {
-  network: 'Le serveur du projet est injoignable (probleme reseau).',
-  server: 'Le serveur du projet a repondu par une erreur.',
+  network: 'Le serveur du projet est injoignable (problème réseau).',
+  server: 'Le serveur du projet a répondu par une erreur.',
   notfound: 'Le projet demande est introuvable sur le serveur.',
-  badjson: 'La reponse du serveur est illisible (donnees corrompues).'
+  badjson: 'La réponse du serveur est illisible (données corrompues).'
 };
 
 /**
@@ -75,7 +75,7 @@ export function showProjectLoadError(err: { reason?: string } | null): void {
   const titre = 'Chargement du projet impossible';
   // Sans `err`, l'indice vaut `null`/`undefined` : la recherche echoue et le repli s'applique.
   const texte = (RAISONS[(err && err.reason) as string] || 'Une erreur est survenue lors du chargement du projet.') +
-    ' Le projet de demonstration n\'a pas ete charge a la place, pour eviter de donner l\'impression que votre projet a ete perdu ou remplace.';
+    ' Le projet de démonstration n\'a pas été chargé à la place, pour éviter de donner l\'impression que votre projet a été perdu ou remplace.';
   if (dialogues.aUnAbonne()) { dialogues.ouvrir({ type: 'erreurChargement', titre, texte, action: 'Réessayer', executer: () => location.reload() }); return; }
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed; inset:0; background:rgba(30,22,14,0.55); z-index:9999; display:flex; align-items:center; justify-content:center; font-family:"Helvetica Neue",Arial,sans-serif;';

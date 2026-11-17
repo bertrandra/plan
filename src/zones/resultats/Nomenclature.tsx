@@ -32,7 +32,7 @@ function Longueurs({ c, champ, resultats }: { c: Construction; champ: ChampLongu
   return (
     <div className="controls">
       <label style={{ fontSize: '0.85rem', marginRight: 6 }}>Longueurs achetables (m) : </label>
-      <SaisieTexte controle="nomenclature.longueurs" valeur={c[champ] || ''} titre="Longueurs disponibles chez ton fournisseur, en metres, separees par des virgules"
+      <SaisieTexte controle="nomenclature.longueurs" valeur={c[champ] || ''} titre="Longueurs disponibles chez votre fournisseur, en mètres, séparées par des virgules"
         onValider={(t) => resultats.saisir(() => { c[champ] = t; })} />
     </div>
   );
@@ -48,14 +48,14 @@ function TableDebit({ c, d, cle, resultats }: { c: Construction; d: Debit; cle: 
   return (
     <table className="attrTable">
       <tbody>
-        <tr><th>Longueur</th><th>Qte</th><th>Metre</th><th>Prix / barre</th><th>Prix / m²</th><th>Total</th><th>Usage</th></tr>
+        <tr><th>Longueur</th><th>Qté</th><th>Métré</th><th>Prix / barre</th><th>Prix / m²</th><th>Total</th><th>Usage</th></tr>
         {longueurs.map(L => {
           const n = d.achats[L] ?? 0, r = d.roles[L] || { entiere: 0, ajustee: 0, recoupee: 0, troncon: 0, rebutMl: 0, potMl: 0 };
           const parts: string[] = [];
-          if (r.entiere) parts.push(r.entiere + ' posee entiere (tombe juste)');
-          if (r.ajustee) parts.push(r.ajustee + ' arasee, chute ' + Math.round(100 * r.rebutMl / r.ajustee) + ' cm au rebut');
+          if (r.entiere) parts.push(r.entiere + ' posée entière (tombe juste)');
+          if (r.ajustee) parts.push(r.ajustee + ' arasée, chute ' + Math.round(100 * r.rebutMl / r.ajustee) + ' cm au rebut');
           if (r.recoupee) parts.push(r.recoupee + ' recoupee, ' + Math.round(100 * r.potMl / r.recoupee) + ' cm au pot');
-          if (r.troncon) parts.push(r.troncon + ' en troncon courant, about sur appui');
+          if (r.troncon) parts.push(r.troncon + ' en tronçon courant, about sur appui');
           const estime = !prixPersonnalise(c, cle, L);
           return (
             <tr key={L}>
@@ -64,7 +64,7 @@ function TableDebit({ c, d, cle, resultats }: { c: Construction; d: Debit; cle: 
               <td>{(n * L).toFixed(2) + ' ml'}</td>
               <td><SaisieNombre controle="nomenclature.prix" valeur={prixBarre(c, cle, L).toFixed(2)} titre={'Prix d\'une barre de ' + L + ' m'} estime={estime}
                 onValider={(t) => { const v = lireNombre(t); resultats.saisir(() => setPrixBarre(c, cle, L, isNaN(v) ? null : v)); }} /></td>
-              <td><SaisieNombre controle="nomenclature.prix" valeur={prixM2De(c, cle, L).toFixed(2)} titre="Prix au m² pour cette longueur — recalcule le prix de la barre" estime={estime}
+              <td><SaisieNombre controle="nomenclature.prix" valeur={prixM2De(c, cle, L).toFixed(2)} titre="Prix au m² pour cette longueur : il recalcule le prix de la barre" estime={estime}
                 onValider={(t) => { const v = lireNombre(t); if (!isNaN(v)) resultats.saisir(() => setPrixM2(c, cle, L, v)); }} /></td>
               <td className="nombre">{(n * prixBarre(c, cle, L)).toFixed(2) + ' €'}</td>
               <td className="noteLigne">{parts.join(' · ') || '—'}</td>
@@ -85,8 +85,8 @@ function Bilan({ c, d }: { c: Construction; d: Debit }) {
   const perte = d.achatMl > 0 ? 100 * d.chuteMl / d.achatMl : 0;
   return (
     <div className="hint">
-      <b>Bilan.</b>{' Lineaire reellement pose : ' + d.reelMl.toFixed(2) + ' ml. Achete : ' + d.achatMl.toFixed(2) + ' ml, soit ' +
-        perte.toFixed(1) + ' % de chute — dont ' + d.restantMl.toFixed(2) + ' ml en chutes reutilisables restantes (≥ ' +
+      <b>Bilan.</b>{' Linéaire réellement posé : ' + d.reelMl.toFixed(2) + ' ml. Acheté : ' + d.achatMl.toFixed(2) + ' ml, soit ' +
+        perte.toFixed(1) + ' % de chute — dont ' + d.restantMl.toFixed(2) + ' ml en chutes réutilisables restantes (≥ ' +
         (c.chuteMinReutilisable || 50) + ' cm, a garder) et ' + d.perdueMl.toFixed(2) + ' ml de rebut.' +
         (d.pool.length ? ' Chutes en fin de chantier : ' + d.pool.slice(0, 10).map(x => x.toFixed(2) + ' m').join(', ') + (d.pool.length > 10 ? ' …' : '') + '.' : '')}
     </div>
@@ -145,33 +145,33 @@ function DebitLames({ obj, layers, resultats }: PropsTerrasse & { layers: Couche
   const c = ensureConstruction(obj);
   const d = computeDebitLames(obj, layers);
   const longueurs = Object.keys(d.achats).map(parseFloat);
-  if (!longueurs.length) return <div id="terrasseDebitBox"><div className="hint">Aucune lame a debiter.</div></div>;
+  if (!longueurs.length) return <div id="terrasseDebitBox"><div className="hint">Aucune lame à débiter.</div></div>;
   const entraxeAppui = c.avecLambourde ? (c.lambourdeEntraxe || 40) : (c.soliveEntraxe || 40);
   const cout = coutDebit(c, d, 'lames');
   const perso = longueurs.filter(L => prixPersonnalise(c, 'lames', L)).length;
   return (
     <div id="terrasseDebitBox">
       <div className="hint">
-        {'Metre au lineaire reel des lames tracees (bordure a plat comprise), debitees dans les longueurs du fournisseur. Les chutes d\'au moins ' +
-          (c.chuteMinReutilisable || 50) + ' cm sont remises au pot et reservent sur une autre travee' +
+        {'Métré au linéaire réel des lames tracées (bordure à plat comprise), débitées dans les longueurs du fournisseur. Les chutes d\'au moins ' +
+          (c.chuteMinReutilisable || 50) + ' cm sont remises au pot et resservent sur une autre travée' +
           (c.jointsSurAppui !== false
-            ? ' ; chaque about tombe sur un appui, donc un troncon de milieu de travee est coupe a un multiple de ' + entraxeAppui + ' cm.'
+            ? ' ; chaque about tombe sur un appui, donc un tronçon de milieu de travée est coupé à un multiple de ' + entraxeAppui + ' cm.'
             : ' ; les abouts ne sont pas contraints de tomber sur un appui.')}
       </div>
       <Longueurs c={c} champ="longueursLames" resultats={resultats} />
       <TableDebit c={c} d={d} cle="lames" resultats={resultats} />
       <div className="hint">
-        {'Prix par barre : ' + (perso ? perso + ' sur ' + longueurs.length + ' saisis, les autres estimes' : 'tous estimes') +
-          ' a partir du tarif au m² de l\'essence (' + (ESSENCE_PRICES[c.essenceBois ?? ''] ?? ESSENCE_PRICES.autre)?.label +
+        {'Prix par barre : ' + (perso ? perso + ' sur ' + longueurs.length + ' saisis, les autres estimés' : 'tous estimés') +
+          ' à partir du tarif au m² de l\'essence (' + (ESSENCE_PRICES[c.essenceBois ?? ''] ?? ESSENCE_PRICES.autre)?.label +
           ') pour une lame de ' + (c.largeurLame || 140) + ' mm — soit ' + (cout / (d.achatMl || 1)).toFixed(2) + ' €/ml en moyenne, ou ' +
-          (cout / (d.reelMl || 1)).toFixed(2) + ' €/ml rapporte au lineaire reellement pose. ' +
-          'Saisis le tarif du fournisseur pour chaque longueur : le total alimente la ligne « Lames » du BOM au-dessus, qui n\'est donc pas saisissable a la main.'}
+          (cout / (d.reelMl || 1)).toFixed(2) + ' €/ml rapporté au linéaire réellement posé. ' +
+          'Saisissez le tarif du fournisseur pour chaque longueur : le total alimente la ligne « Lames » de la nomenclature au-dessus, qui n\'est donc pas saisissable à la main.'}
       </div>
       <Bilan c={c} d={d} />
       <div className="hint">
-        Methode : chaque travee est resolue exactement (le jeu de barres le moins cher qui la couvre), puis les chutes sont mutualisees entre
-        travees. La mutualisation venant apres, il reste 1 a 2 % a gagner sur la table — d'ou un effet a connaitre : une gamme plus courte fait
-        parfois mieux qu'une gamme large, parce que des barres toutes pareilles produisent des chutes toutes pareilles, donc reutilisables.
+        Méthode : chaque travée est résolue exactement (le jeu de barres le moins cher qui la couvre), puis les chutes sont mutualisées entre
+        travées. La mutualisation venant après, il reste 1 à 2 % à gagner sur la table — d'où un effet à connaître : une gamme plus courte fait
+        parfois mieux qu'une gamme large, parce que des barres toutes pareilles produisent des chutes toutes pareilles, donc réutilisables.
         Essaie de retirer des longueurs de la liste et compare le pourcentage de chute.
       </div>
     </div>
@@ -198,21 +198,21 @@ function Appuis({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesTer
       <>
         <div className="sectionTitle" style={{ marginTop: 16 }}>Plots</div>
         <table className="attrTable"><tbody>
-          <tr><th>Poste</th><th>Qte</th><th>Valeur</th><th>Total</th></tr>
-          {ligne('Modele retenu', m.label, m.min + ' a ' + m.max + ' cm', '')}
-          {ligne('Prix unitaire', n + ' plots poses', prix(prixPlotUnite(c), 'Prix d\'un plot ' + m.label + ' chez ton fournisseur', v => {
+          <tr><th>Poste</th><th>Qté</th><th>Valeur</th><th>Total</th></tr>
+          {ligne('Modèle retenu', m.label, m.min + ' a ' + m.max + ' cm', '')}
+          {ligne('Prix unitaire', n + ' plots posés', prix(prixPlotUnite(c), 'Prix d\'un plot ' + m.label + ' chez votre fournisseur', v => {
             // `prixPlots` accepte les deux formes historiques (objet ou tableau, voir
             // model/dictionnaire.ts) : ecriture indexee, comme la lecture.
             if (!c.prixPlots) c.prixPlots = {};
             const carnet = c.prixPlots as Record<string, number | undefined>;
             if (v === undefined) delete carnet[m.cle]; else carnet[m.cle] = v;
           }), '')}
-          {ligne('A acheter', ap.unites + ' plots', prixSaisi ? 'prix saisi' : 'prix estime', ap.cout.toFixed(2) + ' €')}
+          {ligne('À acheter', ap.unites + ' plots', prixSaisi ? 'prix saisi' : 'prix estimé', ap.cout.toFixed(2) + ' €')}
         </tbody></table>
         <div className="hint">
-          {'Le prix d\'un plot depend surtout de sa hauteur de reglage : compter ' + (PLOT_MODELES[0]?.prix ?? 0).toFixed(2) + ' a ' +
-            (PLOT_MODELES[PLOT_MODELES.length - 1]?.prix ?? 0).toFixed(2) + ' € piece selon la gamme. Le prix est memorise par modele : changer de hauteur change de ' +
-            'modele, et donc de prix. L\'assise est chiffree separement au BOM ci-dessus.'}
+          {'Le prix d\'un plot dépend surtout de sa hauteur de réglage : compter ' + (PLOT_MODELES[0]?.prix ?? 0).toFixed(2) + ' à ' +
+            (PLOT_MODELES[PLOT_MODELES.length - 1]?.prix ?? 0).toFixed(2) + ' € pièce selon la gamme. Le prix est mémorisé par modèle : changer de hauteur change de ' +
+            'modèle, et donc de prix. L\'assise est chiffrée séparément dans la nomenclature ci-dessus.'}
         </div>
       </>
     );
@@ -222,18 +222,18 @@ function Appuis({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesTer
     <>
       <div className="sectionTitle" style={{ marginTop: 16 }}>Vis de fondation</div>
       <table className="attrTable"><tbody>
-        <tr><th>Poste</th><th>Qte</th><th>Valeur</th><th>Total</th></tr>
-        {ligne('Prix unitaire', n + ' vis posees', prix(prixVisUnite(c), 'Prix d\'une vis de fondation, hors pose', v => { c.prixVisUnite = v; }), '')}
-        {ligne('Conditionnement', a.parBoite > 1 ? a.boites + ' boite(s)' : 'a l\'unite',
-          <SaisieNombre controle="nomenclature.conditionnement" valeur={String(Math.max(1, Math.round(c.visParBoite || 1)))} pas="1" min="1" largeur={90} titre="Conditionnement. 1 = vendues a l'unite."
+        <tr><th>Poste</th><th>Qté</th><th>Valeur</th><th>Total</th></tr>
+        {ligne('Prix unitaire', n + ' vis posées', prix(prixVisUnite(c), 'Prix d\'une vis de fondation, hors pose', v => { c.prixVisUnite = v; }), '')}
+        {ligne('Conditionnement', a.parBoite > 1 ? a.boites + ' boite(s)' : 'à l\'unité',
+          <SaisieNombre controle="nomenclature.conditionnement" valeur={String(Math.max(1, Math.round(c.visParBoite || 1)))} pas="1" min="1" largeur={90} titre="Conditionnement. 1 = vendues à l'unité."
             onValider={(t) => { const v = parseInt(t, 10); resultats.saisir(() => { c.visParBoite = (isNaN(v) || v < 1) ? 1 : v; }); }} />, '')}
-        {ligne('A acheter', a.unites + ' vis', a.parBoite > 1
+        {ligne('À acheter', a.unites + ' vis', a.parBoite > 1
           ? a.boites + ' × ' + a.parBoite + (a.unites > n ? ' (soit ' + (a.unites - n) + ' d\'avance)' : '')
-          : 'a l\'unite', a.cout.toFixed(2) + ' €')}
+          : 'à l\'unité', a.cout.toFixed(2) + ' €')}
       </tbody></table>
       <div className="hint">
-        {'Le prix d\'une vis de fondation depend surtout de sa longueur, donc du sol : compter ' + VIS_PRICE.bas + ' a ' + VIS_PRICE.haut +
-          ' € piece hors pose pour du courant. La pose a la visseuse hydraulique, si tu la sous-traites, se facture a part et n\'est pas comptee ici.'}
+        {'Le prix d\'une vis de fondation dépend surtout de sa longueur, donc du sol : compter ' + VIS_PRICE.bas + ' à ' + VIS_PRICE.haut +
+          ' € pièce hors pose pour du courant. La pose à la visseuse hydraulique, si vous la sous-traitez, se facture à part et n\'est pas comptée ici.'}
       </div>
     </>
   );
@@ -243,7 +243,7 @@ function DebitBois({ obj, layers, resultats }: PropsTerrasse & { layers: Couches
   const c = ensureConstruction(obj);
   const groupes = computeDebitsBois(obj, layers);
   const regleAbout = c.jointsBoisSurAppui !== false
-    ? ' Une abouture de poutre doit reposer sur une vis, donc un troncon courant est coupe a un multiple de la portee (' + Math.round(porteeVisM(c) * 100) + ' cm).'
+    ? ' Une abouture de poutre doit reposer sur une vis, donc un tronçon courant est coupé à un multiple de la portée (' + Math.round(porteeVisM(c) * 100) + ' cm).'
     : ' Les aboutures ne sont pas contraintes de tomber sur une vis.';
   return (
     <div id="terrasseDebitBoisBox">
@@ -256,16 +256,16 @@ function DebitBois({ obj, layers, resultats }: PropsTerrasse & { layers: Couches
         return (
           <div key={g.cle}>
             {groupes.length > 1 && <div className="sectionTitle" style={i ? { marginTop: 16 } : undefined}>{g.titre}</div>}
-            <div className="hint">{(groupes.length > 1 ? '' : 'Debites ensemble : meme section, meme commande. ') + 'Metre par role — ' + detail + '.' + (i ? '' : regleAbout)}</div>
+            <div className="hint">{(groupes.length > 1 ? '' : 'Débités ensemble : même section, même commande. ') + 'Métré par rôle — ' + detail + '.' + (i ? '' : regleAbout)}</div>
             <Longueurs c={c} champ={g.champLongueurs as ChampLongueurs} resultats={resultats} />
             {!longueurs.length
-              ? <div className="hint">Aucune piece a debiter pour ce poste.</div>
+              ? <div className="hint">Aucune pièce à débiter pour ce poste.</div>
               : <>
                   <TableDebit c={c} d={d} cle={g.cle} resultats={resultats} />
                   <div className="hint">
-                    {'Prix par barre : ' + (perso ? perso + ' sur ' + longueurs.length + ' saisis, les autres estimes' : 'tous estimes') +
+                    {'Prix par barre : ' + (perso ? perso + ' sur ' + longueurs.length + ' saisis, les autres estimés' : 'tous estimés') +
                       ' au tarif indicatif du bois porteur (' + SOLIVE_PRICE.bas + ' a ' + SOLIVE_PRICE.haut + ' €/ml) — soit ' +
-                      (cout / (d.achatMl || 1)).toFixed(2) + ' €/ml en moyenne, ou ' + (cout / (d.reelMl || 1)).toFixed(2) + ' €/ml rapporte au lineaire reellement pose.'}
+                      (cout / (d.achatMl || 1)).toFixed(2) + ' €/ml en moyenne, ou ' + (cout / (d.reelMl || 1)).toFixed(2) + ' €/ml rapporté au linéaire réellement posé.'}
                   </div>
                   <Bilan c={c} d={d} />
                 </>}
@@ -291,7 +291,7 @@ export function Nomenclature({ obj, resultats, commandes }: PropsTerrasse & { co
       )}
       <div className="sectionTitle">Nomenclature</div>
       <TableBom obj={obj} layers={layers} resultats={resultats} />
-      <div className="hint">Les fourchettes de prix sont des points de depart (marche francais, ordre de grandeur) — pas un devis. Saisis le prix reel des que tu l'as pour affiner le total.</div>
+      <div className="hint">Les fourchettes de prix sont des points de départ (marché français, ordre de grandeur) — pas un devis. Saisissez le prix réel dès que vous l’avez pour affiner le total.</div>
       <div className="sectionTitle" style={{ marginTop: 18 }}>Débit des lames</div>
       <DebitLames obj={obj} layers={layers} resultats={resultats} />
       <div className="sectionTitle" style={{ marginTop: 18 }}>Débit du bois porteur et appuis</div>

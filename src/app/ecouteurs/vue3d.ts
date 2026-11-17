@@ -250,7 +250,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     // La liste « Aller a un point de vue enregistre… » se lit dans les objets du plan : le point
     // de vue qu'on vient de creer y figure des ce signal (D-15).
     signaler3d();
-    showToast('Point de vue cree : "' + newObj.name + '" (visible en Mode Plan).');
+    showToast('Point de vue créé : « ' + newObj.name + ' » (visible en vue Plan).');
   // Il ajoute un objet au plan : en lecture seule, le geste est refuse comme toute ecriture (D-17).
   }, PERMISSION_ECRITURE);
 

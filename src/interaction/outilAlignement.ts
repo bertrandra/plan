@@ -95,7 +95,7 @@ export function alignerObjetParRotation(obj: ObjetPlan, _etat: unknown, distance
 
   const bound = ctx.contourDeContrainte(obj);
   if (bound && !newPts.every(p => ctx.pointInPolygon(p, bound))) {
-    ctx.showToast('Le resultat sortirait de la parcelle - alignement annule.');
+    ctx.showToast('Le résultat sortirait de la parcelle — alignement annulé.');
     return;
   }
   ctx.pushHistory(obj);

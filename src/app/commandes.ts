@@ -70,7 +70,7 @@ export type EtatCommande =
 
 export const PHRASE_PERMISSION = "Un administrateur de votre organisation peut vous donner ce droit.";
 export const PHRASE_CAPACITE = "Cette fonction n'est pas comprise dans l'abonnement de votre organisation.";
-export const PHRASE_QUOTA = "Votre organisation a atteint ce que son abonnement prevoit.";
+export const PHRASE_QUOTA = "Votre organisation a atteint ce que son abonnement prévoit.";
 export const PHRASE_LECTURE_PARTAGEE = "Ce projet partagé se lit sans rien modifier.";
 export const PHRASE_MODE_EXPERT = "Allumez le mode expert (menu Affichage) pour retrouver cette commande.";
 
@@ -161,7 +161,7 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
   const gardes = new Set<(id: string, source?: HTMLElement, cible?: Cible) => boolean>();
   const registre: RegistreCommandes = {
     declarer(c) {
-      if (commandes.has(c.id)) throw new Error('Commande deja declaree : ' + c.id);
+      if (commandes.has(c.id)) throw new Error('Commande déjà déclarée : ' + c.id);
       // Sans description dans sa declaration, la commande prend celle du glossaire (app/descriptions.ts).
       const description = c.description ?? DESCRIPTIONS[c.id];
       commandes.set(c.id, description === undefined ? c : { ...c, description });

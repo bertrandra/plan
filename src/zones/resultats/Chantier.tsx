@@ -43,16 +43,16 @@ export function Chantier({ obj, resultats }: { obj: ObjetPlan; resultats: Result
       {titre}
       <div id="terrasseChantierWrap">
         <div className="hint">
-          Toutes les activites necessaires a cette terrasse, dans l'ordre du chantier. Les quantites viennent du projet — nombre d'appuis, metres
-          de bois, barres a debiter, m³ de concasse — et les cadences sont reglables ligne par ligne. Main-d'oeuvre seule : ni livraison, ni prise
-          de rendez-vous, ni sechage.
+          Toutes les activités nécessaires à cette terrasse, dans l'ordre du chantier. Les quantités viennent du projet — nombre d'appuis, mètres
+          de bois, barres à débiter, m³ de concassé — et les cadences sont réglables ligne par ligne. Main-d'œuvre seule : ni livraison, ni prise
+          de rendez-vous, ni séchage.
         </div>
         <div className="controls">
-          {reglage('Equipe (personnes)', equipe, '1', v => { c.equipe = (isNaN(v) || v < 1) ? 2 : Math.round(v); })}
+          {reglage('Équipe (personnes)', equipe, '1', v => { c.equipe = (isNaN(v) || v < 1) ? 2 : Math.round(v); })}
           {reglage('Heures par jour', hJour, '0.5', v => { c.heuresJour = (isNaN(v) || v < 1) ? 7 : v; })}
         </div>
         <table className="attrTable"><tbody>
-          <tr><th>Activite</th><th>Quantite</th><th>Cadence</th><th>Duree</th><th>Part</th></tr>
+          <tr><th>Activité</th><th>Quantité</th><th>Cadence</th><th>Durée</th><th>Part</th></tr>
           {CHANTIER_PHASES.map((phase: string) => {
             const lignes = ch.lignes.filter(l => l.phase === phase);
             if (!lignes.length) return null;
@@ -83,8 +83,8 @@ export function Chantier({ obj, resultats }: { obj: ObjetPlan; resultats: Result
         </div>
         {!estPlots(c) && ch.nbAppuis > 0 && (
           <div className="hint">
-            {'A titre de comparaison, poser un plot prend environ ' + CADENCES.posePlots.h.toFixed(2) + ' h contre ' + CADENCES.vissage.h.toFixed(2) +
-              ' h pour visser une vis de fondation — mais il en faut trois a quatre fois plus, et il faut prealablement realiser l\'assise. Le mode de pose se decide sur le sol et le budget, pas sur la duree seule.'}
+            {'À titre de comparaison, poser un plot prend environ ' + CADENCES.posePlots.h.toFixed(2) + ' h contre ' + CADENCES.vissage.h.toFixed(2) +
+              ' h pour visser une vis de fondation — mais il en faut trois à quatre fois plus, et il faut préalablement réaliser l\'assise. Le mode de pose se décide sur le sol et le budget, pas sur la durée seule.'}
           </div>
         )}
       </div>

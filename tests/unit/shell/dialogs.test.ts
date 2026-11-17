@@ -122,7 +122,7 @@ describe('showProjectLoadError', () => {
   it('dit explicitement que la demonstration n a PAS ete chargee a la place', () => {
     // Le point important de cet ecran : ne pas laisser croire qu'on regarde son projet.
     showProjectLoadError({ reason: 'server' });
-    expect(document.body.textContent).toMatch(/demonstration n'a pas ete charge/i);
+    expect(document.body.textContent).toMatch(/démonstration n'a pas été chargé/i);
   });
 });
 

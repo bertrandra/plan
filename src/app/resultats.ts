@@ -224,7 +224,7 @@ function creerResultatsDuTiroir(etat: EtatApp, ctx: ContexteResultats, magasin: 
         ctx.markDirty(parcelle);
         const n = plu.zones.length, zone = plu.zones[0];
         showToast(zone ? ('PLU : zone ' + zone.libelle + (n > 1 ? ' (+' + (n - 1) + ' autre(s))' : '') + '.')
-                    : 'PLU : aucun zonage renvoye pour ce point.');
+                    : 'PLU : aucun zonage renvoyé pour ce point.');
       } catch (e) {
         showToast(phraseReseau(e, 'Le Géoportail de l’urbanisme', 'Réessayez dans un instant : le zonage du PLU n’est pas lu.') ?? 'Interrogation du PLU impossible : ' + detailTechnique(e));
       } finally {

@@ -11,7 +11,7 @@ const pasEncoreUnProjet = (p: ProjetObservable) => p.apiDisponible && !p.courant
 
 export function texteStatut(p: ProjetObservable): string {
   return p.statut === 'local'
-    ? 'Mode local — jeu de donnees de demonstration (api.php introuvable : aucune sauvegarde serveur).'
+    ? 'Mode local — jeu de données de démonstration (api.php introuvable : aucune sauvegarde serveur).'
     : p.statut === 'partage' ? 'Projet partagé, en lecture seule : rien ne s’enregistre.'
     : p.statut === 'essai' ? 'Démonstration : tout se modifie ici, rien ne s’enregistre.'
     : p.statut === 'enregistrement' ? 'Enregistrement…'
