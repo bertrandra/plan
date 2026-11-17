@@ -25,6 +25,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   garde « Cote n », les libellés du moteur restent sans accents dans les PDF, le DXF, le SVG et le CSV. La requête de vérification
   de l'assistant suit (« Rive · Côté n »). Points de fumée 184 et 185.
 
+### Corrigé
+
+- **Les erreurs d'un fichier fait ou lu sur l'appareil sont dites en clair** (lot 4), comme celles du réseau (#714) : exporter
+  en SVG, PNG, DXF, PDF, GLB (le plan, le dossier, la note de calcul, la liste d'achat, le devis, la vue 3D) ou ouvrir un
+  projet JSON, un SVG ou un modèle GLB qui échoue dit ce qui se passe et quoi faire — la bibliothèque qui ne s'est pas chargée,
+  la mémoire de l'appareil, le téléchargement bloqué, l'accélération graphique refusée, le fichier qui n'est pas du bon format
+  et lequel choisir — le message du moteur en « Détail technique », à copier (`util/erreurFichier.ts`). Avant : « Import annule -
+  fichier illisible : Unexpected token… », « Erreur export PNG: conversion en image impossible. ». Point de fumée 187.
+- **Point de fumée 167 (partager un projet par un lien) : le menu Fichier tel que le lot 3 l'a rangé.** Le point attendait
+  « Partager par un lien… » juste après « Enregistrer » ; depuis #726, « Enregistrer sous… » suit « Enregistrer », et le partage
+  vient après eux. Le point échouait sur `main` (5.35.0) alors que le partage marchait (enregistrer depuis le dialogue, créer,
+  copier, retirer et annuler) ; il demande maintenant « Enregistrer », « Enregistrer sous… » puis « Partager par un lien… », sans
+  rien entre. L'application ne change pas. L'entrée de #734 ci-dessus, rangée par une fusion sous [5.35.0], revient ici : la
+  livraison 5.35.0 (72da99f4) ne la contenait pas.
+
 ## [5.35.0] — 2026-11-17
 
 Version **mineure** au sens de `MD/RELEASE.md` : le lot 3 de la simplification de l'IHM range l'écran sans rien retirer du
@@ -128,12 +143,6 @@ de la 5.33.0, s'il n'est pas déjà appliqué) :
 
 ### Corrigé
 
-- **Les erreurs d'un fichier fait ou lu sur l'appareil sont dites en clair** (lot 4), comme celles du réseau (#714) : exporter
-  en SVG, PNG, DXF, PDF, GLB (le plan, le dossier, la note de calcul, la liste d'achat, le devis, la vue 3D) ou ouvrir un
-  projet JSON, un SVG ou un modèle GLB qui échoue dit ce qui se passe et quoi faire — la bibliothèque qui ne s'est pas chargée,
-  la mémoire de l'appareil, le téléchargement bloqué, l'accélération graphique refusée, le fichier qui n'est pas du bon format
-  et lequel choisir — le message du moteur en « Détail technique », à copier (`util/erreurFichier.ts`). Avant : « Import annule -
-  fichier illisible : Unexpected token… », « Erreur export PNG: conversion en image impossible. ». Point de fumée 187.
 - **L'assistant ne change plus la lame quand on ne lui demande que l'essence.** « Passez les lames en douglas » écrivait aussi
   la lame du commerce (douglas 145 × 27), donc la largeur et l'épaisseur, des quantités que la personne n'avait pas demandées
   (demande de référence `01-lames-douglas`, rouge aux runs 43978457531 et 43978821312 de « Vérifier l'API Claude »). Le champ

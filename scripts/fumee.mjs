@@ -4012,8 +4012,11 @@ const POINTS = {
       if (auChiffrage === 'absent') echecs.push('« Partager » absent des gestes du chiffrage');
       if ((await classe(p)) === 'compact') await feuille(p, null);
       await p.evaluate(() => { window.__plan.etat().dirty = true; window.__plan.executer('vue.ajuster'); });
+      // Le partage suit les gestes qui enregistrent : « Enregistrer » puis « Enregistrer sous… » (projet.nouveau), que le lot 3 de la
+      // simplification (#726) a mis cote a cote ; l'entree vient juste apres eux, sans rien entre.
       const ids = await menuFichier(p);
-      if (ids.indexOf('projet.partager') !== ids.indexOf('projet.enregistrer') + 1) echecs.push('menu Fichier : ' + ids.slice(0, 4).join(', '));
+      const iEnregistrer = ids.indexOf('projet.enregistrer');
+      if (iEnregistrer < 0 || ids[iEnregistrer + 1] !== 'projet.nouveau' || ids[iEnregistrer + 2] !== 'projet.partager') echecs.push('menu Fichier : ' + ids.slice(0, 5).join(', '));
       await p.evaluate(() => document.querySelector('#menuFichier [data-commande="projet.partager"]')?.click());
       const boite = p.locator('.dialoguePartage');
       await boite.waitFor({ timeout: 10000 });
@@ -4062,7 +4065,7 @@ const POINTS = {
       if (stockage.includes('jeton-fumee')) echecs.push('le jeton est dans le stockage du navigateur');
       if (deborde) echecs.push('débordement');
       if (f.nom !== 'large' && petit < 44) echecs.push('bouton de ' + Math.round(petit) + ' px');
-      return `menu Fichier : partager après enregistrer ; chiffrage : ${auChiffrage} ; avertissement ${avertissement ? 'dit' : 'ABSENT'}, enregistré ${enregistre ? 'oui' : 'NON'} ; nom proposé « ${nomPropose} » ; lien ${lien.replace(/^.*#/, '#')} ; « ${phrase} » ; copié ${presse === lien ? 'oui' : 'NON'} ; Annuler : ${apresAnnuler} retrait ; Retirer : ${retraits} retrait, « ${etatFinal} »`;
+      return `menu Fichier : partager après enregistrer et enregistrer sous ; chiffrage : ${auChiffrage} ; avertissement ${avertissement ? 'dit' : 'ABSENT'}, enregistré ${enregistre ? 'oui' : 'NON'} ; nom proposé « ${nomPropose} » ; lien ${lien.replace(/^.*#/, '#')} ; « ${phrase} » ; copié ${presse === lien ? 'oui' : 'NON'} ; Annuler : ${apresAnnuler} retrait ; Retirer : ${retraits} retrait, « ${etatFinal} »`;
     }));
     const sans = await etape('sans la fonction', () => vierge({}, async (p) => {
       const ids = await menuFichier(p);
