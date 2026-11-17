@@ -1107,7 +1107,7 @@ const POINTS = {
     await boite.locator('input.promptInput').first().press('Enter');
     await page.locator('.dialogueCadastre', { hasText: 'Parcelle trouvée (2/3)' }).waitFor({ timeout: 30000 });
     await boite.getByRole('button', { name: /Parcelles voisines/ }).click();
-    await page.locator('.dialogueCadastre', { hasText: 'creation (3/3)' }).waitFor({ timeout: 30000 });
+    await page.locator('.dialogueCadastre', { hasText: 'création (3/3)' }).waitFor({ timeout: 30000 });
     // Aucune mitoyenne n'est cochee : l'import initial ne pose pas le drapeau « voisinage » de
     // toute facon (voir le point 13), et en importer une trentaine pour rien allongerait chaque
     // passage sans rien prouver.

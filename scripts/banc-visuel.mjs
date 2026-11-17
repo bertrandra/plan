@@ -55,7 +55,7 @@ async function importerAe101(page) {
   await boite.locator('input.promptInput').first().press('Enter');
   await page.locator('.dialogueCadastre', { hasText: 'Parcelle trouvée (2/3)' }).waitFor({ timeout: 30000 });
   await boite.getByRole('button', { name: /Parcelles voisines/ }).click();
-  await page.locator('.dialogueCadastre', { hasText: 'creation (3/3)' }).waitFor({ timeout: 30000 });
+  await page.locator('.dialogueCadastre', { hasText: 'création (3/3)' }).waitFor({ timeout: 30000 });
   await boite.getByRole('button', { name: /Créer le projet/ }).click();
   await page.waitForFunction((n) => !document.querySelector('.dialogueCadastre') && !!window.__plan?.etat && window.__plan.etat().objects.length !== n, avant, { timeout: 120000 });
   await page.waitForTimeout(500);
