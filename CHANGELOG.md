@@ -5,6 +5,36 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.36.0] — 2026-11-17
+
+Version **mineure** au sens de `MD/RELEASE.md` : le lot 4 de la simplification de l'IHM ajoute un geste (§2.1 : « new feature »),
+**Rétablir** (#732, la commande `objet.retablir`, avec Suppr et la liste des raccourcis du menu Aide), et corrige des textes sans
+changer un nombre ni un octet exporté (§2.1 : « fixing a French label », PATCH) : les erreurs d'un fichier dites en clair (#734),
+les textes de l'écran avec leurs accents, le vouvoiement, la virgule décimale, « Nomenclature » et « Côté n » (#737), et le point
+de fumée 167 qui suit le menu Fichier du lot 3 (#738, l'application ne change pas). Le plus fort de ces changements donne le
+numéro : mineure. Rien n'est retiré ni mis derrière un droit. Aucune quantité ni aucun export ne bouge : avant le changement de
+numéro, le code de `main` (05ad195c) régénère les témoins de la 5.35.0 au bit près — #737 ne touche que l'écran, le résumé exporté
+garde « Cote n » et les libellés du moteur restent sans accents dans les PDF, le DXF, le SVG et le CSV — ; les neuf témoins qui
+portent le numéro ne changent qu'à lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur neuf,
+`tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et
+`glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau. Ni `deploy/`, ni
+`regles/`, ni `banc/` ne changent depuis la 5.35.0. Requêtes vérifiées sur main après #738 avec les dix demandes de l'assistant,
+la requête témoin ayant été régénérée par #737 (« Rive · Côté n ») : run 44001744276 de « Vérifier l'API Claude » (plafond
+0,10 $), 9 requêtes sur 9 acceptées, dix listes justes sur dix, 0,038 $ ; prompts et schémas inchangés.
+
+**À faire en production, dans cet ordre, avant de déposer cette livraison** (le lot 4 ne demande rien de plus ; ce qui suit reste
+des versions précédentes, si ce n'est pas déjà fait) :
+
+- appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` : le schéma 16 de la 5.19.0 doit être
+  accepté par la plateforme ;
+- appliquer la migration de la plateforme `Version20261116090000` (liens de partage, backprod #256, ADR-073) : sans elle, « Partager
+  par un lien… » et l'ouverture d'un lien partagé échouent ;
+- publier une version d'offre qui accorde la fonction `project_sharing` avant que quiconque puisse partager (sans elle, la commande
+  reste effacée : c'est voulu) ;
+- déposer le `.htaccess` de la livraison (`deploy/htaccess.template` : `Referrer-Policy: no-referrer` et `X-Robots-Tag: noindex`
+  sur une adresse avec `?product=`) ;
+- rappel : le `api.php` du banc demande à l'hébergement le cURL sortant en HTTPS (depuis la 5.30.0).
+
 ### Ajouté
 
 - **Rétablir** (Ctrl+Y, ou Ctrl+Maj+Z) refait le dernier pas défait du plan, par la commande `objet.retablir` : un bouton à côté
