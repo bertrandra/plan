@@ -7,7 +7,7 @@
     --stage-bg:#F1EBDC; --stage-trame:#D9CDB2; --panel-bg:#FFFDF8; --panel-2:#F7F2E7;
     --segment-bg:#F1EBDC; --input-bg:#FFFDF8; --border:#E4D9C1; --rule:#D9CDB2; --hairline:#EFE6D3; --relief:#8C6B3F;
     --accent:#7A5C31; --on-accent:#FFFDF8; --accent-light:#EFE3C8; --on-accent-light:#5E4623;
-    --on-ink:#FFFDF8; --ok:#3F7A4A; --danger:#8E2A1C; --danger-bg:#FBF1EE; --alerte:#A8442F;
+    --on-ink:#FFFDF8; --ok:#3F7A4A; --danger:#8E2A1C; --danger-bg:#FBF1EE; --alerte:#A8442F; --ecart-plu:#A34A08;
     --insertion:#1F5FA8; --on-insertion:#FFFDF8; --insertion-bg:#E4EEF9;
     --toast-bg:#2B2117; --on-toast:#FFFDF8; --fond-3d:#DFE7EA; --trait-3d:#1E1812;
     --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
@@ -34,7 +34,7 @@
       --stage-bg:#1C1610; --stage-trame:#3A2F22; --panel-bg:#262017; --panel-2:#2F271C;
       --segment-bg:#1C1610; --input-bg:#2F271C; --border:#3E3325; --rule:#4A3F30; --hairline:#332A1F; --relief:#C9A97A;
       --accent:#E0B564; --on-accent:#1C1610; --accent-light:#4A3B22; --on-accent-light:#F1D9A6;
-      --on-ink:#1C1610; --ok:#6BBF7A; --danger:#F2A493; --danger-bg:#3A1E18; --alerte:#E08A6E;
+      --on-ink:#1C1610; --ok:#6BBF7A; --danger:#F2A493; --danger-bg:#3A1E18; --alerte:#E08A6E; --ecart-plu:#F2A65A;
       --insertion:#7DB4F0; --on-insertion:#1C1610; --insertion-bg:#1D2B3B;
       --toast-bg:#F1E7D0; --on-toast:#1C1610; --fond-3d:#1F2426; --trait-3d:#120E0A;
       --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
@@ -881,10 +881,27 @@
   .pluCitation{ margin:4px 0; padding:2px 0 2px 8px; border-left:2px solid var(--rule); font-family:var(--serif); font-style:italic; font-size:0.78rem; overflow-wrap:anywhere; }
   .pluVerdicts{ list-style:none; margin:6px 0 0; padding:0; }
   .pluVerdict{ padding:4px 0 4px 8px; border-left:3px solid var(--hairline); font-size:0.8rem; margin-bottom:4px; overflow-wrap:anywhere; }
-  .pluVerdict-ecart{ border-left-color:var(--alerte); }
   .pluVerdict-a-verifier{ border-left-color:var(--rule); }
   .pluVerdict-conforme{ border-left-color:var(--ok); }
   .pluAlerte{ border-left:3px solid var(--alerte); padding-left:6px; }
+  /* Un verdict qui vise un objet est un bouton : il garde l'allure du texte, et le filet de gauche s'epaissit quand l'objet est choisi. */
+  .pluVerdictObjet{ display:block; width:100%; min-height:32px; padding:0; border:none; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; border-radius:0; }
+  .pluVerdictObjet:hover{ background:var(--accent-light); color:var(--on-accent-light); }
+  .pluVerdict.choisi{ border-left-width:5px; background:var(--panel-2); }
+  .pluVerdict-ecart{ border-left-color:var(--ecart-plu); }
+  html[data-classe="compact"] .pluVerdictObjet, html[data-classe="moyen"] .pluVerdictObjet{ min-height:44px; }
+  /* Le nombre d'ecarts sur l'onglet PLU : une pastille a la couleur de l'ecart, le nombre ecrit (et dit dans le nom de l'onglet). */
+  .pastilleOnglet{ display:inline-block; min-width:18px; margin-left:6px; padding:0 5px; border-radius:999px; background:var(--ecart-plu); color:var(--paper);
+    font-family:var(--sans); font-size:0.68rem; font-weight:700; line-height:18px; text-align:center; font-variant-numeric:tabular-nums; }
+  /* « Quelle formalite pour ce projet ? » (onglet PLU, dialogue de la declaration) : un encart, la reponse en serif, ses raisons en liste. */
+  .formalite{ margin:8px 0 10px; padding:8px 10px; border:1px solid var(--border); border-left:4px solid var(--rule); border-radius:var(--r-champ); background:var(--panel-2); }
+  .formalite-declaration, .formalite-a-verifier{ border-left-color:var(--alerte); }
+  .formalite-permis{ border-left-color:var(--ecart-plu); }
+  .formalite-aucune{ border-left-color:var(--ok); }
+  .formaliteTitre{ font-family:var(--sans); font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .formaliteReponse{ margin:4px 0 0; font-family:var(--serif); font-size:0.9rem; color:var(--ink); }
+  .formaliteRaisons{ margin:6px 0 0; padding-left:18px; font-size:0.8rem; color:var(--ink); overflow-wrap:anywhere; }
+  .formaliteRaisons li{ margin-bottom:3px; }
   html[data-classe="compact"] .pluCase, html[data-classe="moyen"] .pluCase{ min-height:44px; }
   html[data-classe="compact"] .pluFaits td:first-child{ width:6rem; }
   input.saisieEstimee{ opacity:0.7; }

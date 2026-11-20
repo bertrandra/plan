@@ -13,7 +13,7 @@
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
   | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
-  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'insertion' | 'on-insertion' | 'insertion-bg' | 'toast-bg' | 'on-toast' | 'fond-3d' | 'trait-3d'
+  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'ecart-plu' | 'insertion' | 'on-insertion' | 'insertion-bg' | 'toast-bg' | 'on-toast' | 'fond-3d' | 'trait-3d'
   | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte' | 'serie-1' | 'serie-2' | 'serie-3'
   | 'claude-angles' | 'claude-pointe' | 'claude-forme' | 'claude-appentis' | 'claude-corps' | 'claude-element' | 'claude-cache'
   | 'claude-parement' | 'claude-zone' | 'claude-ouverture';
@@ -44,6 +44,9 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'danger': '#8E2A1C',
     'danger-bg': '#FBF1EE',
     'alerte': '#A8442F',
+    // Un ecart au PLU signale sur le plan (render/pluOverlay.ts) et compte sur l'onglet PLU : un orange brule, a part du brun de
+    // l'accent (la selection) et du rouge du danger (une erreur). Toujours avec le mot « PLU » ou un nombre : la couleur ne porte rien seule.
+    'ecart-plu': '#A34A08',
     // L'insertion du mode Toit (une piece armee qui attend son toucher) : un bleu qui ne se confond pas avec le bois de l'accent, qui dit
     // « modification » (retour du proprietaire, 8 novembre 2026). Toujours avec le mot « Insertion » : la couleur ne porte rien seule.
     'insertion': '#1F5FA8',
@@ -106,6 +109,7 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'danger': '#F2A493',
     'danger-bg': '#3A1E18',
     'alerte': '#E08A6E',
+    'ecart-plu': '#F2A65A',
     'insertion': '#7DB4F0',
     'on-insertion': '#1C1610',
     'insertion-bg': '#1D2B3B',
@@ -174,6 +178,7 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'on-accent-light': { famille: 'accent', role: 'Texte sur l’accent doux' },
   'ok': { famille: 'etats', role: 'Enregistré, réussi' },
   'alerte': { famille: 'etats', role: 'Bordure des alertes' },
+  'ecart-plu': { famille: 'etats', role: 'Écart au PLU : marqueur sur le plan, pastille de l’onglet PLU' },
   'danger': { famille: 'etats', role: 'Suppression, erreurs' },
   'danger-bg': { famille: 'etats', role: 'Fond d’une erreur' },
   'insertion': { famille: 'etats', role: 'Insertion en cours (mode Toit) : indicateur, pièce armée, cadre de la scène' },
@@ -269,6 +274,9 @@ export const PAIRES_CONTRASTE: [NomJeton, NomJeton, number][] = [
   ['relief', 'stage-bg', 3],
   ['ok', 'panel-bg', 3],
   ['alerte', 'panel-bg', 3],
+  ['ecart-plu', 'stage-bg', 4.5],
+  ['ecart-plu', 'panel-bg', 4.5],
+  ['paper', 'ecart-plu', 4.5],
   ['on-insertion', 'insertion', 4.5],
   ['insertion', 'panel-bg', 4.5],
   ['ink', 'insertion-bg', 4.5],

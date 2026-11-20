@@ -9,6 +9,10 @@
 //   - les hauteurs (egout, faitage ou point le plus haut, annexes), les reculs depuis la voie et les limites separatives (les cotes de
 //     la parcelle que la cloture designe « sur rue » sont la voie), l'emprise au sol et la part d'espaces verts de la parcelle, la pente
 //     et la couverture des toits, la hauteur de la cloture ;
+//   - une terrasse du projet dont le dessus passe le seuil `plu.terrasseSureleveeM` au-dessus du sol : de plain-pied, elle ne cree pas
+//     d'emprise au sol et aucun recul ne la vise ; surelevee, elle en cree en general et le PLU peut lui imposer des reculs. Aucun
+//     texte national ne fixe ce seuil (0,60 m est l'usage) : elle entre dans les reculs et l'emprise, et son verdict dit que la
+//     regle est a confirmer aupres de la mairie. Sous le seuil, rien ne change ;
 //   - ce qui ne se mesure pas sur le plan (couleurs, haies, stationnement, une regle sans nombre) : « à vérifier », avec sa citation.
 // Un fait qui porte une condition (« en limite séparative », « annexes de moins de 20 m² ») s'applique sans que la regle sache la lire :
 // son verdict le dit, et la personne juge.
@@ -17,9 +21,10 @@ import { dist, pointInPolygon, shoelace } from '../../../geometry/basic.js';
 import { au } from '../../../util/tableaux.js';
 import { aireCommune } from '../../../geometry/polygon.js';
 import { calculerPergola } from '../../abri/pergola.js';
-import { solDuProjet } from '../../sol.js';
+import { solDuProjet, solSousEmprise } from '../../sol.js';
+import { dessusTerrasseM } from '../../hauteurs.js';
 import { coteRegle, hauteurTotale, reglageDuCote } from '../../../model/cloture.js';
-import { estAbri, estBati, estPoseSurLeTerrain, estTerrain, occupeLeSol, parcelleDuProjet } from '../../../model/fonctions.js';
+import { estAbri, estBati, estExistant, estPoseSurLeTerrain, estTerrain, estTerrasse, occupeLeSol, parcelleDuProjet } from '../../../model/fonctions.js';
 import { ANNEXE, MASSIF, ouvrage } from '../../../model/ouvrages/index.js';
 import { hauteurAuPointLePlusHaut, penteDuToit } from '../../../model/volumesToit.js';
 import { elevationParDefaut } from '../../../model/defaults.js';
@@ -40,6 +45,11 @@ export interface VerdictPlu {
   mesure: number | null;
   /** La phrase de l'ecran, au vouvoiement, avec la mesure et la valeur du fait. */
   message: string;
+  /**
+   * Pour un recul : le segment mesure, du point de l'ouvrage le plus proche de la limite au point de cette limite, en metres du
+   * plan. Le plan le dessine sous un ecart (render/pluOverlay.ts) ; absent quand l'ouvrage deborde de la parcelle (recul nul).
+   */
+  trace?: { de: PtBrut; vers: PtBrut };
 }
 
 export interface ConformitePlu {
@@ -52,30 +62,52 @@ export interface ConformitePlu {
 }
 
 const fr = (v: number, d = 2): string => String(Math.round(v * 10 ** d) / 10 ** d).replace('.', ',');
+/** Une hauteur au centimetre, zeros gardes : « 0,60 m ». */
+const frFixe = (v: number): string => v.toFixed(2).replace('.', ',');
 const nom = (o: ObjetPlan): string => o.name || ouvrage(o.fonction).libelle;
 const avecCondition = (f: FaitPlu, phrase: string): string => (f.condition ? phrase + ' La règle vaut « ' + f.condition + ' » : vérifiez qu’elle s’applique à cet ouvrage.' : phrase);
 
-/** La distance d'un point a un segment. */
-function distanceSegment(p: PtBrut, a: PtBrut, b: PtBrut): number {
+/** Le point d'un segment le plus proche d'un point. */
+function projete(p: PtBrut, a: PtBrut, b: PtBrut): PtBrut {
   const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
   const t = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
-  return dist(p, { x: a.x + t * dx, y: a.y + t * dy });
+  return { x: a.x + t * dx, y: a.y + t * dy };
 }
 
+/** Le plus court chemin d'une emprise a un cote de la parcelle, de l'emprise (`de`) vers le cote (`vers`), et sa longueur. */
+export interface Ecartement { d: number; de: PtBrut; vers: PtBrut }
+
 /** La plus petite distance d'une emprise a un cote de la parcelle (sommets de l'une contre cotes de l'autre, dans les deux sens). */
-function distanceAuCote(emprise: readonly PtBrut[], a: PtBrut, b: PtBrut): number {
-  let d = Infinity;
-  for (const p of emprise) d = Math.min(d, distanceSegment(p, a, b));
+function ecartementAuCote(emprise: readonly PtBrut[], a: PtBrut, b: PtBrut): Ecartement {
+  let m: Ecartement = { d: Infinity, de: a, vers: a };
+  const garder = (de: PtBrut, vers: PtBrut) => { const d = dist(de, vers); if (d < m.d) m = { d, de, vers }; };
+  for (const p of emprise) garder(p, projete(p, a, b));
   for (let i = 0; i < emprise.length; i++) {
     const p = au(emprise, i), q = au(emprise, (i + 1) % emprise.length);
-    d = Math.min(d, distanceSegment(a, p, q), distanceSegment(b, p, q));
+    garder(projete(a, p, q), a); garder(projete(b, p, q), b);
   }
-  return d;
+  return m;
 }
 
 /** Les ouvrages du projet : ni le terrain, ni ce que le cadastre ou l'IGN ont pose ; du bati ou un abri, en polygone. */
 export function ouvragesDuProjet(objets: readonly ObjetPlan[]): ObjetAPoints[] {
   return objets.filter((o): o is ObjetAPoints => !estTerrain(o) && !estPoseSurLeTerrain(o) && !o.voisinage && o.type === 'polygon' && (estBati(o) || estAbri(o)));
+}
+
+/** La hauteur du dessus d'une terrasse au-dessus du sol, la ou il est le plus bas sous elle (sans relief : sa hauteur finie). */
+export function hauteurTerrasseSurSolM(o: ObjetAPoints, objets: readonly ObjetPlan[]): number {
+  const sol = solDuProjet(objets);
+  return dessusTerrasseM(o, sol) - (solSousEmprise(sol, o.pts)?.zBas ?? 0);
+}
+
+/**
+ * Les terrasses surelevees : leur dessus passe le seuil `plu.terrasseSureleveeM` au-dessus du sol. Toutes celles du plan comptent
+ * dans l'emprise ; seules celles du projet (ni lues sur la photo aerienne, ni chez un voisin) sont controlees pour leurs reculs.
+ */
+export function terrassesSurelevees(objets: readonly ObjetPlan[], reglages: ReglagesPlu = REGLAGES_PLU): { objet: ObjetAPoints; hauteur: number; duProjet: boolean }[] {
+  return objets.filter((o): o is ObjetAPoints => estTerrasse(o) && o.type === 'polygon' && !o.voisinage)
+    .map((o) => ({ objet: o, hauteur: hauteurTerrasseSurSolM(o, objets), duProjet: !estExistant(o) && !estPoseSurLeTerrain(o) }))
+    .filter((t) => t.hauteur > reglages['plu.terrasseSureleveeM']);
 }
 
 /** La hauteur a l'egout d'un ouvrage du projet (un abri n'en a pas : null). */
@@ -98,17 +130,26 @@ export function conformitePlu(objets: readonly ObjetPlan[], reglement: Reglement
   const zones = (parcelle?.plu?.zones ?? []).map((z) => z.libelle);
   const zoneChangee = !!reglement && zones.length > 0 && !zones.includes(reglement.zone);
   const ouvrages = ouvragesDuProjet(objets);
+  // Les terrasses surelevees : celles du projet suivent les ouvrages dans les reculs, toutes entrent dans l'emprise.
+  const surelevees = terrassesSurelevees(objets, reglages);
+  const hauteurSurelevee = new Map(surelevees.map((t) => [t.objet.key, t.hauteur]));
+  const seuilTerrasse = reglages['plu.terrasseSureleveeM'];
+  const implantes = [...ouvrages, ...surelevees.filter((t) => t.duProjet).map((t) => t.objet)];
   const tolH = reglages['plu.toleranceHauteurM'], tolD = reglages['plu.toleranceDistanceM'], tolP = reglages['plu.tolerancePart'], tolA = reglages['plu.toleranceAngleDeg'];
-  const pousser = (f: FaitPlu, objet: string | null, etat: EtatVerdictPlu, mesure: number | null, message: string) => verdicts.push({ fait: f.id, objet, etat, mesure, message });
+  const pousser = (f: FaitPlu, objet: string | null, etat: EtatVerdictPlu, mesure: number | null, message: string, trace?: VerdictPlu['trace']) =>
+    verdicts.push({ fait: f.id, objet, etat, mesure, message, ...(trace ? { trace } : {}) });
   const aVerifier = (f: FaitPlu, pourquoi: string) => pousser(f, null, 'a-verifier', null, pourquoi);
   /** Un maximum (ou un minimum) compare a une mesure, objet par objet. */
-  const comparer = (f: FaitPlu, o: ObjetPlan | null, mesure: number, sens: 'max' | 'min', tol: number, quoi: string, unite: string) => {
+  const comparer = (f: FaitPlu, o: ObjetPlan | null, mesure: number, sens: 'max' | 'min', tol: number, quoi: string, unite: string, trace?: VerdictPlu['trace']) => {
     const seuil = f.valeur as number;
     const ok = sens === 'max' ? mesure <= seuil + tol : mesure >= seuil - tol;
     const sujet = o ? nom(o) + ' : ' : '';
-    pousser(f, o?.key ?? null, ok ? 'conforme' : 'ecart', mesure, ok
+    // Une terrasse surelevee : le verdict dit pourquoi elle est controlee, et que la regle est a confirmer.
+    const h = o ? hauteurSurelevee.get(o.key) : undefined;
+    const surelevee = h === undefined ? '' : ' Terrasse surélevée (dessus à ' + frFixe(h) + ' m du sol, plus de ' + frFixe(seuilTerrasse) + ' m) : une terrasse de plain-pied n’est pas concernée, et pour celle-ci la règle est à confirmer auprès de la mairie.';
+    pousser(f, o?.key ?? null, ok ? 'conforme' : 'ecart', mesure, (ok
       ? sujet + quoi + ' ' + fr(mesure) + unite + ', ' + (sens === 'max' ? 'au plus ' : 'au moins ') + valeurLisible(f) + ' (' + f.article + ').'
-      : avecCondition(f, sujet + quoi + ' ' + fr(mesure) + unite + (sens === 'max' ? ' dépasse ' : ' n’atteint pas ') + valeurLisible(f) + ' (' + f.article + ').'));
+      : avecCondition(f, sujet + quoi + ' ' + fr(mesure) + unite + (sens === 'max' ? ' dépasse ' : ' n’atteint pas ') + valeurLisible(f) + ' (' + f.article + ').')) + surelevee, trace);
   };
 
   // Les cotes de la parcelle, et ceux que la cloture designe sur rue.
@@ -137,13 +178,13 @@ export function conformitePlu(objets: readonly ObjetPlan[], reglement: Reglement
       case 'recul-limites-min': {
         if (!contour) { aVerifier(f, 'La parcelle n’a pas de contour : le recul ne se mesure pas.'); break; }
         const voie = f.grandeur === 'recul-voie-min';
-        if (voie && !surRue.length) { if (ouvrages.length) aVerifier(f, 'Désignez le côté sur rue dans la clôture de la parcelle (« Limite : rue ») pour mesurer le recul depuis la voie.'); break; }
+        if (voie && !surRue.length) { if (implantes.length) aVerifier(f, 'Désignez le côté sur rue dans la clôture de la parcelle (« Limite : rue ») pour mesurer le recul depuis la voie.'); break; }
         const limites = voie ? surRue : separatifs;
-        for (const o of ouvrages) {
-          const d = Math.min(...limites.map((c) => distanceAuCote(o.pts, c.a, c.b)));
+        for (const o of implantes) {
+          const e = limites.map((c) => ecartementAuCote(o.pts, c.a, c.b)).reduce((m, x) => (x.d < m.d ? x : m));
           // Un ouvrage qui deborde de la parcelle est sur la limite : son recul est nul.
           const dedans = o.pts.every((p) => pointInPolygon(p, contour));
-          comparer(f, o, dedans ? d : 0, 'min', tolD, voie ? 'recul depuis la voie' : 'recul des limites séparatives', ' m');
+          comparer(f, o, dedans ? e.d : 0, 'min', tolD, voie ? 'recul depuis la voie' : 'recul des limites séparatives', ' m', dedans ? { de: e.de, vers: e.vers } : undefined);
         }
         break;
       }
@@ -160,8 +201,12 @@ export function conformitePlu(objets: readonly ObjetPlan[], reglement: Reglement
         const surLaParcelle = (o: ObjetPlan) => o !== parcelle && !estTerrain(o) && (o.type === 'polygon' || o.type === 'circle');
         const surface = (o: ObjetPlan) => aireCommune(contourDe(o), contour);
         if (f.grandeur === 'emprise-max') {
-          const emprise = objets.filter((o) => surLaParcelle(o) && (estBati(o) || estAbri(o))).reduce((s, o) => s + surface(o), 0);
-          comparer(f, null, (100 * emprise) / aire, 'max', 100 * tolP, 'Emprise au sol du bâti et des abris dans la parcelle (existant compris)', ' %');
+          const hautes = surelevees.map((t) => t.objet);
+          const emprise = [...objets.filter((o) => surLaParcelle(o) && (estBati(o) || estAbri(o))), ...hautes].reduce((s, o) => s + surface(o), 0);
+          comparer(f, null, (100 * emprise) / aire, 'max', 100 * tolP, hautes.length
+            ? 'Emprise au sol du bâti, des abris et de ' + (hautes.length > 1 ? hautes.length + ' terrasses surélevées' : 'la terrasse surélevée « ' + nom(au(hautes, 0)) + ' »')
+              + ' (dessus à plus de ' + frFixe(seuilTerrasse) + ' m du sol : à confirmer auprès de la mairie) dans la parcelle (existant compris)'
+            : 'Emprise au sol du bâti et des abris dans la parcelle (existant compris)', ' %');
         } else {
           const occupee = objets.filter((o) => surLaParcelle(o) && occupeLeSol(o) && ouvrage(o.fonction) !== MASSIF).reduce((s, o) => s + surface(o), 0);
           comparer(f, null, Math.max(0, (100 * (aire - occupee)) / aire), 'min', 100 * tolP, 'Part de la parcelle qu’aucun objet du plan n’occupe (estimation des espaces verts)', ' %');

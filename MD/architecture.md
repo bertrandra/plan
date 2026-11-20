@@ -484,7 +484,8 @@ lists the engine, and nothing else lives in those folders.
 ```
 regles/                      data, the JSON the engine reads (repository root, compiled in the build)
   toits/{reglages,faits,formes,silhouettes}.json   facades/{reglages,detection,structure,texture,enchainement,ia}.json   conformite.json   reconciliation.json   jardin/reglages.json
-  plu/reglages.json          the PLU reading and check thresholds (lot L4): pages sent to Claude, rounding tolerances
+  plu/reglages.json          the PLU reading and check thresholds (lot L4): pages sent to Claude, rounding tolerances, the raised-terrace
+                             height and the national thresholds of the planning formality (`formalite.*`)
 src/regles/                  layer 2 — contract and validated data, pure
   decisions.ts               what a decision writes (Proposition, EffetProposition), applied in one history step
   toits/{reglages,profils,faits,formes,silhouettes}.ts    facades/reglages.ts    conformite.ts    reconciliation.ts
@@ -542,6 +543,15 @@ because they read the works' heights, the pergola's regulatory height and the cl
 only. Their verdicts are warnings in the PLU tab of the drawer (« Conformité PLU »); no export, quantity or command reads them. The
 reading keeps the règlement's address, the pages sent, the SHA-256 of the excerpt and of the document, the raw answer, model, versions and
 cost, so it can be re-read and compared.
+The same verdicts are also shown where they are: a screen-only layer (`render/pluOverlay.ts`, guarded by `app/plu/calquePlu.ts`) marks
+each work in breach on the plan and draws the measured setback to the boundary, and the PLU tab carries the number of breaches; the
+verdicts are computed once per write (`app/plu/conformiteDuPlan.ts`), so a moved work is re-checked on the next render. No export draws
+that layer. A terrace whose deck stands more than `plu.terrasseSureleveeM` above the ground (0.60 m by default, a custom rather than a
+legal text, and the verdict says so) joins the setback and footprint checks; a ground-level terrace does not. Beside it,
+`engine/regles/plu/formalite.ts` answers « quelle formalité pour ce projet ? » from the national thresholds (`formalite.*` in the same
+settings file): none, a déclaration préalable or a permis, with its reasons, or « à vérifier en mairie » when the national rules do not
+settle the case with what the plan knows. It is an indication shown at the head of the déclaration dialog and in the PLU tab, never an
+authorisation, and no export reads it (the cerfa keeps its own regime, `export/cerfa13703.ts`).
 
 **The written pieces (lot L5).** A draft is not a fact either: Claude writes it from the project's facts (`export/faitsDossier.ts`,
 usage `texte`), the person corrects and validates it, and only a validated text reaches the export — verbatim, every time. It lives on the

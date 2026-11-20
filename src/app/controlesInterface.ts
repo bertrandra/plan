@@ -164,6 +164,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'tiroir.onglet': { libelle: 'Onglet du tiroir', zone: Z6, nature: 'navigation', repete: true },
   'tiroir.hauteur': { libelle: 'Hauteur du tiroir', zone: Z6, nature: 'navigation', repete: true },
   'tiroir.terrasseSuivante': { libelle: 'Passer à la terrasse suivante', zone: Z6, nature: 'navigation' },
+  'plu.selectionnerObjet': { libelle: 'Sélectionner l’objet du verdict', zone: Z6, nature: 'navigation', repete: true, description: 'Un verdict de la conformité au PLU qui vise un objet le sélectionne sur le plan' },
   'tiroir.voirNomenclature': { libelle: 'Voir la nomenclature de la terrasse', zone: Z6, nature: 'navigation' },
   'nomenclature.longueurs': { libelle: 'Longueurs disponibles', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },
   'nomenclature.prix': { libelle: 'Prix (barre, m², unité, réel)', zone: Z6, nature: 'donnee', repete: true, ecrit: SAISIE },

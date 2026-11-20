@@ -71,6 +71,11 @@ describe('les reglages du PLU (regles/plu/reglages.json)', () => {
     expect(() => lireReglagesPlu(avec('plu.pagesMax', 2.5))).toThrow(/pagesMax/);
     expect(() => lireReglagesPlu(avec('plu.toleranceHauteurM', 3))).toThrow(/toleranceHauteurM/);
     expect(() => lireReglagesPlu(avec('plu.inconnu', 1))).toThrow(/inconnu/);
+    // La terrasse surelevee et les seuils nationaux de la formalite : livres, et bornes comme les autres.
+    expect(REGLAGES_PLU['plu.terrasseSureleveeM']).toBe(0.6);
+    expect([REGLAGES_PLU['formalite.empriseSansFormaliteM2'], REGLAGES_PLU['formalite.empriseDeclarationM2'], REGLAGES_PLU['formalite.empriseExtensionZoneUrbaineM2']]).toEqual([5, 20, 40]);
+    expect(() => lireReglagesPlu(avec('plu.terrasseSureleveeM', 0))).toThrow(/terrasseSureleveeM/);
+    expect(() => lireReglagesPlu(avec('formalite.empriseDeclarationM2', 400))).toThrow(/empriseDeclarationM2/);
     expect(() => lireReglagesPlu({ format: 'autre' })).toThrow(/format/);
   });
 });
