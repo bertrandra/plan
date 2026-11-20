@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Banc d'apprentissage : « Entraîner dans Colab », l'aller-retour en cinq gestes au lieu d'une quinzaine** (demande du
+  propriétaire, 20 novembre 2026 : « moins de gestes entre l'export et le dépôt du modèle »). À l'étape 6, un bouton fige le jeu sur
+  le serveur du banc, crée une **clé d'entraînement** et télécharge un carnet `.ipynb` déjà rempli. Dans Google Colab, « Tout
+  exécuter » : le carnet lit lui-même le jeu sur le banc (plus de zip à envoyer), entraîne, mesure le test, exporte l'ONNX et le
+  dépose lui-même, avec ses noms, sa résolution, son architecture et son bilan (mAP par type). À l'étape 3, le modèle apparaît tout
+  seul, inactif, ses noms déjà reliés aux types du banc ; sa carte dit d'où il vient (date, jeu, mAP) et il ne reste qu'à
+  l'activer. Le parcours à la main (le zip, son carnet, le dépôt avec les noms) reste tel quel, et le carnet de la clé s'y replie si
+  son dépôt échoue. RF-DETR (Apache 2.0) reste le choix par défaut, les YOLO d'Ultralytics en option avec leur avertissement
+  AGPL-3.0. La clé : 32 octets tirés au hasard, gardée hachée, jamais dans une adresse ni dans un journal, valable 24 h, révocable
+  depuis l'écran ; elle ne permet que de lire le jeu de son export et de déposer **un** modèle (128 Mo au plus, par morceaux, un
+  fichier ONNX vérifié sans être exécuté, rangé hors de `public_html/` sous un nom choisi par le serveur, métadonnées validées champ
+  par champ) ; aucune autre route de l'API ne l'accepte. Garde-fous essayés un à un (`banc/tests/jetons.test.ts`), fumée du banc
+  étendue, `banc/LISEZMOI.md` (« La clé d'entraînement »). **L'entraînement réel dans Colab n'a pas été joué** : à vérifier une fois
+  par le propriétaire. Rien de Plan ne change (ni quantité, ni export).
+
 ## [5.36.0] — 2026-11-17
 
 Version **mineure** au sens de `MD/RELEASE.md` : le lot 4 de la simplification de l'IHM ajoute un geste (§2.1 : « new feature »),

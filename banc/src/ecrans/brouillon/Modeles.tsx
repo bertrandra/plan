@@ -1,11 +1,13 @@
 // Les modeles du brouillon (etape 3) : ceux du depot facade a installer, les votres a deposer ; chacun actif ou non, son seuil, et la
-// correspondance de ses classes vers celles du banc.
+// correspondance de ses classes vers celles du banc. Un modele depose par un carnet d'entrainement (etape 6) arrive ici tout seul,
+// inactif, avec ses noms deja relies et sa resolution : la carte dit d'ou il vient (date, jeu, mAP) et il ne reste qu'a l'activer.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Banc } from '../../App.js';
 import { api } from '../../api.js';
 import { correspondanceParDefaut } from '../../brouillon.js';
 import { choixDeCreation } from '../../classes.js';
+import { bilanParType, decimal, origineDuModele } from '../../colab.js';
 import type { Modele } from '../../types.js';
 import { Icone } from '../../ui/Icones.js';
 import { Section } from '../../ui/Page.js';
@@ -16,6 +18,15 @@ export function Modeles({ banc }: { banc: Banc }) {
     setAttente(id);
     try { await f(); await banc.relire(); } catch (e) { banc.dire((e as Error).message, 'erreur'); } finally { setAttente(null); }
   };
+  // Un carnet a pu deposer un modele pendant que la page etait ouverte : relu a l'ouverture de l'ecran et en revenant sur la page.
+  const { relireModeles } = banc;
+  useEffect(() => {
+    void relireModeles();
+    const revenir = () => { if (document.visibilityState === 'visible') void relireModeles(); };
+    addEventListener('focus', revenir);
+    document.addEventListener('visibilitychange', revenir);
+    return () => { removeEventListener('focus', revenir); document.removeEventListener('visibilitychange', revenir); };
+  }, [relireModeles]);
   const actifs = banc.modeles.filter((m) => m.installe && m.actif !== false).length;
   return (
     <>
@@ -26,11 +37,18 @@ export function Modeles({ banc }: { banc: Banc }) {
             <li key={m.id} className={'carte-modele' + (m.installe && m.actif !== false ? ' actif' : '') + (m.installe ? '' : ' absent')}>
               <header>
                 {m.installe ? <label className="interrupteur" title={m.actif !== false ? 'Actif : le brouillon l’utilise' : 'Inactif'}><input type="checkbox" checked={m.actif !== false} onChange={(e) => { void agir(m.id, () => api.modifierModele(m.id, { actif: e.target.checked })); }} /><span /></label> : null}
-                <div className="titres-modele"><strong>{m.nom}</strong><small>{m.format} · {m.classes.length} classe(s)</small></div>
+                <div className="titres-modele"><strong>{m.nom}</strong><small>{m.format}{m.resolution ? ` · ${m.resolution} px` : ''} · {m.classes.length} classe(s)</small></div>
                 <span className="espace" />
                 {!m.installe && m.catalogue ? <button type="button" className="principal" disabled={attente === m.id} onClick={() => { void agir(m.id, () => api.installer(m.id)); }}>{attente === m.id ? 'Téléchargement…' : 'Installer'}</button>
                   : <button type="button" className="discret" title="Retirer ce modèle" aria-label="Retirer ce modèle" onClick={() => { if (confirm('Retirer ce modèle ?')) void agir(m.id, () => api.supprimerModele(m.id)); }}><Icone nom="poubelle" /></button>}
               </header>
+              {m.depot && <p className="origine-modele">{origineDuModele(m.depot)}{m.installe && m.actif === false && <> · <b>à activer</b></>}</p>}
+              {m.depot && bilanParType(m.depot).length > 0 && (
+                <details className="correspondances bilan-modele">
+                  <summary>mAP par type, sur le bloc test ({bilanParType(m.depot).length})</summary>
+                  <ul>{bilanParType(m.depot).map((t) => <li key={t.nom}><code>{t.nom}</code> <span>{decimal(t.map)}</span></li>)}</ul>
+                </details>
+              )}
               {m.installe && <>
                 <label className="seuil-modele">Seuil <input type="number" min={0.05} max={0.95} step={0.05} defaultValue={m.seuil} onBlur={(e) => { const s = Number(e.target.value); if (s !== m.seuil) void agir(m.id, () => api.modifierModele(m.id, { seuil: s })); }} /></label>
                 <details className="correspondances">

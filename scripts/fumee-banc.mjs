@@ -9,6 +9,8 @@
 // l'apercu des facades d'un point (survole a la souris, touche au doigt), la fenetre « Choisir les vues », l'import d'une photo (201,
 // le compteur du banc monte), puis l'ecran d'equilibre du jeu (les vues importees comptees dans leur departement, et sur sa carte),
 // puis le redressement (les gestes de chaque carte en icones, une photo jetable supprimee, rendue par « Annuler », supprimee pour de bon).
+// puis l'aller-retour Colab (etape 6 : la cle d'entrainement creee, son carnet telecharge, listee, revoquee ; le script tient le role du
+// carnet et depose un faux modele ; etape 3 : il apparait, dit d'ou il vient, s'active).
 // A chaque passage : ni erreur de console, ni refus de la politique de contenu, ni requete hors du temoin ;
 // les contrastes des textes (4,5:1), et au doigt les cibles de 44 px, rien qui deborde, l'apercu sous la carte.
 //
@@ -25,7 +27,7 @@
 // passages sur le vrai reseau et refait le temoin.
 
 import { spawn, spawnSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
@@ -97,6 +99,18 @@ async function servir() {
     await new Promise((r) => setTimeout(r, 100));
   }
   return { url, motDePasse, journal, fermer: () => { php.kill(); rmSync(tmp, { recursive: true, force: true }); } };
+}
+
+/**
+ * Un faux fichier ONNX pour le depot du carnet : un ModelProto protobuf bien forme (version, jeu d'operateurs, un graphe avec un noeud,
+ * une entree, une sortie et un poids de remplissage). Assez pour ce que le serveur verifie ; aucun moteur ne le lirait.
+ */
+function fauxOnnx() {
+  const entier = (v) => { const o = []; for (; v > 127; v = Math.floor(v / 128)) o.push((v % 128) | 128); o.push(v); return o; };
+  const champ = (numero, contenu) => [...entier(numero * 8 + 2), ...entier(contenu.length), ...contenu];
+  const texte = (t) => [...Buffer.from(t)];
+  const graphe = [...champ(1, champ(4, texte('Identity'))), ...champ(2, texte('fumee')), ...champ(5, new Array(9000).fill(7)), ...champ(11, champ(1, texte('input'))), ...champ(12, champ(1, texte('dets')))];
+  return Uint8Array.from([8, 8, ...champ(7, graphe), ...champ(8, [0x10, 17])]);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -250,7 +264,9 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     // Les onglets au bureau, la liste deroulante au telephone.
     const allerA = async (etape) => {
       if (await page.locator('nav.etapes').isVisible()) await page.locator('nav.etapes button', { hasText: etape }).first().click();
-      else await page.selectOption('select.etapes-liste', { label: (await page.locator('select.etapes-liste option', { hasText: etape }).first().innerText()) });
+      // Par sa valeur, pas par son libelle : le libelle porte le nombre de photos en attente, qui change quand la page finit de relire
+      // le serveur (un libelle lu juste avant ne se retrouvait plus, et le passage attendait trente secondes pour rien).
+      else await page.selectOption('select.etapes-liste', { value: await page.locator('select.etapes-liste option', { hasText: etape }).first().getAttribute('value') });
     };
     await allerA('Import');
     await toucher(page.getByRole('radio', { name: /Panoramax, sur la carte/ }));
@@ -559,6 +575,98 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     verifier(await carte.count() === 0 && parseInt(await page.locator('header.barre .compte').textContent(), 10) === compteRedr - 1, 'la photo supprimée revient à l’écran');
     await capture('redressement');
     dire(`redressement : ${gestes.length} carte(s), quatre icônes chacune ; supprimée, rendue par « Annuler », puis supprimée pour de bon (un DELETE) ; ${cRedr.n} textes mesurés`);
+
+    // 7 quater. L'aller-retour Colab (demande du proprietaire, 20 novembre 2026 : moins de gestes entre l'export et le depot du modele).
+    // Une photo corrigee jetable fait le jeu. A l'etape 6, « Entrainer dans Colab » cree une cle et telecharge le carnet qui la porte ;
+    // ce script tient ensuite le role du carnet (hors du navigateur, avec la cle lue dans le fichier telecharge) : il lit le jeu et
+    // depose un faux ONNX. Le modele apparait a l'etape 3 sans recharger la page, inactif, et s'active d'un geste ; une seconde cle
+    // se revoque depuis l'ecran et ne vaut plus rien. Ni Colab ni entrainement ne sont joues.
+    const idColab = await page.evaluate(async ({ b64 }) => {
+      const photo = () => new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: 'image/png' });
+      const envoi = async (r, champs) => { const f = new FormData(); for (const [k, v] of Object.entries(champs)) f.append(k, v, ...(v instanceof Blob ? ['photo.png'] : [])); return (await fetch('api.php?r=' + r, { method: 'POST', body: f, headers: { 'X-Banc': '1' } })).json(); };
+      const { id } = await envoi('images', { fichier: photo(), meta: JSON.stringify({ source: 'fichier', nom: 'fumee-colab' }) });
+      await envoi('redressee&id=' + id, { fichier: photo(), redressement: JSON.stringify({ methode: 'face' }) });
+      const json = (methode, r, corps) => fetch('api.php?r=' + r + '&id=' + id, { method: methode, body: JSON.stringify(corps), headers: { 'X-Banc': '1', 'Content-Type': 'application/json' } }).then((x) => x.status);
+      const marque = await json('PUT', 'annotation', { par: 'main', objets: [{ id: 'f1', classe: 'fenetre', type: 'fenetre_1v', forme: 'rectangle', points: [{ x: 4, y: 4 }, { x: 40, y: 40 }], parent: null, attributs: {}, origine: 'main' }] });
+      const range = await json('PATCH', 'image', { bloc: 'train', verifiee: true });
+      return marque === 200 && range === 200 ? id : null;
+    }, { b64: PHOTO_DE_SYNTHESE.toString('base64') });
+    verifier(typeof idColab === 'string', 'la photo corrigée de l’aller-retour Colab ne se prépare pas');
+    await page.reload();
+    await page.waitForSelector('header.barre .compte', { state: 'attached' });
+    await allerA('Export');
+    const boutonColab = page.getByRole('button', { name: /Entraîner dans Colab/ });
+    await boutonColab.waitFor();
+    verifier(/Ce carnet contient une clé valable 24 h : ne le partagez pas\./.test(await texte('.cle-colab')), 'l’écran ne prévient pas que le carnet porte une clé : ' + await texte('.cle-colab'));
+    verifier(await page.locator('.cles-colab li').count() === 0, 'une clé d’entraînement est listée avant d’en avoir créé une');
+    const creerCle = async () => {
+      const [fichier] = await Promise.all([page.waitForEvent('download'), toucher(boutonColab)]);
+      const carnet = JSON.parse(readFileSync(await fichier.path(), 'utf8'));
+      return { nom: fichier.suggestedFilename(), carnet, code: carnet.cells.filter((c) => c.cell_type === 'code').map((c) => c.source).join('\n') };
+    };
+    const cle = await creerCle();
+    verifier(/^banc-colab-rf-detr-nano-\d{8}-\d{6}\.ipynb$/.test(cle.nom) && cle.carnet.nbformat === 4, 'le carnet téléchargé n’est pas un .ipynb du banc : ' + cle.nom);
+    const jeton = /"X-Banc-Jeton": "(bj_[0-9a-f]{16}_[0-9a-f]{64})"/.exec(cle.code)?.[1];
+    const apiBanc = serveur.url + '/banc/api.php';
+    verifier(jeton && cle.code.includes(`BANC = "${apiBanc}"`), 'le carnet ne porte pas l’adresse du banc et sa clé');
+    await page.locator('.carnet-pret').waitFor();
+    await attendre(() => document.querySelectorAll('.cles-colab li').length === 1 && /En attente du carnet/.test(document.querySelector('.cles-colab')?.textContent ?? ''), null, 'la clé créée n’est pas listée « En attente du carnet »');
+    const cColab = await page.evaluate(mesurerContrastes, { textes: '.colab .aide, .colab .note, .colab button, .cles-colab strong, .cles-colab small, .cles-colab button, .titre-cles', pastilles: ':not(*)' });
+    const mColab = await page.evaluate(mesurerMiseEnPage, { cibles: '.colab button.bouton, .cles-colab button.bouton', doigt });
+    if (AUDIT) { for (const x of [...cColab.echecs, ...mColab]) dire(`[audit] colab : ${x.replace(/\s+/g, ' ')}`); }
+    else {
+      verifier(!cColab.echecs.length, `colab : contrastes insuffisants — ${cColab.echecs.join(' ; ')}`);
+      verifier(!mColab.length, `colab : mise en page — ${mColab.join(' ; ')}`);
+    }
+    await capture('colab-cle');
+    // Le carnet : il lit le jeu, puis depose son modele en deux morceaux, avec ses noms, sa resolution et son bilan.
+    const duCarnet = (cleJeton, r, init = {}) => fetch(`${apiBanc}?r=${r}`, { ...init, headers: { 'X-Banc-Jeton': cleJeton, ...(init.headers ?? {}) } });
+    const jeu = await duCarnet(jeton, 'colab-jeu');
+    verifier(jeu.status === 200 && jeu.headers.get('content-type') === 'application/zip' && (await jeu.arrayBuffer()).byteLength > 500, 'le carnet ne lit pas le jeu avec sa clé');
+    const onnx = fauxOnnx();
+    for (const [n, debut] of [[0, 0], [1, 6000]]) verifier((await duCarnet(jeton, 'colab-modele&partie=' + n, { method: 'POST', body: onnx.subarray(debut, debut ? onnx.length : 6000), headers: { 'Content-Type': 'application/octet-stream' } })).status === 200, `le morceau ${n} du modèle est refusé`);
+    const depot = await duCarnet(jeton, 'colab-modele&fin=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre_1v', 'porte_garage'], taille: onnx.length, sha256: createHash('sha256').update(onnx).digest('hex'), bilan: { map: 0.62, map50: 0.9, parType: { fenetre_1v: 0.7, porte_garage: 0.54 } } }) });
+    verifier(depot.status === 201, 'le dépôt du modèle par le carnet est refusé : ' + depot.status);
+    const idModele = (await depot.json()).modele;
+    // L'etape 3, sans recharger la page : le modele depose est la, dit d'ou il vient, inactif ; il s'active d'un geste.
+    await allerA('Brouillon');
+    const carteModele = page.locator('.carte-modele', { has: page.locator('.origine-modele') });
+    await carteModele.waitFor();
+    const origine = await carteModele.locator('.origine-modele').innerText();
+    verifier(/^Déposé par Colab le \d\d\/\d\d\/\d{4} \d\d:\d\d · jeu du .* \(1 photo vérifiée\) · mAP 0,62 · à activer$/.test(origine.replace(/\s+/g, ' ')), 'la carte du modèle déposé ne dit pas d’où il vient : ' + origine);
+    verifier(/rf-detr · 384 px · 2 classe/.test(await carteModele.locator('.titres-modele small').innerText()), 'le modèle déposé n’a pas sa résolution ni ses classes');
+    verifier(/\(2 \/ 2\)/.test(await carteModele.locator('.correspondances:not(.bilan-modele) summary').innerText()), 'les noms du modèle déposé ne sont pas reliés aux types du banc');
+    const interrupteur = carteModele.locator('.interrupteur input');
+    verifier(!(await interrupteur.isChecked()), 'le modèle déposé par un carnet arrive déjà actif');
+    const cModele = await page.evaluate(mesurerContrastes, { textes: '.carte-modele .origine-modele, .carte-modele .titres-modele strong, .carte-modele .titres-modele small, .carte-modele summary', pastilles: ':not(*)' });
+    if (AUDIT) { for (const x of cModele.echecs) dire(`[audit] modèle déposé : ${x.replace(/\s+/g, ' ')}`); }
+    else verifier(!cModele.echecs.length, `modèle déposé : contrastes insuffisants — ${cModele.echecs.join(' ; ')}`);
+    await capture('colab-modele');
+    // La case suit le serveur (elle ne change qu'apres sa reponse) : un toucher, puis l'attente de l'etat.
+    await (doigt ? interrupteur.tap({ force: true }) : interrupteur.click({ force: true }));
+    await attendre(() => document.querySelector('.carte-modele:has(.origine-modele)')?.classList.contains('actif') && !/à activer/.test(document.querySelector('.origine-modele')?.textContent ?? ''), null, 'le modèle déposé ne s’active pas');
+    // Retour a l'etape 6 : la cle a servi ; une seconde se revoque depuis l'ecran et ne vaut plus rien.
+    await allerA('Export');
+    await attendre(() => /Modèle déposé/.test(document.querySelector('.cles-colab')?.textContent ?? ''), null, 'la clé qui a servi n’est pas dite « Modèle déposé »');
+    verifier((await duCarnet(jeton, 'colab-jeu')).status === 409, 'la clé qui a déposé son modèle lit encore le jeu');
+    const seconde = await creerCle();
+    const jeton2 = /"X-Banc-Jeton": "(bj_[0-9a-f]{16}_[0-9a-f]{64})"/.exec(seconde.code)?.[1];
+    verifier(jeton2 && jeton2 !== jeton, 'la seconde clé n’est pas une clé neuve');
+    await attendre(() => document.querySelectorAll('.cles-colab li').length === 2, null, 'la seconde clé n’est pas listée');
+    verifier((await duCarnet(jeton2, 'colab-jeu')).status === 200, 'la seconde clé ne lit pas le jeu');
+    // Revenir sur la page (depuis l'onglet de Colab) relit les cles : celle-ci dit que son carnet a lu le jeu.
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await attendre(() => /Jeu lu par le carnet : entraînement en cours/.test(document.querySelector('.cles-colab')?.textContent ?? ''), null, 'revenir sur la page ne dit pas que le carnet a lu le jeu');
+    await toucher(page.locator('.cles-colab li', { hasText: /Jeu lu par le carnet/ }).getByRole('button', { name: 'Révoquer' }));
+    await attendre(() => document.querySelectorAll('.cles-colab li').length === 1, null, 'la clé révoquée reste listée');
+    const refusee = await duCarnet(jeton2, 'colab-jeu');
+    verifier(refusee.status === 401 && (await refusee.text()) === '{"erreur":"Jeton refusé."}', 'la clé révoquée lit encore le jeu');
+    await toucher(page.locator('.cles-colab li').getByRole('button', { name: 'Retirer' }));
+    await attendre(() => !document.querySelector('.cles-colab li'), null, 'la clé qui a servi ne se retire pas de la liste');
+    // Le passage suivant repart sans cette photo ni ce modele.
+    const menage = await page.evaluate(async ({ image, modele }) => Promise.all([`image&id=${image}`, `modele&id=${modele}`].map((r) => fetch('api.php?r=' + r, { method: 'DELETE', headers: { 'X-Banc': '1' } }).then((x) => x.status))), { image: idColab, modele: idModele });
+    verifier(menage.every((c) => c === 200), 'la photo et le modèle de l’aller-retour Colab ne s’effacent pas');
+    dire(`colab : carnet ${cle.nom} (${cle.carnet.cells.length} cellules), jeu lu, modèle déposé en deux morceaux, apparu à l’étape 3 puis activé ; seconde clé révoquée (401) ; ${cColab.n + cModele.n} textes mesurés`);
 
     // 8. Rien de travers : ni erreur de console, ni refus de la politique de contenu, ni requete hors du temoin.
     const refus = await page.evaluate(() => window.__refusCsp);

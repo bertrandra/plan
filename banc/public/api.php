@@ -10,6 +10,7 @@
 //   images/<id>/vignette.jpg     la vignette du catalogue
 //   images/<id>/annotation.json  le marquage : rectangles et polygones, en pixels de redressee.jpg (etapes 3 a 5)
 //   modeles/<id>.onnx, .json     les modeles YOLO du brouillon (ceux du depot facade, et ceux que vous entrainez)
+//   jetons/<id>.json, .zip       les jetons d'entrainement (etape 6, « Entrainer dans Colab ») : haches, et le jeu de leur export
 //
 // Le banc n'utilise rien de Plan : ni son code, ni ses donnees, ni sa session.
 
@@ -108,8 +109,8 @@ function demarrer_session(): void {
 function connecte(): bool { return !empty($_SESSION['banc']); }
 
 /** Au plus 10 essais manques par adresse en 15 minutes : le mot de passe ne se devine pas a la volee. */
-function essais(string $ip, ?bool $echec = null): int {
-  $f = dossier() . '/connexions.json';
+function essais(string $ip, ?bool $echec = null, string $fichier = 'connexions.json'): int {
+  $f = dossier() . '/' . $fichier;
   $t = lire_json($f, []);
   $now = time();
   foreach ($t as $k => $l) { $t[$k] = array_values(array_filter($l, fn($s) => $now - $s < 900)); if (!$t[$k]) unset($t[$k]); }
@@ -394,6 +395,8 @@ function modeles_lister(): void {
   foreach (scandir($d) ?: [] as $f) {
     if (!preg_match('/^([a-z0-9][a-z0-9-]{2,63})\.json$/', $f, $m)) continue;
     $j = lire_json("$d/$f", []);
+    // Un bilan vide reste un objet pour la page (relu du disque, il serait une liste).
+    if (is_array($j['depot'] ?? null) && empty($j['depot']['bilan'])) $j['depot']['bilan'] = (object)[];
     $l[$m[1]] = array_merge($l[$m[1]] ?? [], $j, ['id' => $m[1], 'installe' => is_file("$d/{$m[1]}.onnx")]);
   }
   repondre(200, array_values($l));
@@ -591,7 +594,11 @@ const BANC_ARCHITECTURES = [
  */
 const BANC_DEPARTS = ['coco', 'zero'];
 
-function exporter(string $format, bool $verifiees, string $base = '', string $depart = 'coco'): void {
+/**
+ * Fabrique l'archive du jeu dans un fichier temporaire et rend ou elle est, son nom et ce qu'elle contient. Deux appelants : le
+ * telechargement de l'etape 6 (exporter) et le jeton d'entrainement, qui range l'archive sous lui pour que le carnet la lise.
+ */
+function export_fabriquer(string $format, bool $verifiees, string $base = '', string $depart = 'coco'): array {
   if (!in_array($format, ['detect', 'seg', 'rfdetr', 'natif'], true)) erreur(400, 'Format inconnu (detect, seg, rfdetr, natif).');
   $archi = null;
   if ($format !== 'natif') {
@@ -681,11 +688,16 @@ function exporter(string $format, bool $verifiees, string $base = '', string $de
   }
   $zip->addFromString("$racine/bilan.json", json_encode(['format' => $format, 'architecture' => $archi['id'] ?? null, 'depart' => $archi['depart'] ?? null, 'verifieesSeulement' => $verifiees, 'images' => $compte, 'objetsParClasse' => $parClasse, 'aQualifier' => $aQualifier, 'classes' => $classes, 'le' => gmdate('c')], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
   $zip->close();
+  return ['fichier' => $tmp, 'racine' => $racine, 'format' => $format, 'archi' => $archi, 'images' => $compte, 'classes' => $classes, 'verifiees' => $verifiees];
+}
+
+function exporter(string $format, bool $verifiees, string $base = '', string $depart = 'coco'): void {
+  $x = export_fabriquer($format, $verifiees, $base, $depart);
   header('Content-Type: application/zip');
-  header('Content-Disposition: attachment; filename="' . $racine . '.zip"');
-  header('Content-Length: ' . filesize($tmp));
-  readfile($tmp);
-  @unlink($tmp);
+  header('Content-Disposition: attachment; filename="' . $x['racine'] . '.zip"');
+  header('Content-Length: ' . filesize($x['fichier']));
+  readfile($x['fichier']);
+  @unlink($x['fichier']);
   exit;
 }
 
@@ -980,14 +992,454 @@ function relais_servir(string $id, string $taille): void {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
+// Les jetons d'entrainement (demande du proprietaire, 20 novembre 2026 : un aller-retour Colab avec moins de gestes). L'etape 6 cree
+// un jeton et telecharge un carnet qui le porte ; le carnet lit lui-meme le jeu ici, entraine, puis depose lui-meme le modele ici.
+// Ce que le jeton ouvre, sans session : lire le jeu de SON export (une archive figee a sa creation, rangee sous lui) et deposer UN
+// modele. Ce qu'il n'ouvre pas : tout le reste de l'API (aucune autre route ne le lit), une photo hors de cette archive, une seconde
+// ecriture. Il est tire au hasard (32 octets), garde hache (jamais en clair, jamais journalise), vit 24 h, se revoque depuis l'ecran.
+
+/** « bj_<identifiant public, 16 chiffres hexa>_<secret, 64 chiffres hexa> » : l'identifiant trouve le fichier, le secret se compare hache. */
+const BANC_JETON = '/^bj_([0-9a-f]{16})_([0-9a-f]{64})$/';
+const BANC_JETON_ID = '/^[0-9a-f]{16}$/';
+/** Les cles vivantes a la fois : chacune garde une copie du jeu sur le disque. */
+const BANC_JETON_VIVANTS = 5;
+/** Les essais manques par adresse en quinze minutes, et les lectures du jeu par jeton (un carnet relance, pas une aspiration). */
+const BANC_JETON_ESSAIS = 20;
+const BANC_JETON_LECTURES = 20;
+/**
+ * Le modele depose : 128 Mo au plus (un RF-DETR Nano quantifie pese 37 Mo, sa pleine precision 118 Mo ; un YOLO26n une dizaine),
+ * 4 Ko au moins, en 2 000 morceaux envoyes au plus (reprises comprises).
+ */
+const BANC_JETON_MODELE_MAX = 128 * 1024 * 1024;
+const BANC_JETON_MODELE_MIN = 4096;
+const BANC_JETON_ENVOIS = 2000;
+/** Un nom appris : le meme jeu de caracteres que les identifiants de l'arbre (classes_ecrire). */
+const BANC_NOM_APPRIS = '/^[a-z][a-z0-9_-]{0,39}$/';
+const BANC_NOMS_MAX = 200;
+/** Ce que chaque architecture de l'export donne a l'etape 3 : le format du modele et le cote de son entree. */
+const BANC_JETON_MODELES = [
+  'rf-detr-nano' => ['rf-detr', 384], 'rf-detr-small' => ['rf-detr', 512], 'rf-detr-medium' => ['rf-detr', 576],
+  'yolo26n' => ['yolo26', 640], 'yolov10n' => ['yolov10', 640], 'yolo26n-seg' => ['yolo26-seg', 640], 'yolo11n-seg' => ['yolov8-seg', 640],
+];
+/** Les champs d'un fichier ONNX (onnx.proto : ModelProto, GraphProto) et leur type de fil (0 : entier, 2 : longueur puis octets). */
+const BANC_ONNX_MODELE = [1 => 0, 2 => 2, 3 => 2, 4 => 2, 5 => 0, 6 => 2, 7 => 2, 8 => 2, 14 => 2, 20 => 2, 25 => 2, 26 => 2];
+const BANC_ONNX_GRAPHE = [1 => 2, 2 => 2, 5 => 2, 10 => 2, 11 => 2, 12 => 2, 13 => 2, 14 => 2, 15 => 2, 16 => 2];
+
+/** La duree d'un jeton, en secondes : 24 h, ou « jetonHeures » de banc-config.php (de 1 a 72). */
+function jeton_duree(): int { return 3600 * max(1, min(72, (int)(banc_config()['jetonHeures'] ?? 24))); }
+
+function jeton_fichiers(string $id): array {
+  $d = dossier('jetons');
+  return ['json' => "$d/$id.json", 'zip' => "$d/$id.zip", 'partie' => "$d/$id.partie", 'verrou' => "$d/$id.verrou"];
+}
+
+function jeton_effacer(string $id): void { foreach (jeton_fichiers($id) as $f) @unlink($f); }
+
+/** Les jetons vivants ; un jeton echu est efface au passage, avec le jeu et le depot en cours ranges sous lui. */
+function jetons_vivants(): array {
+  $l = [];
+  foreach (scandir(dossier('jetons')) ?: [] as $f) {
+    if (!preg_match('/^([0-9a-f]{16})\.json$/', $f, $m)) continue;
+    $j = lire_json(dossier('jetons') . "/$f", null);
+    if (!is_array($j) || (int)($j['expire'] ?? 0) <= time()) { jeton_effacer($m[1]); continue; }
+    $l[] = $j;
+  }
+  usort($l, fn($a, $b) => strcmp((string)$b['creeLe'], (string)$a['creeLe']));
+  return $l;
+}
+
+/** Ce que l'ecran voit d'un jeton : jamais son hache, ni rien qui aide a le refaire. */
+function jeton_public(array $j): array {
+  return ['id' => $j['id'], 'creeLe' => $j['creeLe'], 'expireLe' => gmdate('c', (int)$j['expire']), 'architecture' => $j['architecture'], 'jeu' => $j['jeu'],
+    'lectures' => (int)($j['lectures'] ?? 0), 'luLe' => $j['luLe'] ?? null, 'depose' => $j['depose'] ?? null];
+}
+
+/** Les cles vivantes, et la duree d'une cle neuve (l'ecran la dit avant d'en creer une). */
+function jetons_lister(): void { repondre(200, ['heures' => intdiv(jeton_duree(), 3600), 'jetons' => array_map('jeton_public', jetons_vivants())]); }
+
+/** Une limite de PHP (« 8M », « 512K », « 0 ») en octets ; 0 : sans limite. */
+function octets_ini(string $v): int {
+  $v = trim($v);
+  return (int)((float)$v * (['K' => 1024, 'M' => 1048576, 'G' => 1073741824][strtoupper(substr($v, -1))] ?? 1));
+}
+
+/** La taille des morceaux que le carnet enverra : 4 Mo, moins si post_max_size de cet hebergement est plus bas (64 Ko de marge). */
+function jeton_morceau(): int {
+  $max = octets_ini((string)ini_get('post_max_size'));
+  return $max > 0 ? max(65536, min(4 * 1048576, $max - 65536)) : 4 * 1048576;
+}
+
+/**
+ * Cree un jeton pour un export : fige le jeu dans une archive rangee sous lui, et rend le carnet qui le porte. Le jeton en clair ne
+ * sort qu'ici, dans le carnet ; le serveur n'en garde que le hache.
+ */
+function jeton_creer(): void {
+  $b = corps_json();
+  $format = (string)($b['format'] ?? '');
+  if (!in_array($format, ['rfdetr', 'detect', 'seg'], true)) erreur(400, 'Un entraînement demande un format RF-DETR ou YOLO (pas le format du banc).');
+  // L'adresse du banc, ecrite dans le carnet : celle par laquelle la page appelle deja cette API. En https, sauf sur le poste local.
+  $adresse = (string)($b['adresse'] ?? '');
+  if (strlen($adresse) > 300 || !preg_match('#^(https?)://([A-Za-z0-9.-]{1,253})(:[0-9]{1,5})?(/[A-Za-z0-9._~-]+)*/api\.php$#', $adresse, $m)) erreur(400, 'Adresse du banc invalide.');
+  if ($m[1] !== 'https' && !in_array($m[2], ['localhost', '127.0.0.1'], true)) erreur(400, 'Le banc doit être servi en https pour qu’un carnet lui parle.');
+  // Ou vont les noms du jeu dans l'arbre, calcule par la page comme pour un modele depose a la main (correspondanceParDefaut).
+  $correspondance = [];
+  foreach ((array)($b['correspondance'] ?? []) as $nom => $cible) {
+    if (count($correspondance) >= BANC_NOMS_MAX) break;
+    if (is_string($nom) && preg_match(BANC_NOM_APPRIS, $nom) && is_string($cible) && preg_match('/^([a-z][a-z0-9_-]{0,39}(:[a-z][a-z0-9_-]{0,39})?)?$/', $cible)) $correspondance[$nom] = $cible;
+  }
+  $vivants = jetons_vivants();
+  if (count(array_filter($vivants, fn($j) => empty($j['depose']))) >= BANC_JETON_VIVANTS) erreur(429, 'Déjà ' . BANC_JETON_VIVANTS . ' clés d’entraînement en cours : révoquez-en une.');
+  $x = export_fabriquer($format, ($b['verifiees'] ?? false) === true, (string)($b['base'] ?? ''), (string)($b['depart'] ?? 'coco'));
+  if (array_sum($x['images']) === 0 || !$x['images']['train']) { @unlink($x['fichier']); erreur(400, 'Le jeu est vide : il faut au moins une photo corrigée dans le bloc train.'); }
+  $id = bin2hex(random_bytes(8));
+  $secret = bin2hex(random_bytes(32));
+  $f = jeton_fichiers($id);
+  if (!@rename($x['fichier'], $f['zip']) && !(@copy($x['fichier'], $f['zip']) && @unlink($x['fichier']))) { @unlink($x['fichier']); erreur(500, 'Le jeu n’a pas pu être rangé.'); }
+  [$formatModele, $resolution] = BANC_JETON_MODELES[$x['archi']['id']];
+  $j = ['id' => $id, 'hache' => hash('sha256', $secret), 'creeLe' => gmdate('c'), 'expire' => time() + jeton_duree(),
+    'architecture' => ['id' => $x['archi']['id'], 'nom' => $x['archi']['nom'], 'depart' => $x['archi']['depart'], 'format' => $formatModele, 'resolution' => $resolution],
+    'jeu' => ['racine' => $x['racine'], 'le' => gmdate('c'), 'images' => $x['images'], 'verifieesSeulement' => $x['verifiees'], 'octets' => filesize($f['zip']), 'classes' => count($x['classes'])],
+    'correspondance' => $correspondance, 'lectures' => 0, 'envois' => 0, 'parties' => 0, 'depose' => null];
+  ecrire_json($f['json'], $j);
+  $carnet = carnet_jeton($format, $j, $adresse, "bj_{$id}_{$secret}", jeton_morceau());
+  repondre(201, ['jeton' => jeton_public($j), 'fichier' => 'banc-colab-' . $j['architecture']['id'] . '-' . gmdate('Ymd-His') . '.ipynb', 'carnet' => $carnet]);
+}
+
+function jeton_revoquer(?string $id): void {
+  if ($id === null || !preg_match(BANC_JETON_ID, $id)) erreur(400, 'Identifiant invalide.');
+  jeton_effacer($id);
+  repondre(200, ['revoque' => $id]);
+}
+
+/**
+ * Le jeton que l'appelant presente (en-tete X-Banc-Jeton : ni dans l'adresse, que les journaux gardent, ni en Authorization, que
+ * certains hebergements mutualises ne transmettent pas). Un seul refus pour tout : inconnu, faux, echu ou revoque se disent pareil, et
+ * le hache se compare a temps constant, contre un hache factice quand le fichier n'existe pas.
+ */
+function jeton_presente(): array {
+  $ip = $_SERVER['REMOTE_ADDR'] ?? 'inconnue';
+  if (essais($ip, null, 'essais-jetons.json') >= BANC_JETON_ESSAIS) erreur(429, 'Trop d’essais : réessayez dans quinze minutes.');
+  $j = null; $hache = str_repeat('0', 64); $secret = '';
+  if (preg_match(BANC_JETON, (string)($_SERVER['HTTP_X_BANC_JETON'] ?? ''), $m)) {
+    $secret = $m[2];
+    $lu = lire_json(jeton_fichiers($m[1])['json'], null);
+    if (is_array($lu) && is_string($lu['hache'] ?? null) && strlen($lu['hache']) === 64) { $j = $lu; $hache = $lu['hache']; }
+  }
+  $juste = hash_equals($hache, hash('sha256', $secret));
+  // Un jeton echu presente par son carnet s'efface ici, avec son jeu : il n'attend pas que quelqu'un rouvre l'etape 6.
+  if ($juste && $j && (int)($j['expire'] ?? 0) <= time()) { jeton_effacer($j['id']); $j = null; }
+  if (!$juste || !$j) { essais($ip, true, 'essais-jetons.json'); erreur(401, 'Jeton refusé.'); }
+  return $j;
+}
+
+/**
+ * Change un jeton sous verrou : deux requetes du meme carnet ne se marchent pas dessus. `$f` recoit le jeton relu et le rend change ;
+ * un jeton revoque entre-temps se refuse comme un jeton inconnu.
+ */
+function jeton_changer(string $id, callable $f) {
+  $fichiers = jeton_fichiers($id);
+  $v = fopen($fichiers['verrou'], 'c');
+  if (!$v || !flock($v, LOCK_EX)) erreur(503, 'Le banc est occupé : réessayez.');
+  $j = lire_json($fichiers['json'], null);
+  if (!is_array($j)) { @unlink($fichiers['verrou']); erreur(401, 'Jeton refusé.'); }
+  $rendu = $f($j, $fichiers);
+  ecrire_json($fichiers['json'], $j);
+  flock($v, LOCK_UN);
+  fclose($v);
+  return $rendu;
+}
+
+/** Le jeu de l'export de ce jeton : l'archive figee a sa creation, et rien d'autre. */
+function colab_jeu(array $j): void {
+  if (!empty($j['depose'])) erreur(409, 'Ce jeton a déjà déposé son modèle : il ne sert plus.');
+  $zip = jeton_changer($j['id'], function (array &$j, array $f) {
+    if ((int)($j['lectures'] ?? 0) >= BANC_JETON_LECTURES) erreur(429, 'Ce jeu a été lu trop de fois avec ce jeton : créez-en un autre.');
+    if (!is_file($f['zip'])) erreur(410, 'Le jeu de ce jeton n’est plus là : créez-en un autre.');
+    $j['lectures'] = (int)($j['lectures'] ?? 0) + 1;
+    $j['luLe'] = gmdate('c');
+    return $f['zip'];
+  });
+  header('Content-Type: application/zip');
+  header('Content-Disposition: attachment; filename="' . $j['jeu']['racine'] . '.zip"');
+  header('Content-Length: ' . filesize($zip));
+  header('X-Content-Type-Options: nosniff');
+  header('Cache-Control: no-store');
+  readfile($zip);
+  exit;
+}
+
+/**
+ * Un morceau du modele, dans l'ordre : le n° 0 recommence le depot, le suivant doit etre celui qu'on attend. Les octets vont dans un
+ * fichier range sous le jeton (hors de public_html), jamais a un nom donne par l'appelant, et jamais plus que la borne.
+ */
+function colab_morceau(array $j, string $n): void {
+  if (!preg_match('/^[0-9]{1,4}$/', $n)) erreur(400, 'Numéro de morceau invalide.');
+  $n = (int)$n;
+  $recu = jeton_changer($j['id'], function (array &$j, array $f) use ($n) {
+    if (!empty($j['depose'])) erreur(409, 'Ce jeton a déjà déposé son modèle : il ne dépose plus.');
+    if ((int)($j['envois'] ?? 0) >= BANC_JETON_ENVOIS) erreur(429, 'Trop d’envois avec ce jeton : créez-en un autre.');
+    $j['envois'] = (int)($j['envois'] ?? 0) + 1;
+    ecrire_json($f['json'], $j);
+    if ($n !== 0 && $n !== (int)($j['parties'] ?? 0)) erreur(409, 'Morceau inattendu : le suivant est le n° ' . (int)($j['parties'] ?? 0) . ' (ou le n° 0 pour recommencer).');
+    $deja = $n === 0 ? 0 : (int)filesize($f['partie']);
+    $entree = fopen('php://input', 'rb');
+    $sortie = fopen($f['partie'], $n === 0 ? 'wb' : 'ab');
+    if (!$entree || !$sortie) erreur(500, 'Enregistrement impossible.');
+    // Un octet de plus que ce qui reste : de quoi voir le depassement sans l'ecrire en entier.
+    $ecrit = (int)stream_copy_to_stream($entree, $sortie, BANC_JETON_MODELE_MAX - $deja + 1);
+    fclose($sortie);
+    if ($deja + $ecrit > BANC_JETON_MODELE_MAX) { @unlink($f['partie']); $j['parties'] = 0; ecrire_json($f['json'], $j); erreur(413, 'Modèle trop lourd : ' . round(BANC_JETON_MODELE_MAX / 1048576) . ' Mo au plus.'); }
+    if ($ecrit === 0) erreur(400, 'Morceau vide (ou plus gros que la limite post_max_size de PHP, ' . ini_get('post_max_size') . ').');
+    // Un fichier ONNX commence par le champ 1 de ModelProto (ir_version) : tout autre debut s'arrete ici, sans attendre la fin.
+    if ($n === 0 && file_get_contents($f['partie'], false, null, 0, 1) !== "\x08") { @unlink($f['partie']); $j['parties'] = 0; ecrire_json($f['json'], $j); erreur(415, 'Ce fichier n’est pas un modèle ONNX.'); }
+    $j['parties'] = $n + 1;
+    return $deja + $ecrit;
+  });
+  repondre(200, ['partie' => $n, 'octets' => $recu]);
+}
+
+/** Lit un entier protobuf (varint) dans `$o` a partir de `$p` (avance `$p`) ; null s'il deborde ou depasse dix octets. */
+function proto_entier(string $o, int &$p): ?int {
+  $v = 0;
+  for ($k = 0; $k < 10; $k++) {
+    if ($p >= strlen($o)) return null;
+    $c = ord($o[$p++]);
+    if ($k < 9) $v |= ($c & 0x7F) << (7 * $k);
+    if (!($c & 0x80)) return $k === 9 && $c > 1 ? null : $v;
+  }
+  return null;
+}
+
+/**
+ * Les champs d'un message protobuf range dans un fichier, de `$debut` a `$fin` : [numero, type de fil, valeur ou debut du contenu,
+ * longueur]. Le contenu d'un champ a longueur n'est pas lu (on saute par-dessus). Null si ce n'est pas un message bien forme qui
+ * finit exactement a `$fin`, ou s'il a plus de `$max` champs.
+ */
+function proto_champs($h, int $debut, int $fin, int $max): ?array {
+  $l = [];
+  for ($p = $debut; $p < $fin;) {
+    if (count($l) >= $max) return null;
+    fseek($h, $p);
+    $o = (string)fread($h, min(20, $fin - $p));
+    $q = 0;
+    $cle = proto_entier($o, $q);
+    if ($cle === null || $cle < 8 || $cle > 0x7FFFFFFF) return null;
+    $type = $cle & 7;
+    if ($type === 0) { $v = proto_entier($o, $q); if ($v === null) return null; $l[] = [$cle >> 3, 0, $v, 0]; }
+    elseif ($type === 2) {
+      $n = proto_entier($o, $q);
+      if ($n === null || $n < 0 || $p + $q + $n > $fin) return null;
+      $l[] = [$cle >> 3, 2, $p + $q, $n];
+      $q += $n;
+    }
+    elseif ($type === 1 || $type === 5) { $l[] = [$cle >> 3, $type, 0, 0]; $q += $type === 1 ? 8 : 4; }
+    else return null;
+    $p += $q;
+  }
+  return $p === $fin ? $l : null;
+}
+
+/**
+ * Ce qui se verifie simplement d'un fichier ONNX, sans le charger ni l'executer (le serveur n'execute jamais un modele ; la page le
+ * lira dans le bac a sable WebAssembly du navigateur, une fois active par une personne) : c'est un ModelProto bien forme de bout en
+ * bout, fait des seuls champs que le format connait, avec une version, un jeu d'operateurs et un seul graphe, lui-meme bien forme,
+ * qui a des noeuds, une entree et une sortie. Rend la raison du refus, ou null.
+ */
+function onnx_refus(string $fichier): ?string {
+  $taille = (int)@filesize($fichier);
+  if ($taille < BANC_JETON_MODELE_MIN) return 'fichier trop petit pour un modèle';
+  if ($taille > BANC_JETON_MODELE_MAX) return 'fichier trop lourd';
+  $h = fopen($fichier, 'rb');
+  if (!$h) return 'fichier illisible';
+  try {
+    $modele = proto_champs($h, 0, $taille, 4096);
+    if ($modele === null) return 'ce n’est pas un fichier ONNX (protobuf mal formé)';
+    $par = [];
+    foreach ($modele as [$num, $type, $v, $n]) {
+      if ((BANC_ONNX_MODELE[$num] ?? -1) !== $type) return 'ce n’est pas un fichier ONNX (champ ' . $num . ' inattendu)';
+      $par[$num][] = [$v, $n];
+    }
+    if (count($par[1] ?? []) !== 1 || $par[1][0][0] < 1 || $par[1][0][0] > 64) return 'ce n’est pas un fichier ONNX (version absente)';
+    if (empty($par[8])) return 'ce n’est pas un fichier ONNX (jeu d’opérateurs absent)';
+    if (count($par[7] ?? []) !== 1) return 'ce n’est pas un fichier ONNX (il faut un graphe, et un seul)';
+    [$debut, $long] = $par[7][0];
+    $graphe = proto_champs($h, $debut, $debut + $long, 2000000);
+    if ($graphe === null) return 'ce n’est pas un fichier ONNX (graphe mal formé)';
+    $compte = [];
+    foreach ($graphe as [$num, $type]) {
+      if ((BANC_ONNX_GRAPHE[$num] ?? -1) !== $type) return 'ce n’est pas un fichier ONNX (champ ' . $num . ' inattendu dans le graphe)';
+      $compte[$num] = ($compte[$num] ?? 0) + 1;
+    }
+    if (empty($compte[1]) || empty($compte[11]) || empty($compte[12])) return 'ce n’est pas un modèle ONNX complet (nœuds, entrée ou sortie absents)';
+    return null;
+  } finally {
+    fclose($h);
+  }
+}
+
+/**
+ * Ce que le carnet dit de son modele, champ par champ. L'architecture et la resolution doivent etre celles de l'export du jeton ; les
+ * noms sont bornes en nombre, en longueur et en caracteres ; le bilan est une liste fermee de nombres entre 0 et 1 (ce qui n'en est
+ * pas un est laisse, comme pour le mur d'une vue). Rien d'autre du corps n'est garde.
+ */
+function depot_valide(array $b, array $j): array {
+  if (($b['architecture'] ?? null) !== $j['architecture']['id']) erreur(400, 'Architecture inattendue : ce jeton attend ' . $j['architecture']['id'] . '.');
+  if (!is_int($b['resolution'] ?? null) || !in_array($b['resolution'], [384, 512, 576, 640], true) || $b['resolution'] !== $j['architecture']['resolution']) erreur(400, 'Résolution inattendue : ce jeton attend ' . $j['architecture']['resolution'] . '.');
+  $classes = $b['classes'] ?? null;
+  if (!is_array($classes) || !array_is_list($classes) || !$classes || count($classes) > BANC_NOMS_MAX) erreur(400, 'Liste des noms attendue (de 1 à ' . BANC_NOMS_MAX . ').');
+  foreach ($classes as $c) if (!is_string($c) || !preg_match(BANC_NOM_APPRIS, $c)) erreur(400, 'Nom de classe invalide (minuscules, chiffres, « _ » et « - », 40 caractères au plus).');
+  if (count(array_unique($classes)) !== count($classes)) erreur(400, 'Nom de classe en double.');
+  $part = fn($v) => (is_int($v) || is_float($v)) && $v >= 0 && $v <= 1 ? round((float)$v, 4) : null;
+  $bilan = [];
+  $lu = is_array($b['bilan'] ?? null) ? $b['bilan'] : [];
+  foreach (['map', 'map50'] as $k) if (($v = $part($lu[$k] ?? null)) !== null) $bilan[$k] = $v;
+  foreach ((is_array($lu['parType'] ?? null) ? $lu['parType'] : []) as $nom => $v) if (is_string($nom) && in_array($nom, $classes, true) && ($v = $part($v)) !== null) $bilan['parType'][$nom] = $v;
+  return ['classes' => $classes, 'bilan' => $bilan];
+}
+
+/**
+ * La fin du depot : la taille et l'empreinte annoncees doivent etre celles des octets recus, le fichier doit etre un ONNX, ce que le
+ * carnet en dit doit etre valable. Alors seulement il devient un modele de l'etape 3, sous un nom choisi ici, INACTIF : une personne
+ * l'active. Le jeton a servi : il ne depose plus, ne lit plus, et son jeu est efface.
+ */
+function colab_fin(array $j): void {
+  // Dit avant de lire le corps : un jeton qui a servi recoit la meme reponse quoi qu'il envoie.
+  if (!empty($j['depose'])) erreur(409, 'Ce jeton a déjà déposé son modèle : il ne dépose plus.');
+  $b = corps_json();
+  $modele = jeton_changer($j['id'], function (array &$j, array $f) use ($b) {
+    if (!empty($j['depose'])) erreur(409, 'Ce jeton a déjà déposé son modèle : il ne dépose plus.');
+    if (!is_file($f['partie'])) erreur(400, 'Aucun morceau reçu.');
+    if (!is_int($b['taille'] ?? null) || $b['taille'] !== filesize($f['partie']) || !is_string($b['sha256'] ?? null) || !preg_match('/^[0-9a-f]{64}$/', $b['sha256']) || !hash_equals((string)hash_file('sha256', $f['partie']), $b['sha256']))
+      erreur(400, 'Le fichier reçu n’est pas celui annoncé (taille ou empreinte) : recommencez au morceau n° 0.');
+    $d = depot_valide($b, $j);
+    $refus = onnx_refus($f['partie']);
+    if ($refus !== null) { @unlink($f['partie']); $j['parties'] = 0; ecrire_json($f['json'], $j); erreur(415, 'Modèle refusé : ' . $refus . '.'); }
+    $id = 'colab-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(3));
+    $dm = dossier('modeles');
+    if (!rename($f['partie'], "$dm/$id.onnx")) erreur(500, 'Enregistrement impossible.');
+    $a = $j['architecture'];
+    $correspondance = [];
+    foreach ($d['classes'] as $c) $correspondance[$c] = (string)($j['correspondance'][$c] ?? '');
+    $description = ['nom' => $a['nom'] . ' · Colab du ' . gmdate('d/m/Y'), 'format' => $a['format'], ...($a['format'] === 'rf-detr' ? ['resolution' => $a['resolution']] : []),
+      'classes' => $d['classes'], 'correspondance' => $correspondance, 'seuil' => 0.3, 'actif' => false, 'ajouteLe' => gmdate('c'),
+      'depot' => ['par' => 'colab', 'le' => gmdate('c'), 'architecture' => $a['id'], 'depart' => $a['depart'], 'jeu' => array_diff_key($j['jeu'], ['octets' => 1]), 'bilan' => (object)$d['bilan'],
+        'octets' => filesize("$dm/$id.onnx"), 'sha256' => $b['sha256']]];
+    ecrire_json("$dm/$id.json", $description);
+    @unlink($f['zip']);
+    $j['depose'] = ['le' => gmdate('c'), 'modele' => $id];
+    return ['id' => $id] + $description;
+  });
+  repondre(201, ['depose' => true, 'modele' => $modele['id'], 'nom' => $modele['nom']]);
+}
+
+/** Une chaine ecrite dans le code Python du carnet : un litteral JSON, que Python lit tel quel (ASCII, tout le reste echappe). */
+function python(string $s): string { return (string)json_encode($s, JSON_UNESCAPED_SLASHES); }
+
+/**
+ * Le carnet d'un jeton : le meme entrainement que celui du zip (carnet_rfdetr, carnet_colab), sans rien a envoyer ni a rapporter a la
+ * main. « Tout executer » : il lit le jeu ici avec sa cle, entraine, mesure le test, exporte l'ONNX et le depose ici avec ses noms, sa
+ * resolution et son bilan. Si le depot echoue, il propose le fichier au telechargement, pour le depot a la main de l'etape 3.
+ */
+function carnet_jeton(string $format, array $j, string $adresse, string $jeton, int $morceau): string {
+  $a = $j['architecture'] + (BANC_ARCHITECTURES[$format][$j['architecture']['id']] ?? []);
+  $a['yaml'] = preg_replace('/\.pt$/', '.yaml', $a['poids'] ?? '');
+  $zero = $a['depart'] === 'zero';
+  $code = fn(string $s) => ['cell_type' => 'code', 'metadata' => (object)[], 'execution_count' => null, 'outputs' => [], 'source' => $s];
+  $texte = fn(string $s) => ['cell_type' => 'markdown', 'metadata' => (object)[], 'source' => $s];
+  $heures = (int)round(((int)$j['expire'] - time()) / 3600);
+  $entete = "# Banc d'apprentissage des façades — entraînement {$a['nom']} (" . ($zero ? 'sans COCO, de zéro' : 'parti de COCO') . ")\n\n"
+    . ($format === 'rfdetr' ? "RF-DETR (Roboflow), licence **Apache 2.0** pour le code et les poids.\n\n"
+      : "YOLO d'Ultralytics, licence **AGPL-3.0** : un modèle entraîné avec eux, servi dans une application, impose d'en publier le code ou d'acheter leur licence. Pour comparer.\n\n")
+    . "**Exécution > Tout exécuter**, et c'est tout : le carnet lit le jeu sur le banc, entraîne (la validation arrête l'entraînement quand il ne progresse plus), "
+    . "mesure le test, puis dépose le modèle à l'étape 3 du banc, où il ne reste qu'à l'activer.\n\n"
+    . "**Ce carnet contient une clé valable $heures h : ne le partagez pas.** Elle ne permet que de lire ce jeu et de déposer un modèle ; elle se révoque à l'étape 6 du banc.";
+  $lire = "import glob, hashlib, math, os, zipfile, requests\n"
+    . 'BANC = ' . python($adresse) . "\n"
+    . "# La cle de ce carnet : ne la partagez pas.\n"
+    . 'CLE = {"X-Banc-Jeton": ' . python($jeton) . ", \"User-Agent\": \"banc-colab\"}\n"
+    . "if os.path.isdir('/content'): os.chdir('/content')\n"
+    . "r = requests.get(BANC, params={'r': 'colab-jeu'}, headers=CLE, stream=True, timeout=900)\n"
+    . "assert r.status_code == 200, 'Le banc refuse le jeu : ' + r.text[:300]\n"
+    . "with open('jeu.zip', 'wb') as f:\n    for bloc in r.iter_content(1 << 20): f.write(bloc)\n"
+    . "zipfile.ZipFile('jeu.zip').extractall('.')\n"
+    . 'os.chdir(' . python($j['jeu']['racine']) . ")\n";
+  $deposer = "def part(v):\n"
+    . "    try: v = float(v)\n    except Exception: return None\n"
+    . "    return round(v, 4) if math.isfinite(v) and 0 <= v <= 1 else None\n\n"
+    . "def deposer(chemin, description):\n"
+    . "    octets = open(chemin, 'rb').read()\n"
+    . "    for n, debut in enumerate(range(0, len(octets), $morceau)):\n"
+    . "        r = requests.post(BANC, params={'r': 'colab-modele', 'partie': n}, headers={**CLE, 'Content-Type': 'application/octet-stream'}, data=octets[debut:debut + $morceau], timeout=900)\n"
+    . "        assert r.status_code == 200, 'morceau %d : %s' % (n, r.text[:300])\n"
+    . "    r = requests.post(BANC, params={'r': 'colab-modele', 'fin': '1'}, headers=CLE, json={**description, 'taille': len(octets), 'sha256': hashlib.sha256(octets).hexdigest()}, timeout=900)\n"
+    . "    assert r.status_code == 201, r.text[:300]\n"
+    . "    return r.json()\n\n"
+    . "bilan = {k: v for k, v in {'map': part(bilan.get('map')), 'map50': part(bilan.get('map50'))}.items() if v is not None}\n"
+    . "bilan['parType'] = {n: part(v) for n, v in par_type.items() if part(v) is not None}\n"
+    . "try:\n"
+    . "    recu = deposer(MODELE, {'architecture': " . python($a['id']) . ", 'resolution': {$a['resolution']}, 'classes': noms, 'bilan': bilan})\n"
+    . "    print('Déposé dans le banc :', recu['nom'], '— il ne reste qu’à l’activer à l’étape 3.')\n"
+    . "except Exception as e:\n"
+    . "    print('Dépôt impossible (%s). Téléchargez le modèle et déposez-le à la main à l’étape 3, avec ces noms et la résolution {$a['resolution']} :' % e)\n"
+    . "    for i, n in enumerate(noms): print(f'{i}: {n}')\n"
+    . "    from google.colab import files\n    files.download(MODELE)\n";
+  if ($format === 'rfdetr') {
+    $creer = $zero ? "{$a['classe']}(pretrain_weights=None)" : "{$a['classe']}()";
+    $cellules = [
+      $texte($entete),
+      $code("!pip install -q 'rfdetr[train,loggers]==1.12.*'"),
+      $code($lire . "noms = [l.split(': ', 1)[1].strip() for l in open('noms.txt') if ': ' in l]\nprint(len(noms), 'noms :', ', '.join(noms))"),
+      $code("from rfdetr import {$a['classe']}\nm = $creer\nm.train(dataset_dir='.', output_dir='sortie', epochs=" . ($zero ? 300 : 100) . ", batch_size=8, grad_accum_steps=2, early_stopping=True, early_stopping_patience=" . ($zero ? 40 : 15) . ", run_test=True, log_per_class_metrics=True, tensorboard=False)"),
+      $code("import shutil\nbest = {$a['classe']}(pretrain_weights='sortie/checkpoint_best_total.pth')\n"
+        . "# Le modele quantifie int8 (environ 4 fois plus petit) : c'est lui qui est depose.\n"
+        . "best.export(output_dir='sortie', quantization='int8', calibration_data='train')\n"
+        . "MODELE = shutil.copy(next(f for f in glob.glob('sortie/*.onnx') if f.endswith('_int8.onnx')), 'modele-banc.onnx')\n"
+        . "# Le bilan sur le bloc test (mAP par type) ; s'il ne se mesure pas, le modele est depose sans lui.\n"
+        . "bilan, par_type = {}, {}\ntry:\n"
+        . "    mesure = best.evaluate(split='test', dataset_dir='.', output_dir='sortie', log_per_class_metrics=True)\n"
+        . "    bilan = {'map': mesure.get('test/mAP_50_95'), 'map50': mesure.get('test/mAP_50')}\n"
+        . "    par_type = {n: mesure.get('test/AP/' + n) for n in noms}\n"
+        . "    print('mAP50-95 test :', bilan['map'])\n"
+        . "except Exception as e:\n    print('Bilan du test non mesuré :', e)"),
+      $code($deposer),
+    ];
+  } else {
+    $entrainer = $zero
+      ? "from ultralytics import YOLO\n# Sans COCO : l'architecture seule ({$a['yaml']}), rien d'appris ; plus d'epoques.\nm = YOLO('{$a['yaml']}')\nm.train(data='data.yaml', pretrained=False, epochs=300, patience=60, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)"
+      : "from ultralytics import YOLO\n# Des poids de depart de la meme architecture, s'il y en a (/content/depart.pt, pose dans les fichiers de Colab avant de lancer) ; sinon COCO.\nm = YOLO('/content/depart.pt' if os.path.exists('/content/depart.pt') else '{$a['poids']}')\nm.train(data='data.yaml', epochs=150, patience=30, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)";
+    $cellules = [
+      $texte($entete),
+      $code("!pip install -q 'ultralytics==8.4.*'"),
+      $code($lire . "print(open('data.yaml').read())"),
+      $code($entrainer),
+      $code("best = YOLO(str(m.trainer.best))\nnoms = [best.names[i] for i in sorted(best.names)]\n"
+        . "# Le bilan sur le bloc test (mAP par type) ; s'il ne se mesure pas, le modele est depose sans lui.\n"
+        . "bilan, par_type = {}, {}\ntry:\n"
+        . "    mesure = best.val(data='data.yaml', split='test')\n"
+        . "    bilan = {'map': mesure.box.map, 'map50': mesure.box.map50}\n"
+        . "    par_type = {noms[int(c)]: mesure.box.class_result(k)[3] for k, c in enumerate(mesure.box.ap_class_index)}\n"
+        . "    print('mAP50-95 test :', bilan['map'])\n"
+        . "except Exception as e:\n    print('Bilan du test non mesuré :', e)\n"
+        . "MODELE = best.export({$a['export']})"),
+      $code($deposer),
+    ];
+  }
+  return json_encode(['cells' => $cellules, 'metadata' => ['accelerator' => 'GPU', 'kernelspec' => ['name' => 'python3', 'display_name' => 'Python 3'], 'language_info' => ['name' => 'python']], 'nbformat' => 4, 'nbformat_minor' => 5], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
 // Routage
 
 if (PHP_SAPI !== 'cli' || getenv('BANC_TEST_ROUTER')) {
   banc_config();
-  demarrer_session();
   $r = (string)($_GET['r'] ?? '');
   $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
   $id = isset($_GET['id']) ? (string)$_GET['id'] : null;
+  // Les deux routes du carnet d'entrainement : un jeton, pas de session (aucun temoin pose, aucune session ouverte). Elles sont ici,
+  // avant tout le reste, et nulle part ailleurs : aucune autre route ne lit l'en-tete du jeton.
+  if ("$methode $r" === 'GET colab-jeu') colab_jeu(jeton_presente());
+  if ("$methode $r" === 'POST colab-modele') { $j = jeton_presente(); isset($_GET['fin']) ? colab_fin($j) : colab_morceau($j, (string)($_GET['partie'] ?? '')); }
+  demarrer_session();
   if ($r === 'etat') repondre(200, ['connecte' => connecte()]);
   // Une ecriture vient de la page du banc, jamais d'un formulaire d'un autre site : l'en-tete X-Banc le dit.
   if ($methode !== 'GET' && ($_SERVER['HTTP_X_BANC'] ?? '') !== '1') erreur(403, 'En-tête X-Banc manquant.');
@@ -1017,6 +1469,9 @@ if (PHP_SAPI !== 'cli' || getenv('BANC_TEST_ROUTER')) {
     case 'GET modele': modele_servir(id_valide($id));
     case 'DELETE modele': modele_supprimer(id_valide($id));
     case 'GET relais': relais_servir((string)$id, (string)($_GET['taille'] ?? ''));
+    case 'GET jetons': jetons_lister();
+    case 'POST jetons': jeton_creer();
+    case 'DELETE jeton': jeton_revoquer($id);
     case 'GET export': exporter((string)($_GET['format'] ?? 'detect'), ($_GET['verifiees'] ?? '0') === '1', (string)($_GET['base'] ?? ''), (string)($_GET['depart'] ?? 'coco'));
   }
   erreur(404, 'Route inconnue : ' . $methode . ' ' . $r);
