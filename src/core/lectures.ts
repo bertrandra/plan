@@ -42,3 +42,6 @@ export const litLesReleves = (o: ObjetPlan): boolean => estBatiment(o) || estBat
 
 /** Aucun objet : ce qui ne lit que la vue (la fleche du nord, l'echelle). */
 export const rien = (): boolean => false;
+
+/** Ce qui lit tout le plan : la conformite au PLU (reculs, emprise, espaces verts), dont le calque des ecarts suit chaque objet. */
+export const tout = (): boolean => true;

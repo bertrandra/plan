@@ -145,7 +145,7 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
   // Le plan (terrasse courante, chiffrage, onglet actif), les onglets offerts, et la commande du dossier. La forme des objets
   // compte : le resume du tiroir replie (tablette), les tuiles et le pied (telephone) chiffrent la terrasse, et un sommet tire
   // change sa surface et ses quantites sans toucher a ses attributs.
-  useCle(magasin, 'barre des résultats', (s) => cleEtatEtObjets(s) + JSON.stringify([tiroir.onglets().map((o) => o.id + o.libelle),
+  useCle(magasin, 'barre des résultats', (s) => cleEtatEtObjets(s) + JSON.stringify([tiroir.onglets().map((o) => o.id + o.libelle + (o.pastille?.nombre ?? '')),
     commandes ? [commandes.effacee('export.dossier'), commandes.etat('export.dossier'), commandes.etat('export.ouvrirDevis'), commandes.etat('projet.partager')] : null]));
   const hauteur = useStore(magasin.store, (s) => s.tiroir);
   const classe = useStore(magasin.store, (s) => s.classe);
@@ -169,8 +169,9 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
         return (
           <button key={o.id} type="button" role="tab" data-controle="tiroir.onglet" data-onglet={o.id} aria-selected={o.id === actif}
             className={'ongletResultats' + (o.id === actif ? ' active' : '') + (separateur ? ' debutGroupe' : '')}
+            aria-label={o.pastille ? o.libelle + ' : ' + o.pastille.dit : undefined} title={o.pastille?.dit}
             onClick={() => tiroir.activer(o.id)}>
-            {o.libelle}
+            {o.libelle}{o.pastille && <span className="pastilleOnglet" aria-hidden="true">{o.pastille.nombre}</span>}
           </button>
         );
       })}

@@ -51,4 +51,30 @@ describe('creerServicePlu', () => {
     expect(echec.pushHistory).not.toHaveBeenCalled();
     expect(echec.s.lecturePluEnCours()).toBe(false);
   });
+
+  it('selectionne l’objet d’un verdict s’il ne l’est pas deja, sans pas d’annulation', () => {
+    const etat = creerEtat({}, (o) => o as ObjetPlan[]);
+    const parcelle = { key: 'parcelle', type: 'polygon', fonction: 'terrain', pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }] } as unknown as ObjetPlan;
+    const abri = { key: 'abri', type: 'polygon', fonction: 'annexe', pts: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 3 }] } as unknown as ObjetPlan;
+    etat.objects = [parcelle, abri];
+    etat.highlight = { type: 'segment', index: 1 };
+    const render = vi.fn(), pushHistory = vi.fn(), markDirty = vi.fn();
+    const s = creerServicePlu(etat, { pushHistory, markDirty, render, trouverParcelle: () => parcelle }, creerMagasin(etat));
+    s.selectionnerObjetDuVerdict('abri');
+    expect(etat.selectedKey).toBe('abri');
+    expect(etat.highlight).toEqual({ type: null, index: null });
+    expect(render).toHaveBeenCalledTimes(1);
+    // Deja selectionne, ou un objet qui n'est plus dans le plan : rien.
+    s.selectionnerObjetDuVerdict('abri');
+    s.selectionnerObjetDuVerdict('disparu');
+    expect(render).toHaveBeenCalledTimes(1);
+    expect(etat.selectedKey).toBe('abri');
+    expect(pushHistory).not.toHaveBeenCalled();
+    expect(markDirty).not.toHaveBeenCalled();
+  });
+
+  it('rend la formalite du projet, une indication', () => {
+    const { s } = monter();
+    expect(s.formalite()).toMatchObject({ formalite: 'aucune', ouvrages: 0 });
+  });
 });

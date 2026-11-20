@@ -293,6 +293,27 @@ async function modeExpert(page, voulu) {
   if (tactile) await feuille(page, null);
   return apres;
 }
+/**
+ * Range sur la parcelle de la demonstration un reglement du PLU SYNTHETIQUE (ni Claude, ni un vrai texte) : ce que la lecture par
+ * Claude (point 120) aurait produit, ses regles proposees (`propose`, a cocher dans l'onglet) ou deja retenues (`valide`). Une ecriture
+ * de script, dite au plan.
+ */
+async function poserReglementSynthetique(page, regles, statut = 'valide') {
+  await page.evaluate(({ regles, statut }) => {
+    const parcelle = window.__plan.etat().objects.find((o) => o.key === 'parcelle');
+    parcelle.reglementPlu = {
+      format: 'plan-reglement-plu', version: 1, zone: 'UA', zoneLue: 'UA', document: 'fumee', insee: '00000',
+      source: { url: 'https://exemple.invalid/reglement.pdf', page: 1, pages: [1, 2], pagesDocument: 2, empreinte: 'ab'.repeat(32), empreinteDocument: 'cd'.repeat(32), octets: 1024 },
+      lecture: { modele: 'synthetique', prompt: 1, schema: 1, cout: null, tokens: { entree: 0, ecritureCache: 0, lectureCache: 0, sortie: 0 }, brut: '{}', sortie: { regles: [] },
+        demandeeLe: '2026-11-20T10:00:00.000Z', synthetique: true },
+      faits: regles.map((r) => ({ termes: [], condition: '', page: 1, confiance: 'forte', statut, ...(statut === 'valide' ? { valideLe: '2026-11-20' } : {}), ...r })),
+      remarques: 'Règlement synthétique de la fumée.',
+    };
+    window.__plan.toucher('parcelle');
+    window.__plan.rendre();
+  }, { regles, statut });
+  await page.waitForTimeout(250);
+}
 /** Les entrees d'un menu de la barre, lues menu ouvert (un menu ferme ne relit pas l'etat de ses commandes). */
 async function entreesDuMenu(page, id) {
   const tactile = (await classe(page)) !== 'large';
@@ -4279,6 +4300,206 @@ const POINTS = {
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
     if (deborde) echecs.push('débordement');
     return { ok: !echecs.length, mesure: lus.join(' ; ') + (echecs.length ? ' — ' + echecs.join(' ; ') : '') };
+  },
+  188: async (page, f) => {
+    // Les ecarts au PLU sur le plan (render/pluOverlay.ts, app/plu/calquePlu.ts). La demonstration recoit un reglement SYNTHETIQUE
+    // (ni Claude, ni un vrai texte) de deux regles : un recul de 3 m des limites, une emprise de 5 %. Proposees, elles ne marquent
+    // rien ; cochees dans l'onglet PLU, l'abri de jardin, au coin de la parcelle, est en ecart : il porte un marqueur « PLU » sur le
+    // plan et son recul mesure s'y dessine ; l'onglet PLU porte le nombre d'ecarts ; toucher son verdict le selectionne ; deplace
+    // loin des limites, son marqueur disparait et le nombre baisse. L'export SVG, pris regles proposees puis retenues, est le meme a
+    // l'octet : c'est un affichage (le reglement est range avant les deux exports : le SVG porte le schema du projet, qu'il monte).
+    // Le mode expert n'est allume que pour l'export SVG (un format technique) ; le reste se joue en mode simple, l'ecran de tous les jours.
+    const echecs = [];
+    const exporterSvg = () => telecharger(page, () => page.evaluate(() => window.__plan.executer('export.svg')));
+    await poserReglementSynthetique(page, [
+      { id: 'f1', grandeur: 'recul-limites-min', valeur: 3, article: 'UA 7', citation: 'Les constructions s’implantent à 3 m au moins des limites séparatives.' },
+      { id: 'f2', grandeur: 'emprise-max', valeur: 5, article: 'UA 9', citation: 'L’emprise au sol ne peut excéder 5 % de la superficie du terrain.' },
+    ], 'propose');
+    const svgAvant = await exporterSvg();
+    const marqueurs = () => page.evaluate(() => [...document.querySelectorAll('#pluGroup g.ecartPlu')].map((g) => ({
+      objet: g.getAttribute('data-objet'), dit: g.getAttribute('aria-label') || '', role: g.getAttribute('role'),
+      textes: [...g.querySelectorAll('text')].map((t) => t.textContent), reculs: g.querySelectorAll('line.ecartPluRecul').length,
+      forme: !!g.querySelector('path.ecartPluMarqueur'), inerte: document.getElementById('pluGroup').getAttribute('pointer-events') === 'none' })));
+    const proposees = await marqueurs();
+    if (proposees.length) echecs.push(proposees.length + ' marqueur(s) pour des règles seulement proposées');
+    if (await page.locator('[data-controle="tiroir.onglet"][data-onglet="plu"] .pastilleOnglet').count()) echecs.push('pastille pour des règles seulement proposées');
+    // Les deux regles cochees dans l'onglet, comme la personne une fois comparees au texte.
+    if (await classe(page) === 'compact') await feuille(page, 'resultats');
+    await page.evaluate(() => window.__plan.ouvrirResultats('plu'));
+    for (const id of ['f1', 'f2']) {
+      await page.locator(`[data-fait="${id}"] input[type="checkbox"]`).evaluate((e) => e.click());
+      await page.waitForTimeout(200);
+    }
+    await page.waitForFunction(() => !!document.querySelector('#pluGroup g.ecartPlu'), null, { timeout: 10000 }).catch(() => {});
+    const avant = await marqueurs();
+    const abri = avant.find((m) => m.objet === 'abri');
+    if (!abri) echecs.push('aucun marqueur sur l’abri (' + avant.map((m) => m.objet).join(', ') + ')');
+    else {
+      if (!abri.forme || !abri.textes.includes('!') || !abri.textes.includes('PLU')) echecs.push('marqueur sans triangle, point d’exclamation ou mot « PLU » : ' + abri.textes.join('|'));
+      if (abri.role !== 'img' || !/^Écart au PLU — Abri de jardin : recul des limites séparatives/.test(abri.dit)) echecs.push('marqueur sans nom lisible : ' + abri.dit.slice(0, 80));
+      if (abri.reculs !== 1 || !abri.textes.some((t) => /^\d+,\d\d m$/.test(t))) echecs.push('recul non dessiné : ' + abri.reculs + ' trait(s), ' + abri.textes.join('|'));
+      if (!abri.inerte) echecs.push('le calque retient les touchers');
+    }
+    // `FUMEE_CAPTURE_PLU=<prefixe>` : le plan avec ses marqueurs, puis l'onglet, une image par classe et theme.
+    if (process.env.FUMEE_CAPTURE_PLU) {
+      await page.screenshot({ path: process.env.FUMEE_CAPTURE_PLU + '-188-onglet-' + f.nom + '.png' }).catch(() => {});
+      if (await classe(page) === 'compact') await feuille(page, null);
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: process.env.FUMEE_CAPTURE_PLU + '-188-plan-' + f.nom + '.png' }).catch(() => {});
+    }
+    const svgApres = await exporterSvg();
+    if (svgApres !== svgAvant) echecs.push('l’export SVG change avec les écarts');
+    if (/ecartPlu|pluGroup/.test(svgApres)) echecs.push('l’export SVG porte le calque des écarts');
+    if (await modeExpert(page, false)) echecs.push('le mode expert ne s’éteint pas');
+    if (!(await marqueurs()).some((m) => m.objet === 'abri')) echecs.push('marqueur absent en mode simple');
+    // L'onglet PLU porte le nombre d'ecarts, en chiffres et en mots.
+    if (await classe(page) === 'compact') await feuille(page, 'resultats');
+    await page.evaluate(() => { window.__plan.selectionnerCle(null); window.__plan.ouvrirResultats('plu'); });
+    await page.locator('#pluConformite .pluVerdict').first().waitFor({ timeout: 15000 });
+    const onglet = () => page.evaluate(() => {
+      const o = document.querySelector('[data-controle="tiroir.onglet"][data-onglet="plu"]');
+      return { pastille: o?.querySelector('.pastilleOnglet')?.textContent ?? null, nom: o?.getAttribute('aria-label') ?? null,
+        ecarts: document.querySelectorAll('#pluConformite .pluVerdict[data-etat="ecart"]').length };
+    });
+    const o1 = await onglet();
+    if (!o1.ecarts || o1.pastille !== String(o1.ecarts)) echecs.push('pastille « ' + o1.pastille + ' » pour ' + o1.ecarts + ' écart(s)');
+    if (!new RegExp('^PLU : ' + o1.ecarts + ' écarts? au PLU$').test(o1.nom || '')) echecs.push('nom de l’onglet : ' + o1.nom);
+    // Toucher le verdict de l'abri le selectionne ; le toucher encore ne change rien.
+    const verdict = page.locator('#pluConformite .pluVerdict[data-objet="abri"] button[data-controle="plu.selectionnerObjet"]').first();
+    await verdict.evaluate((e) => e.scrollIntoView({ block: 'center' }));
+    const cible = await verdict.boundingBox();
+    if (f.nom !== 'large' && cible && cible.height < 43.5) echecs.push('verdict de ' + Math.round(cible.height) + ' px au doigt');
+    await verdict.click();
+    await page.waitForTimeout(250);
+    const choisi = await page.evaluate(() => window.__plan.etat().selectedKey);
+    if (choisi !== 'abri') echecs.push('le verdict ne sélectionne pas l’objet (' + choisi + ')');
+    if (await verdict.getAttribute('aria-current') !== 'true') echecs.push('verdict choisi non signalé');
+    await verdict.click();
+    await page.waitForTimeout(150);
+    if (await page.evaluate(() => window.__plan.etat().selectedKey) !== 'abri') echecs.push('un second toucher désélectionne');
+    // L'abri deplace loin des limites, comme au doigt (seule la forme change) : ses verdicts se refont.
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'abri');
+      o.pts = o.pts.map((p) => ({ ...p, x: p.x - 9, y: p.y - 17 }));
+      window.__plan.toucherForme('abri');
+      window.__plan.rendre();
+    });
+    await page.waitForFunction(() => !document.querySelector('#pluGroup g.ecartPlu[data-objet="abri"]'), null, { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(250);
+    const apres = await marqueurs();
+    if (apres.some((m) => m.objet === 'abri')) echecs.push('le marqueur reste après le déplacement');
+    const o2 = await onglet();
+    if (!(o2.ecarts < o1.ecarts) || (o2.pastille ?? '0') !== String(o2.ecarts)) echecs.push('après le déplacement : pastille « ' + o2.pastille + ' », ' + o2.ecarts + ' écart(s) (avant ' + o1.ecarts + ')');
+    const etatAbri = await page.locator('#pluConformite .pluVerdict[data-objet="abri"]').first().getAttribute('data-etat').catch(() => null);
+    if (etatAbri !== 'conforme') echecs.push('verdict de l’abri après le déplacement : ' + etatAbri);
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `${avant.length} ouvrage(s) marqué(s) (${avant.map((m) => m.objet).join(', ')}), recul de l’abri « ${abri?.textes.find((t) => / m$/.test(t)) ?? '?'} » ; onglet « ${o1.nom} » ; `
+      + `verdict touché → ${choisi} ; abri déplacé : ${apres.length} marqué(s), onglet « ${o2.nom ?? 'PLU'} » ; SVG ${svgAvant.length} octets, identique avec les écarts` };
+  },
+  189: async (page, f) => {
+    // « Quelle formalité pour ce projet ? » (engine/regles/plu/formalite.ts) et les terrasses surelevees dans le controle du PLU, en
+    // mode simple. La demonstration est en secteur protege, sur un terrain en pente : sa terrasse de 35 m², de plain-pied en haut,
+    // est a plus de 0,60 m du sol en bas, donc surelevee : le dialogue de la declaration prealable et l'onglet PLU disent « Permis de
+    // construire », toujours comme une indication. Le relief retire (script), elle est de plain-pied : en secteur protege, « À
+    // vérifier en mairie » ; les servitudes retirees, « Aucune formalité ». Relevee de 70 cm, elle redevient surelevee. Avec un recul
+    // retenu (reglement SYNTHETIQUE), elle entre dans la conformite : son verdict dit « Terrasse surélevée », et elle porte son
+    // marqueur sur le plan ; la table, une terrasse de plain-pied, n'est pas controlee.
+    const echecs = [];
+    if (await modeExpert(page, false)) echecs.push('le mode expert ne s’éteint pas');
+    const lire = async (id) => page.evaluate((id) => {
+      const s = document.getElementById(id);
+      if (!s) return null;
+      const hote = s.closest('.dialogueDeclaration, #panelPlu, #tiroirPanneaux') ?? s.parentElement;
+      return { formalite: s.getAttribute('data-formalite'), reponse: s.querySelector('.formaliteReponse')?.textContent ?? '', foi: s.querySelector('.formaliteFoi')?.textContent ?? '',
+        raisons: [...s.querySelectorAll('.formaliteRaisons li')].map((li) => li.getAttribute('data-raison') + ' : ' + li.textContent),
+        reserves: [...s.querySelectorAll('.formaliteReserve')].map((e) => e.textContent), note: s.querySelector('.formaliteNote')?.textContent ?? '',
+        deborde: s.getBoundingClientRect().right > hote.getBoundingClientRect().right + 1 || s.scrollWidth > s.clientWidth + 1 };
+    }, id);
+    const dansLaDeclaration = async () => {
+      await page.evaluate(() => window.__plan.executer('export.ouvrirDeclaration'));
+      await page.locator('#declarationFormalite').waitFor({ timeout: 15000 });
+      // L'indication est en tete du dialogue : avant ses champs.
+      const enTete = await page.evaluate(() => {
+        const d = document.querySelector('.dialogueDeclaration'), s = document.getElementById('declarationFormalite'), champs = d?.querySelector('.hoteChamps');
+        return !!s && !!champs && !!(s.compareDocumentPosition(champs) & Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+      const r = await lire('declarationFormalite');
+      await page.locator('[data-controle="declaration.fermer"]').click();
+      await page.waitForTimeout(200);
+      return { ...r, enTete };
+    };
+    const dansLOnglet = async () => {
+      if (await classe(page) === 'compact') await feuille(page, 'resultats');
+      await page.evaluate(() => window.__plan.ouvrirResultats('plu'));
+      await page.locator('#pluFormalite').waitFor({ timeout: 15000 });
+      const r = await lire('pluFormalite');
+      if (await classe(page) === 'compact') await feuille(page, null);
+      return r;
+    };
+    const ecrire = async (geste) => { await page.evaluate(geste); await page.waitForTimeout(200); };
+    const surelevee = (r) => r.raisons.some((x) => /^terrasse\.terrasse : .*terrasse surélevée \(dessus à \d+,\d\d m du sol, plus de 0,60 m\).*mairie/.test(x));
+    const indication = (r) => /pas une autorisation.*mairie font foi/.test(r.foi) && !/autoris/i.test(r.reponse);
+    // 1. La demonstration : la pente du terrain met le bas de la terrasse a plus de 0,60 m du sol.
+    const d1 = await dansLaDeclaration();
+    if (d1.formalite !== 'permis' || d1.reponse !== 'Permis de construire, d’après les règles nationales.') echecs.push('démonstration : ' + d1.formalite + ' « ' + d1.reponse + ' »');
+    if (!d1.enTete) echecs.push('l’indication n’est pas en tête du dialogue');
+    if (!surelevee(d1)) echecs.push('raison de la terrasse surélevée absente : ' + d1.raisons.join(' | ').slice(0, 200));
+    if (!indication(d1)) echecs.push('« pas une autorisation » absent, ou formulée comme une autorisation');
+    if (d1.deborde) echecs.push('l’indication déborde du dialogue');
+    // Le dossier ecrit « de plain-pied » : le dialogue le dit quand l'indication tient la terrasse pour surelevee, et seulement la.
+    if (!/décrit la terrasse comme « de plain-pied »/.test(d1.note)) echecs.push('le dialogue ne dit pas ce que le dossier écrit de la terrasse');
+    const p1 = await dansLOnglet();
+    if (p1?.formalite !== d1.formalite || p1?.deborde) echecs.push('onglet PLU : ' + p1?.formalite + (p1?.deborde ? ', déborde' : ''));
+    // 2. Sans relief, la terrasse est de plain-pied ; en secteur protege, Plan ne tranche pas.
+    await ecrire(() => { const p = window.__plan.etat().objects.find((x) => x.key === 'parcelle'); delete p.relief; window.__plan.toucher('parcelle'); window.__plan.toucher('terrasse'); window.__plan.rendre(); });
+    const d2 = await dansLaDeclaration();
+    if (d2.formalite !== 'a-verifier' || d2.reponse !== 'À vérifier en mairie : les règles nationales ne tranchent pas avec ce que le plan sait.') echecs.push('plain-pied en secteur protégé : ' + d2.formalite + ' « ' + d2.reponse + ' »');
+    if (!d2.raisons.some((x) => /^plainPied : .*à vérifier en mairie/.test(x)) || surelevee(d2)) echecs.push('raisons du plain-pied en secteur protégé : ' + d2.raisons.join(' | ').slice(0, 200));
+    // 3. Hors secteur protege : aucune formalite pour une terrasse de plain-pied.
+    await ecrire(() => { const p = window.__plan.etat().objects.find((x) => x.key === 'parcelle'); p.plu = { ...p.plu, spr: [], servitudes: [] }; window.__plan.toucher('parcelle'); window.__plan.rendre(); });
+    const d3 = await dansLaDeclaration();
+    if (d3.formalite !== 'aucune' || d3.reponse !== 'Aucune formalité, d’après les règles nationales.') echecs.push('plain-pied hors secteur protégé : ' + d3.formalite + ' « ' + d3.reponse + ' »');
+    if (d3.note) echecs.push('note de la terrasse surélevée pour une terrasse de plain-pied');
+    if (!d3.raisons.some((x) => /^plainPied : .*ne crée pas d’emprise au sol, aucune formalité/.test(x))) echecs.push('raison de plain-pied absente : ' + d3.raisons.join(' | ').slice(0, 200));
+    // 4. La terrasse relevee de 70 cm (la tete des vis de fondation, ou les plots) : surelevee, son emprise decide.
+    const surface = await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'terrasse');
+      o.construction = { ...(o.construction || {}), depassementVis: 70, hauteurPlot: 70 };
+      window.__plan.toucher('terrasse');
+      window.__plan.rendre();
+      let a = 0;
+      o.pts.forEach((p, i) => { const q = o.pts[(i + 1) % o.pts.length]; a += p.x * q.y - q.x * p.y; });
+      return Math.abs(a) / 2;
+    });
+    const attendue = surface <= 5 ? 'aucune' : surface <= 20 ? 'declaration' : 'permis';
+    const d4 = await dansLaDeclaration();
+    if (d4.formalite !== attendue) echecs.push('terrasse surélevée de ' + surface.toFixed(1) + ' m² : ' + d4.formalite + ' (attendu ' + attendue + ')');
+    if (!surelevee(d4) || !indication(d4) || d4.deborde) echecs.push('terrasse relevée : raison, formule ou débordement (' + d4.raisons.join(' | ').slice(0, 160) + ')');
+    const p4 = await dansLOnglet();
+    if (p4?.formalite !== d4.formalite || p4?.deborde) echecs.push('onglet PLU, terrasse relevée : ' + p4?.formalite + (p4?.deborde ? ', déborde' : ''));
+    // Avec un recul retenu, la terrasse surelevee entre dans le controle.
+    await poserReglementSynthetique(page, [{ id: 'f1', grandeur: 'recul-limites-min', valeur: 30, article: 'UA 7', citation: 'Les constructions s’implantent à 30 m au moins des limites séparatives.' }]);
+    if (await classe(page) === 'compact') await feuille(page, 'resultats');
+    await page.evaluate(() => window.__plan.ouvrirResultats('plu'));
+    const verdict = page.locator('#pluConformite .pluVerdict[data-objet="terrasse"]').first();
+    await verdict.waitFor({ timeout: 15000 }).catch(() => {});
+    const texte = await verdict.textContent().catch(() => '');
+    const etatVerdict = await verdict.getAttribute('data-etat').catch(() => null);
+    if (etatVerdict !== 'ecart' || !/Terrasse surélevée \(dessus à .* m du sol, plus de 0,60 m\).*à confirmer auprès de la mairie/.test(texte || '')) echecs.push('verdict de la terrasse : ' + etatVerdict + ' « ' + (texte || '').slice(0, 120) + ' »');
+    // La table (une terrasse de plain-pied) n'est pas controlee.
+    if (await page.locator('#pluConformite .pluVerdict[data-objet="table"]').count()) echecs.push('une terrasse de plain-pied est contrôlée');
+    const marquee = await page.evaluate(() => !!document.querySelector('#pluGroup g.ecartPlu[data-objet="terrasse"] path.ecartPluMarqueur'));
+    if (!marquee) echecs.push('terrasse en écart sans marqueur sur le plan');
+    if (process.env.FUMEE_CAPTURE_PLU) {
+      await page.screenshot({ path: process.env.FUMEE_CAPTURE_PLU + '-189-onglet-' + f.nom + '.png' }).catch(() => {});
+      if (await classe(page) === 'compact') await feuille(page, null);
+      await page.evaluate(() => window.__plan.executer('export.ouvrirDeclaration'));
+      await page.locator('#declarationFormalite').waitFor({ timeout: 15000 });
+      await page.screenshot({ path: process.env.FUMEE_CAPTURE_PLU + '-189-declaration-' + f.nom + '.png' }).catch(() => {});
+    }
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `démonstration (pente, secteur protégé) : « ${d1.reponse} » (${d1.raisons.length} raison(s), ${d1.reserves.length} réserve(s)), en tête du dialogue et dans l’onglet PLU ; `
+      + `sans relief : « ${d2.reponse} » ; sans servitude : « ${d3.reponse} » ; terrasse de ${surface.toFixed(1).replace('.', ',')} m² relevée : « ${d4.reponse} » ; verdict du recul : ${etatVerdict}, « ${(texte || '').replace(/\s+/g, ' ').slice(0, 110)}… » ; marquée sur le plan : ${marquee ? 'oui' : 'NON'}` };
   },
   186: async (page, f) => {
     // Les raccourcis (lot 4) : une seule table (app/clavier.ts) que le clavier ecoute et que le menu Aide montre. Au clavier, sur la
@@ -9951,7 +10172,11 @@ function pointsPour(nomClasse) {
   // 186 : les raccourcis : Ctrl+Z, Ctrl+Y et Ctrl+Maj+Z, le bouton « Rétablir », Suppr (confirme, pas dans un champ) ; la liste du menu Aide.
   // 183 : le nom de l'emetteur du devis vient du compte meme hors du cache du contexte (`token_expires_at` nul), propose et imprime.
   // 187 : les erreurs d'un fichier dites en clair : un JSON et un SVG illisibles, le PNG qui ne se rend pas, le DXF bloque.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187];
+  // 188 : les ecarts au PLU sur le plan : le marqueur sur l'ouvrage, le recul mesure, le nombre sur l'onglet, le verdict qui selectionne ;
+  //       l'ouvrage deplace refait ses verdicts ; l'export SVG ne change pas.
+  // 189 : « Quelle formalité pour ce projet ? » en tete de la declaration prealable et dans l'onglet PLU ; une terrasse surelevee entre
+  //       dans l'indication et dans le controle du PLU, a confirmer en mairie.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -49,6 +49,8 @@ export interface ContexteRendu extends ContexteOrtho {
   dessinerRelief?: () => void;
   /** Le nom des rues (render/rues.ts) : sous les objets, au-dessus du relief. */
   dessinerRues?: () => void;
+  /** Les ecarts au PLU (render/pluOverlay.ts) : un marqueur sur l'ouvrage en ecart, son recul mesure ; devant les objets. */
+  dessinerEcartsPlu?: () => void;
   /** Un mode de diagnostic (app/diagnostic.ts) : la couleur d'affichage d'un objet, ou null pour la sienne. */
   couleurDiagnostic?: (obj: ObjetPlan) => string | null;
   /**
@@ -200,6 +202,7 @@ export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {
   rendreObjets(etat, ctx, etat.objects);
 
   ctx.renderReleves?.();
+  ctx.dessinerEcartsPlu?.();
   ctx.drawScaleBar();
   ctx.drawNorthArrow();
   ctx.drawMeasures();

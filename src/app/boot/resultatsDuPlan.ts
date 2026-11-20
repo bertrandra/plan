@@ -10,6 +10,7 @@ import type { ObjetPlan } from '../../model/types.js';
 import { creerTiroir } from '../tiroir.js';
 import { creerResultats } from '../resultats.js';
 import { lecturePluDuNavigateur } from '../plu/navigateurPlu.js';
+import { conformiteDuPlan } from '../plu/conformiteDuPlan.js';
 import type { Magasin } from '../magasin.js';
 import { resumeDuProjet } from '../assemblage/exports.js';
 import type { Affichage } from '../assemblage/affichage.js';
@@ -30,7 +31,8 @@ export function assemblerLesResultats(etat: EtatApp, magasin: Magasin, d: Depend
   const selection = (garder: (o: ObjetPlan) => boolean) => { const o = etat.objects.find(x => x.key === etat.selectedKey); return o && garder(o) ? o : undefined; };
   const tiroir = creerTiroir(etat, {
     refreshTerrasseView: d.refreshTerrasseView, terrasseSelectionnee: () => terrasseSelectionnee(etat),
-    piscineSelectionnee: () => selection(estPiscine), abriSelectionne: () => selection(estAbri)
+    piscineSelectionnee: () => selection(estPiscine), abriSelectionne: () => selection(estAbri),
+    ecartsPlu: () => conformiteDuPlan(etat.objects).ecarts
   }, magasin);
   // Sur telephone, l'onglet montre s'ouvre dans la feuille des resultats.
   const montrer = (onglet: string) => {

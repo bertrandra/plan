@@ -14,6 +14,8 @@ import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { ServiceDossier } from '../../app/declaration/serviceDossier.js';
 import { TextesDossier } from './TextesDossier.js';
+import { IndicationFormalite } from '../composants/IndicationFormalite.js';
+import { formaliteDuPlan } from '../../app/plu/conformiteDuPlan.js';
 
 /** `dossier` : les textes, les photographies et la relecture du dossier (lot L5), sous les champs du declarant. */
 export function Declaration({ inspecteur, magasin, fermer, commandes, dossier }: {
@@ -24,11 +26,19 @@ export function Declaration({ inspecteur, magasin, fermer, commandes, dossier }:
   const parcelle = inspecteur.parcelle();
   const c = parcelle ? inspecteur.contexte(parcelle) : null;
   const section = c ? sectionDeclaration(c) : null;
+  const formalite = c ? formaliteDuPlan(c.objets) : null;
+  // Le dossier decrit toute terrasse comme de plain-pied (export/cerfa13703.ts, que cette indication ne change pas) : le dire quand
+  // l'indication tient l'une d'elles pour surelevee, pour que la personne corrige la description avant de deposer.
+  const noteTerrasse = formalite?.raisons.some((r) => r.cle.startsWith('terrasse.'))
+    ? 'Le dossier produit ici décrit la terrasse comme « de plain-pied » et ne compte pas son emprise : si la mairie la tient pour surélevée, corrigez la description du projet (plus bas) avant de déposer.'
+    : null;
   return (
     <div className="dialogueImperatif dialogueDeclaration" role="dialog" aria-modal="true" aria-label="Déclaration préalable">
       <div className="titreParcours">Déclaration préalable</div>
       {section && c
         ? <>
+            {/* Avant de remplir un cerfa : ce projet en demande-t-il un ? Une indication, d'apres les regles nationales. */}
+            {formalite && <IndicationFormalite indication={formalite} id="declarationFormalite" note={noteTerrasse} />}
             <div className="sousTitreParcours">{section.explication}</div>
             <Tactile.Provider value={tactile}>
               <div className="hoteChamps" data-section={section.id}>

@@ -10,7 +10,7 @@ import { cellulesDansPolygone } from '../../model/relief.js';
 import { maxEntraxeLameCm, maxPorteeVisM } from '../bois/portees.js';
 import { perce, terrasseDeLaPiscine } from '../ouvrages/liens.js';
 import { estTerrasse, parcelleDuProjet } from '../../model/fonctions.js';
-import type { ObjetPlan, PtBrut, SecuritePiscine } from '../../model/types.js';
+import type { ObjetPlan, PtBrut, SecuritePiscine, ZonagePlu } from '../../model/types.js';
 import { libellePiscine, plageCalculee, REVANCHE_M, VITESSE_FILTRATION_M_H, DIAMETRES_FILTRE_MM, M2_PAR_SKIMMER, M2_PAR_REFOULEMENT, M2_PAR_PROJECTEUR, M3_PAR_KW_PAC, TAXE_AMENAGEMENT_M2, SEUIL_SANS_FORMALITE_M2, SEUIL_PERMIS_M2, CHARGE_PLAGE_KG_M2, POIDS_PROPRE_PLAGE_KG_M2, PROFILS_STRUCTURE, FOISONNEMENT, EPAISSEUR_MARGELLE_M, PLAGE, type ReglagesPiscine, piscineDe, fr } from './reglages.js';
 import { bordDesMargelles, contourPiscine, elargir, perimetre, type AxeProfondeur, axeProfondeur, type PointProfil, profilFond, volumeEau } from './geometrie.js';
 
@@ -41,6 +41,15 @@ export function distancesAuxLimites(contour: PtBrut[], parcelle: ObjetPlan | und
     });
     return { cote: i, nom: parcelle.segmentNames?.[i] || ('Côté ' + (i + 1)), distance: best, depuis, vers: projectOntoSegment(depuis, a, b) };
   });
+}
+
+/**
+ * La parcelle est en secteur protege, d'apres les servitudes que le Geoportail de l'urbanisme a rendues : un site patrimonial
+ * remarquable, ou une servitude AC1 (abords d'un monument historique), AC2 (site inscrit ou classe) ou AC4. Sans zonage interroge,
+ * rien ne le dit : faux. Lu aussi par la formalite d'urbanisme du projet (engine/regles/plu/formalite.ts).
+ */
+export function estSecteurProtege(plu: ZonagePlu | null | undefined): boolean {
+  return !!plu && (plu.spr.length > 0 || plu.servitudes.some(s => /^AC[124]/.test(s.type)));
 }
 
 export type RegimeAutorisation = 'aucune' | 'declaration' | 'permis';
@@ -196,7 +205,7 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
 
   const parcelle = parcelleDuProjet(objets);
   const plu = parcelle?.plu;
-  const secteurProtege = !!plu && (plu.spr.length > 0 || plu.servitudes.some(s => /^AC[124]/.test(s.type)));
+  const secteurProtege = estSecteurProtege(plu);
   const regime = regimeAutorisation(surface, r.securite, secteurProtege);
   const distances = distancesAuxLimites(contour, parcelle);
   // Percer a une definition, celle du lien (engine/ouvrages/liens.ts) : le bord des margelles, la ou la terrasse s'arrete.

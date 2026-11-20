@@ -5,6 +5,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Les écarts au PLU se lisent sur le plan.** Un ouvrage en écart aux règles du PLU que vous avez vérifiées porte un marqueur sur le
+  plan (un triangle à point d'exclamation et le mot « PLU », nommé pour un lecteur d'écran : la couleur ne porte rien seule), et pour
+  un écart de recul la distance mesurée jusqu'à la limite s'y dessine. L'onglet PLU porte le nombre d'écarts ; toucher un verdict qui
+  vise un objet le sélectionne. Les verdicts se refont dès qu'un ouvrage est déplacé. C'est un affichage de l'écran
+  (`render/pluOverlay.ts`, `app/plu/calquePlu.ts`, `app/plu/conformiteDuPlan.ts`) : aucun export ne le dessine, les empreintes ne
+  bougent pas. Un jeton de couleur de plus, `--ecart-plu` (`jetons.ts`, les deux thèmes, les huit modèles de palette).
+- **Les terrasses surélevées entrent dans le contrôle du PLU.** Une terrasse du projet dont le dessus est à plus de 0,60 m du sol
+  (réglage `plu.terrasseSureleveeM` de `regles/plu/reglages.json` ; sur un terrain en pente, la hauteur se mesure là où le sol est le
+  plus bas sous elle) est contrôlée pour ses reculs et comptée dans l'emprise au sol ; son verdict dit que c'est une terrasse
+  surélevée et que la règle est à confirmer auprès de la mairie. Une terrasse de plain-pied n'est toujours pas concernée.
+- **« Quelle formalité pour ce projet ? »** En tête du dialogue de la déclaration préalable et dans l'onglet PLU : aucune formalité,
+  déclaration préalable ou permis de construire, avec les raisons (emprise au sol créée par les abris et les terrasses surélevées,
+  secteur protégé connu par les servitudes du PLU, bassins), d'après les seuils nationaux (5, 20 et 40 m², réglages `formalite.*`).
+  Quand ces règles ne tranchent pas avec ce que le plan sait (terrasse de plain-pied en secteur protégé, extension accolée de 20 à
+  40 m² sans zone connue ou en secteur protégé, ouvrages qui ne passent un seuil que comptés ensemble), la réponse est « À vérifier
+  en mairie ». C'est une indication, jamais une autorisation : le texte le dit à chaque fois (`engine/regles/plu/formalite.ts`).
+  Points de fumée 188 et 189.
+
+### Modifié
+
+- Le dialogue de la déclaration préalable ne dit plus « Moins de 5 m² d'emprise au sol créée : aucune formalité » sous ses champs :
+  l'indication en tête du dialogue répond pour tout le projet. Le cerfa, ses pièces et la relecture avant l'export ne changent pas
+  (ils gardent le régime calculé par `export/cerfa13703.ts`, qui tient une terrasse pour de plain-pied).
+
 ## [5.36.0] — 2026-11-17
 
 Version **mineure** au sens de `MD/RELEASE.md` : le lot 4 de la simplification de l'IHM ajoute un geste (§2.1 : « new feature »),
