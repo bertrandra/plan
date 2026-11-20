@@ -46,6 +46,8 @@ export interface Banc {
   modeles: Modele[];
   reglages: Reglages;
   relire: () => Promise<void>;
+  /** Relit les seuls modeles : un carnet d'entrainement a pu en deposer un pendant que la page etait ouverte. */
+  relireModeles: () => Promise<void>;
   remplacer: (m: MetaImage) => void;
   dire: (texte: string, genre?: 'ok' | 'erreur', action?: ActionMessage) => void;
   /** Supprime une photo sans confirmation, mais en differe : annulable quelques secondes (suppressions.ts). */
@@ -112,6 +114,9 @@ export function App() {
     }
   }, [dire]);
 
+  // Sans message : relu en revenant sur la page, un echec passager ne doit rien dire.
+  const relireModeles = useCallback(async () => { try { setModeles(await api.modeles()); } catch { /* la prochaine lecture le dira */ } }, []);
+
   useEffect(() => {
     api.etat().then((e) => setConnecte(e.connecte)).catch((e: Error) => setPanne(e.message));
   }, []);
@@ -131,7 +136,7 @@ export function App() {
 
   const remplacer = (m: MetaImage) => setImages((l) => l.map((x) => (x.id === m.id ? m : x)));
   const supprimer = (m: MetaImage) => file.current?.demander(m);
-  const banc: Banc = { classes, images, modeles, reglages, relire, remplacer, dire, supprimer, ouvrir: (id, liste) => setEdition({ id, liste: liste ?? [id] }), aller: setEcran, zoneDemandee, demanderZone };
+  const banc: Banc = { classes, images, modeles, reglages, relire, relireModeles, remplacer, dire, supprimer, ouvrir: (id, liste) => setEdition({ id, liste: liste ?? [id] }), aller: setEcran, zoneDemandee, demanderZone };
   const attente = aFaire(images);
   const deconnecter = () => { file.current?.abandonner(); api.deconnexion().then(() => setConnecte(false)).catch((e: Error) => dire(e.message, 'erreur')); };
 

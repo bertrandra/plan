@@ -161,6 +161,42 @@ export interface Modele {
   installe: boolean;
   catalogue?: boolean;
   actif?: boolean;
+  /** D'ou vient un modele depose par un carnet d'entrainement (etape 6, « Entrainer dans Colab ») ; absent d'un modele depose a la main. */
+  depot?: DepotModele;
+}
+
+/** Le jeu d'un export, tel que le jeton d'entrainement l'a fige. */
+export interface JeuExporte {
+  racine: string;
+  le: string;
+  images: { train: number; val: number; test: number };
+  verifieesSeulement: boolean;
+  classes: number;
+  octets?: number;
+}
+
+/** Ce que le serveur garde d'un depot fait par un carnet : sa date, son jeu, son architecture et son bilan sur le bloc test. */
+export interface DepotModele {
+  par: 'colab';
+  le: string;
+  architecture: string;
+  depart: 'coco' | 'zero';
+  jeu: JeuExporte;
+  /** mAP50-95 et mAP50 du bloc test, et le mAP50-95 de chaque type ; vide quand le carnet n'a pas pu mesurer. */
+  bilan: { map?: number; map50?: number; parType?: Record<string, number> };
+  octets: number;
+}
+
+/** Une cle d'entrainement vivante, vue de l'ecran : jamais la cle elle-meme, que seul le carnet telecharge porte. */
+export interface JetonEntrainement {
+  id: string;
+  creeLe: string;
+  expireLe: string;
+  architecture: { id: string; nom: string; depart: 'coco' | 'zero'; format: Modele['format']; resolution: number };
+  jeu: JeuExporte;
+  lectures: number;
+  luLe: string | null;
+  depose: { le: string; modele: string } | null;
 }
 
 /** Les blocs d'apprentissage (etape 7) : la graine du tirage, les parts, la taille de l'echantillon a verifier. */
