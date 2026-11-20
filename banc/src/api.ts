@@ -1,6 +1,6 @@
 // L'API du banc (banc/public/api.php), vue de la page. Toutes les ecritures portent l'en-tete X-Banc (le serveur refuse sans lui).
 
-import type { Annotation, Classe, MetaImage, Modele, Reglages } from './types.js';
+import type { Annotation, Classe, JetonEntrainement, MetaImage, Modele, Reglages } from './types.js';
 
 export class ErreurApi extends Error {
   constructor(message: string, readonly statut: number) { super(message); }
@@ -75,5 +75,14 @@ export const api = {
   urlModele: (id: string) => route('modele', { id }),
   /** L'image d'une photo Panoramax lue par le serveur du banc, pour les hotes que la page ne lit pas en direct : un identifiant et une taille, jamais une adresse. */
   relais: (id: string, taille: 'hd' | 'sd' | 'vignette') => route('relais', { id, taille }),
+  /** Les cles d'entrainement vivantes (etape 6), et la duree d'une cle neuve, en heures. */
+  jetons: () => appel<{ heures: number; jetons: JetonEntrainement[] }>('GET', 'jetons'),
+  /**
+   * Cree une cle pour cet export et rend le carnet qui la porte. L'adresse du banc ecrite dans le carnet est celle de cette API, vue
+   * de la page ; la correspondance dit ou iront les noms du modele depose.
+   */
+  creerJeton: (d: { format: 'detect' | 'seg' | 'rfdetr'; base: string; depart: 'coco' | 'zero'; verifiees: boolean; correspondance: Record<string, string> }) =>
+    appel<{ jeton: JetonEntrainement; fichier: string; carnet: string }>('POST', 'jetons', {}, { ...d, adresse: new URL(URL_API, document.baseURI).href }),
+  revoquerJeton: (id: string) => appel<{ revoque: string }>('DELETE', 'jeton', { id }),
   urlExport: (format: 'detect' | 'seg' | 'rfdetr' | 'natif', verifiees: boolean, base = '', depart: 'coco' | 'zero' = 'coco') => route('export', { format, verifiees: verifiees ? '1' : '0', ...(base ? { base, depart } : {}) }),
 };

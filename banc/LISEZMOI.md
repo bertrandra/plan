@@ -20,10 +20,10 @@ pignons…), du marquage brouillon à l’export au format natif d’Ultralytics
 | 1c | Import | Panoramax, **une zone en lot** : une commune (son contour par le WFS de la Géoplateforme), des coordonnées (un pavé de 300 m autour), ou une zone dessinée sur la carte (rectangle, polygone), et une cible (100 façades par défaut, 500 au plus). Le banc parcourt la zone par pavés de 300 m (`lot.ts` : 300 au plus, ordre éparpillé), une requête à la fois avec 0,7 s de pause ; un service qui limite : il attend, réessaie, puis s’arrête en le disant et reprend au même pavé. Il garde la meilleure vue de chaque bâtiment : jamais deux fois le même, aucun que le banc a déjà, cinq au plus par tronçon de rue, un plafond par pavé. Récapitulatif avant l’import (compte, types de bâtiment, poids estimé, douze aperçus), puis import en tâche de fond avec sa jauge, qui s’arrête et se reprend sans rien perdre ; les façades lues cachées dans l’image sont écartées (case cochée). |
 | 2 | Redressement | Vue de face par les points de fuite, en lot (avec son avancement) ; les échecs se retrouvent sous leur filtre, à reprendre par quatre coins d’un rectangle du mur posés à la main ; ou « de face ». On choisit des photos en les touchant : « Déjà de face » les passe telles quelles à la mosaïque ; quand l’import a lu le mur de plusieurs photos, « Mur 1 », « Mur 2 »… les rangent à la suite et les choisissent d’un geste, de gauche à droite ; **« Fusionner »** assemble les photos d’un même mur, choisies de gauche à droite, en une seule (`fusion.ts` : l’assemblage de la mosaïque de Plan, la place où leurs parties communes se ressemblent le plus puis un fondu, avec en plus un décalage vertical et une échelle cherchés ; les originales sont rejetées, au choix). Sur chaque carte, quatre icônes (leur nom dans l’infobulle) : redresser automatiquement, à la main, déjà de face, et la **poubelle**, sans confirmation mais en différé : la photo disparaît, « Annuler » la rend pendant six secondes, puis le serveur efface son dossier (`suppressions.ts` ; la page fermée avant la fin du délai n’envoie rien, la photo revient). |
 | 2a | Mosaïque | Les photos redressées en mosaïque (à valider, validées, rejetées) : valider (V), rejeter (R), refaire (A), flèches ; **Entrée** ouvre la revue en grand, où la photo suivante vient d’elle-même après chaque geste. Les rejetées se suppriment avec leur dossier. |
-| 3 | Brouillon | En lot sur les photos validées : les modèles YOLO actifs (ceux du dépôt `facade`, puis les vôtres) et l’algorithme de recherche des baies proposent des objets « auto ». |
+| 3 | Brouillon | En lot sur les photos validées : les modèles YOLO actifs (ceux du dépôt `facade`, puis les vôtres) et l’algorithme de recherche des baies proposent des objets « auto ». **Un modèle entraîné par le carnet de l’étape 6 arrive ici tout seul** (l’écran relit les modèles à son ouverture et quand on revient sur la page), **inactif** : ses noms sont déjà reliés aux types du banc, sa résolution est posée, et sa carte dit d’où il vient (date du dépôt, jeu, mAP du bloc test, mAP par type). Il ne reste qu’à l’activer. « Déposer un modèle entraîné » reste là pour le dépôt à la main (fichier, noms, architecture, résolution). |
 | 4 | Marquage | Un **poste de relecture** : la barre du haut (la photo, ce qui reste à relire, Vérifiée, bloc, Enregistrer, **Valider et suivante**), une colonne d’outils à gauche (choisir, main, zoom, boîte, lasso, rectangle, polygone, ligne, point ; étiquettes, loupe, aide), la photo, l’inspecteur à droite (onglets **Objet** et **Liste** : la relecture du brouillon, l’objet ou la sélection, la palette des types) et le bandeau des photos du lot en bas (état et avancement). Au clavier : **Tab** l’objet à relire suivant, **A** l’accepter, **X** le supprimer, **1 à 9** lui donner un type, **Entrée** enregistrer, marquer vérifiée et passer à la suivante, flèches pour décaler au pixel ; **?** montre tous les raccourcis. Un curseur masque le brouillon sous un score ; « Accepter les N au-dessus » (Maj+A). Les étiquettes ne s’affichent qu’au survol et sur l’objet choisi (E : toutes). Le code : des contrôleurs (`editeur/useMarquage`, `useSelection`, `usePressePapiers`, `useRelecture`, `useRaccourcis`) et des vues ; la logique pure dans `relecture.ts` et `raccourcis.ts` (la même table pour le clavier et l’aide). |
 | 5 | Marquage | Le catalogue : recherche (**/**), filtres par état, source, bloc, classe, vérification ; une pastille dit l’état de chaque photo (à marquer, à relire, corrigée, vérifiée, échantillon) et ses classes ; « Relire les N brouillons » les enchaîne dans l’éditeur, qui passe d’une photo à l’autre (N / B). |
-| 6 | Export | **RF-DETR** (Roboflow, **Apache 2.0**, libre pour Plan) : le jeu au format COCO (`train/`, `valid/`, `test/`), `noms.txt`, un script et un carnet Colab qui exportent `modele-banc.onnx` (int8, 37 Mo pour Nano) à déposer à l’étape 3 avec sa résolution (384 Nano, 512 Small, 576 Medium). Pour comparer, les YOLO d’Ultralytics (**AGPL-3.0** : un modèle entraîné avec eux, servi dans une application, impose d’en publier le code ou d’acheter leur licence) — le jeu au format Ultralytics : `images/` et `labels/` par bloc, `data.yaml`, `entrainer.py`, `bilan.json`. En détection pour **YOLO26n** (par défaut) ou YOLOv10n (le modèle du dépôt `facade`, pour repartir de ses poids), en contours pour YOLO26n-seg ou YOLO11n-seg, **avec ou sans COCO** (poids pré-entraînés, ou l’architecture seule, de zéro), ou au format du banc (`annotations.json` : arbre, attributs et polygones). L’export ONNX se fait sans NMS (`nms=False`) : de bout en bout, 300 détections ; le banc lit la sortie d’après sa forme (de bout en bout ou brute). |
+| 6 | Export | **« Entraîner dans Colab »** : un bouton fige le jeu sur le serveur, crée une **clé d’entraînement** (voir plus bas) et télécharge un carnet `.ipynb` déjà rempli (l’adresse du banc, la clé). Importé dans Google Colab, « Tout exécuter » : il lit le jeu sur le banc, entraîne, mesure le test, exporte l’ONNX et le dépose à l’étape 3, sans zip à envoyer ni noms à recopier. L’écran liste les clés vivantes (en attente, jeu lu, modèle déposé) et les révoque. Dessous, « Ou à la main » : le même jeu en .zip, comme avant. **RF-DETR** (Roboflow, **Apache 2.0**, libre pour Plan) : le jeu au format COCO (`train/`, `valid/`, `test/`), `noms.txt`, un script et un carnet Colab qui exportent `modele-banc.onnx` (int8, 37 Mo pour Nano) à déposer à l’étape 3 avec sa résolution (384 Nano, 512 Small, 576 Medium). Pour comparer, les YOLO d’Ultralytics (**AGPL-3.0** : un modèle entraîné avec eux, servi dans une application, impose d’en publier le code ou d’acheter leur licence) — le jeu au format Ultralytics : `images/` et `labels/` par bloc, `data.yaml`, `entrainer.py`, `bilan.json`. En détection pour **YOLO26n** (par défaut) ou YOLOv10n (le modèle du dépôt `facade`, pour repartir de ses poids), en contours pour YOLO26n-seg ou YOLO11n-seg, **avec ou sans COCO** (poids pré-entraînés, ou l’architecture seule, de zéro), ou au format du banc (`annotations.json` : arbre, attributs et polygones). L’export ONNX se fait sans NMS (`nms=False`) : de bout en bout, 300 détections ; le banc lit la sortie d’après sa forme (de bout en bout ou brute). |
 | 7 | Blocs | train / val / test (70 / 20 / 10 par défaut) répartis **stratifiés par type** : chaque type, même rare, a sa part dans chaque bloc ; un tableau dit, type par type, ce qui manque (au moins 30 objets en train, un en val et en test). La réserve n’est jamais exportée ; un échantillon de chaque bloc à vérifier, et l’export peut ne prendre que les photos vérifiées. |
 | 8 | Équilibre | Ce que le banc contient déjà, pour voir où importer ensuite : une **carte** des photos à leur place (fond Plan IGN ; les photos voisines regroupées en ronds qui disent leur nombre, toucher un rond s’en approche), et des **comptes** par région et département (déduits de la position par des contours simplifiés à un kilomètre, `departements.ts`, sans service), saison et année (de la date), type de vue (tirée d’un 360 ou plate), source, état d’avancement et **type de bâtiment** (maison, immeuble, commerce : une heuristique sur ce que la BD TOPO dit du bâtiment visé) ; pour toutes les photos ou pour le seul jeu (corrigées, hors réserve). Une ligne à zéro reste montrée : c’est elle qu’on cherche. **Doublons** : les murs que le banc a en plusieurs images (le même bâtiment vu par le même côté), montrés ensemble, celle à garder en tête ; « Écarter » les passe « rejetées », rien ne part d’office. **Où importer ensuite** : trois à cinq zones là où le jeu est pauvre (région, puis type de bâtiment) et où Panoramax a des photos, parmi vingt-six communes — une heuristique simple, sans modèle (`ouImporter.ts`) ; un bouton ouvre l’import en lot sur chacune. **Images sans mur connu** : le rattrapage retrouve le mur des images importées avant, par leur position et leur cap (40 par lancement, lancé à la main). En bas, ce que l’écran ne peut pas dire : les photos sans position ou sans date, et ce que l’import ne garde pas encore (type de bâtiment, mur visé, matériau). |
 
@@ -37,12 +37,23 @@ un dossier de `src/ecrans/` : un contrôleur (`useMosaique`, `useRedressement`, 
 ## Le cycle d’un modèle
 
 1. Corriger et qualifier une première série, répartir les blocs (7), exporter en YOLO26n · détection (6), avec COCO ; pour choisir, entraîner une fois aussi YOLOv10n (poids `facade`) et la variante sans COCO, et comparer le mAP du bloc test.
-2. Ouvrir `entrainer.ipynb` du zip dans Google Colab (GPU gratuit), ou `python3 entrainer.py 0` sur un PC avec GPU : il entraîne, mesure sur le test (mAP par type) et exporte `best.onnx`.
-3. Déposer `best.onnx` à l’étape 3 avec la liste `names` : ses noms vont d’eux-mêmes vers les types du banc.
+2. « Entraîner dans Colab » (6) : importer le carnet téléchargé dans Google Colab (GPU gratuit) et lancer « Tout exécuter ». Il lit le jeu, entraîne, mesure le test (mAP par type), exporte l’ONNX et le dépose.
+3. Activer le modèle arrivé à l’étape 3 : ses noms sont déjà reliés aux types du banc.
 4. Le brouillon des photos non annotées pose et qualifie ; on corrige, la série grandit, on réentraîne.
 
+**À la main** (le repli, inchangé) : télécharger le zip, ouvrir son `entrainer.ipynb` dans Colab et lui envoyer le zip, ou lancer
+`python3 entrainer.py 0` sur un PC avec GPU ; puis déposer `modele-banc.onnx` (ou `best.onnx`) à l’étape 3 avec la liste des noms,
+l’architecture et la résolution. Le carnet de la clé s’y replie de lui-même : si son dépôt échoue, il propose le fichier au
+téléchargement et affiche les noms.
+
+Les gestes, comptés : à la main, une quinzaine (télécharger le zip, en sortir le carnet, l’importer dans Colab, lancer, envoyer
+le zip, passer la cellule des poids de départ pour un YOLO, accepter le téléchargement du modèle, copier les noms, revenir à
+l’étape 3, ouvrir « Déposer », choisir le fichier, l’architecture, la résolution, coller les noms, déposer) ; avec la clé, cinq
+(« Entraîner dans Colab », ouvrir Colab, importer le carnet, « Tout exécuter », activer le modèle).
+
 Pour repartir du début d’entraînement du dépôt `facade` plutôt que de COCO, poser ses poids `.pt` (le modèle fenêtres/portes ou
-volets, entraîné sur CMP Facade) sous le nom `depart.pt` à côté de `entrainer.py`, ou les envoyer dans la cellule prévue du carnet :
+volets, entraîné sur CMP Facade) sous le nom `depart.pt` à côté de `entrainer.py`, ou les envoyer dans la cellule prévue du carnet
+(le carnet de la clé les prend dans `/content/depart.pt`, posé dans les fichiers de Colab avant de lancer) :
 Ultralytics garde le tronc et refait la tête aux noms du jeu. Le dépôt `facade` ne garde que les `.onnx`, qui servent au brouillon
 mais ne se réentraînent pas.
 
@@ -70,14 +81,56 @@ la politique de contenu (qui reste fermée : ni joker, ni `https:`).
 
 Ses garde-fous sont essayés un à un dans `banc/tests/relais.test.ts` (faux DNS et faux catalogue : `tests/fixtures/relais-essai.php`).
 
+## La clé d’entraînement (le jeton du carnet Colab)
+
+`POST api.php?r=jetons` (session connectée) crée une clé pour un export et rend le carnet qui la porte ; `GET api.php?r=jetons` liste
+les clés vivantes, `DELETE api.php?r=jeton&id=…` en révoque une. Le carnet, lui, n’a que deux routes, sans session, sa clé dans
+l’en-tête `X-Banc-Jeton` : `GET api.php?r=colab-jeu` et `POST api.php?r=colab-modele` (`&partie=N` pour un morceau, `&fin=1` pour
+conclure).
+
+- **Ce qu’elle ouvre** : lire **le jeu de son export** — une archive figée à la création de la clé et rangée sous elle
+  (`data/apprentissage/jetons/<id>.zip`), pas le jeu du jour : une photo corrigée après n’y est pas — et déposer **un** modèle.
+- **Ce qu’elle n’ouvre pas** : tout le reste de l’API (aucune autre route ne lit l’en-tête : photos, marquage, export, modèles,
+  classes, clés répondent « Connexion requise ») ; une photo hors de cette archive ; une seconde écriture (une clé qui a déposé
+  ne dépose plus et ne lit plus, son jeu est effacé) ; l’activation du modèle : il arrive **inactif**, une personne l’active.
+- **Comment elle est faite** : créée seulement par une session connectée (et l’en-tête `X-Banc`) ; 32 octets de `random_bytes`,
+  précédés d’un identifiant public ; le serveur n’en garde que le SHA-256 (`jetons/<id>.json`), comparé par `hash_equals`, contre un
+  haché factice quand l’identifiant n’existe pas ; jamais dans une adresse (les journaux gardent les adresses), jamais journalisée.
+  Elle ne sort qu’une fois, dans le carnet téléchargé : **ce carnet contient une clé, ne le partagez pas** (l’écran et le carnet le
+  disent). Elle vit 24 h (`jetonHeures` dans `banc-config.php`, de 1 à 72), se révoque depuis l’écran, et cinq clés au plus vivent à
+  la fois (chacune garde une copie du jeu).
+- **Comment elle se refuse** : inconnue, fausse, mal écrite, échue ou révoquée, la réponse est la même (`401`, « Jeton refusé. ») ;
+  vingt essais manqués par adresse en quinze minutes ferment les deux routes (`429`) ; le jeu se lit vingt fois au plus par clé, un
+  dépôt compte 2 000 envois au plus.
+- **Ce qu’un dépôt doit être** : des morceaux dans l’ordre (le n° 0 recommence), 128 Mo au plus en tout (un RF-DETR Nano quantifié
+  pèse 37 Mo, sa pleine précision 118 Mo), rangés sous la clé puis dans `data/apprentissage/modeles/`, hors de `public_html/`, sous
+  un nom **choisi par le serveur** (`colab-<date>-<hasard>.onnx` ; le nom, l’identifiant, le seuil ou l’activation qu’enverrait
+  l’appelant ne sont pas lus) ; la taille et le SHA-256 annoncés doivent être ceux des octets reçus ; le fichier doit être un ONNX,
+  vérifié sans le charger ni l’exécuter : un `ModelProto` protobuf bien formé de bout en bout, fait des seuls champs du format, avec
+  sa version, son jeu d’opérateurs et un seul graphe, lui-même bien formé, qui a des nœuds, une entrée et une sortie (un script, une
+  page, une archive, une image, un ONNX tronqué ou suivi d’autre chose sont refusés, et effacés) ; l’architecture et la résolution
+  doivent être celles de l’export de la clé (384, 512, 576 ou 640) ; les noms : 200 au plus, 40 caractères au plus, minuscules,
+  chiffres, `_` et `-`, sans double ; le bilan : des nombres entre 0 et 1 pour des noms du modèle, le reste est laissé. Le serveur
+  n’exécute jamais un modèle : la page le lit dans le WebAssembly du navigateur, une fois activé.
+- **Les limites de l’hébergement** : les morceaux partent en corps brut (pas en formulaire : `upload_max_filesize` ne joue pas), et
+  leur taille est écrite dans le carnet d’après `post_max_size` du serveur (4 Mo, moins s’il est plus bas : 64 Ko de marge) ; aucun
+  réglage de PHP à changer avec les 8 Mo par défaut. Il faut l’extension `zip` (comme l’export) et que le serveur accepte les
+  requêtes venues de Colab (des adresses de Google ; un pare-feu applicatif qui les filtrerait fait échouer le carnet, qui le dit).
+  Le serveur du banc n’appelle personne : aucun accès sortant de plus. La politique de contenu du `.htaccess` ne change pas (le
+  carnet n’est pas une page ; la page télécharge le carnet par un lien `blob:` et ouvre Colab par un lien ordinaire).
+
+Ses garde-fous sont essayés un à un dans `banc/tests/jetons.test.ts` (par `php -S`, avec un faux fichier ONNX fabriqué sur place et
+des clés créées à la volée) ; les cellules « lire le jeu » et « déposer » du carnet y sont jouées par Python contre ce serveur.
+**L’entraînement lui-même, dans Colab, n’y est pas joué.**
+
 ## Le code
 
 - `banc/src/` : la page (React). Les modules sans DOM (`classes.ts`, `geometrie.ts`, `edition.ts`, `exif.ts`,
-  `panoramax.ts`, `parcelles.ts`, `facadesVues.ts` (les vues qui montrent une façade, ce qui n’est pas une maison, la note d’une vue), `meilleuresVues.ts` (les doublons d’un bâtiment, l’ordre de la liste), `vueDegagee.ts` et `fileLectures.ts` (la façade se voit-elle, lue dans l’aperçu, en tâche de fond), `couvertureFacades.ts` et `casesBatiments.ts` (la couverture grise, les bâtiments lus par cases), `mvt.ts` et `couverture.ts` (les tuiles de couverture de Panoramax), `carte.ts` (la projection des tuiles, la vue et ses gestes, les secteurs), `cache.ts`, `equirect.ts`, `blocs.ts`, `brouillon.ts`, `redressement.ts`, `suppressions.ts` (la suppression différée d’une photo, annulable), `equilibre.ts` (les comptes de l’écran d’équilibre, le département d’une position), `cadrage.ts` (le champ et le tangage d’une vue d’un 360, la vue face au mur), `lot.ts` (l’import d’une zone en lot : pavés, sélection, parcours à débit borné) et `ouImporter.ts` (où le jeu est pauvre), `importMarquage.ts` (quelles vues importées reçoivent un brouillon), `murVise.ts` (le mur qu’une vue regarde, écrit dans ses métadonnées ; le rattrapage) et `murs.ts` (les murs déjà dans le banc, les doublons, les images d’un même mur de gauche à droite, le type de bâtiment), les décodeurs de `yolo.ts`) sont testés
+  `panoramax.ts`, `parcelles.ts`, `facadesVues.ts` (les vues qui montrent une façade, ce qui n’est pas une maison, la note d’une vue), `meilleuresVues.ts` (les doublons d’un bâtiment, l’ordre de la liste), `vueDegagee.ts` et `fileLectures.ts` (la façade se voit-elle, lue dans l’aperçu, en tâche de fond), `couvertureFacades.ts` et `casesBatiments.ts` (la couverture grise, les bâtiments lus par cases), `mvt.ts` et `couverture.ts` (les tuiles de couverture de Panoramax), `carte.ts` (la projection des tuiles, la vue et ses gestes, les secteurs), `cache.ts`, `equirect.ts`, `blocs.ts`, `brouillon.ts`, `redressement.ts`, `suppressions.ts` (la suppression différée d’une photo, annulable), `equilibre.ts` (les comptes de l’écran d’équilibre, le département d’une position), `cadrage.ts` (le champ et le tangage d’une vue d’un 360, la vue face au mur), `lot.ts` (l’import d’une zone en lot : pavés, sélection, parcours à débit borné) et `ouImporter.ts` (où le jeu est pauvre), `importMarquage.ts` (quelles vues importées reçoivent un brouillon), `colab.ts` (ce que l’écran dit d’une clé d’entraînement et d’un modèle déposé par un carnet), `murVise.ts` (le mur qu’une vue regarde, écrit dans ses métadonnées ; le rattrapage) et `murs.ts` (les murs déjà dans le banc, les doublons, les images d’un même mur de gauche à droite, le type de bâtiment), les décodeurs de `yolo.ts`) sont testés
   dans `banc/tests/`.
 - `banc/src/plan/` : la copie figée du redressement par points de fuite et de la recherche des baies de Plan (voir son
   `LISEZMOI.md`). Le banc n’importe rien d’autre : `banc/tests/independance.test.ts` le vérifie.
-- `banc/public/` : `api.php` (tout le serveur, relais des images compris), `.htaccess` (sa politique de contenu), le modèle de configuration.
+- `banc/public/` : `api.php` (tout le serveur, relais des images et clés d’entraînement compris), `.htaccess` (sa politique de contenu), le modèle de configuration.
 
 ```bash
 npm run build:banc                     # -> dist-banc/, copié dans livraison/banc/ par npm run livraison
@@ -88,7 +141,7 @@ npm run dev:banc                       # la page sur http://localhost:5198/
 
 ## La fumée (navigateur piloté)
 
-`scripts/fumee-banc.mjs` joue l’écran d’import Panoramax, un import en lot de deux façades, l’écran d’équilibre, puis le redressement (les icônes des cartes, une photo supprimée, rendue, puis supprimée pour de bon), dans un vrai navigateur, sur le paquet construit, servi par `php -S` comme en
+`scripts/fumee-banc.mjs` joue l’écran d’import Panoramax, un import en lot de deux façades, l’écran d’équilibre, le redressement (les icônes des cartes, une photo supprimée, rendue, puis supprimée pour de bon), puis l’aller-retour Colab (une clé créée, son carnet téléchargé, le script dans le rôle du carnet qui lit le jeu et dépose un faux modèle, le modèle apparu à l’étape 3 puis activé, une seconde clé révoquée), dans un vrai navigateur, sur le paquet construit, servi par `php -S` comme en
 ligne (`?banc`, la politique de contenu du `.htaccess`, l’API) ; la CI le joue à chaque PR (job `fumee`), sur un réseau témoin
 (`banc/tests/fumee/` : le routeur, les réponses rejouées, auteur et licence des photos gardées).
 
