@@ -5,6 +5,41 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.37.0] — 2026-11-21
+
+Version **mineure** au sens de `MD/RELEASE.md` : des fonctions s'ajoutent (§2.1 : « new feature ») sans changer un nombre ni un
+octet exporté. Les **écarts au PLU** se lisent sur le plan, la **formalité** du projet est indiquée et les terrasses surélevées
+entrent dans le contrôle (#743) ; le **photomontage**, mode de la Vue 3D, pose le projet sur une photo du jardin (#745) ; le banc
+d'apprentissage gagne **« Entraîner dans Colab »** et sa clé d'entraînement de 24 h (#742) ; les textes de l'audit des façades et
+de la calibration prennent leurs accents, à l'affichage seulement (#744, correctif) ; les décisions du mode expert sont écrites
+dans `CLAUDE.md` (#741, l'application ne change pas). Le plus fort de ces changements donne le numéro : mineure. Rien n'est retiré
+ni mis derrière un droit. Aucune quantité ni aucun export ne bouge : avant le changement de numéro, le code de `main` (8aa1beb5)
+régénère les témoins de la 5.36.0 au bit près — le calque du PLU est un affichage de l'écran, le cerfa garde son régime, le
+photomontage produit une image nouvelle sans toucher aux exports existants, les accents de #744 ne s'écrivent qu'à l'écran — ;
+les neuf témoins qui portent le numéro ne changent qu'à lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur
+neuf, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et
+`glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau. `deploy/` ne change
+pas depuis la 5.36.0 ; `regles/plu/reglages.json` gagne quatre réglages (`plu.terrasseSureleveeM` et trois seuils `formalite.*`) ;
+`banc/` change (#742). Requêtes vérifiées sur main (8aa1beb5) avec les dix demandes de l'assistant : run 44858943009 de
+« Vérifier l'API Claude » (plafond 0,10 $), 9 requêtes sur 9 acceptées, dix listes justes sur dix, 0,034 $ ; prompts et schémas
+inchangés.
+
+**À faire en production, dans cet ordre, avant de déposer cette livraison** (cette version ne demande rien de plus à la
+plateforme ; ce qui suit reste des versions précédentes, si ce n'est pas déjà fait) :
+
+- appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` : le schéma 16 de la 5.19.0 doit être
+  accepté par la plateforme ;
+- appliquer la migration de la plateforme `Version20261116090000` (liens de partage, backprod #256, ADR-073) : sans elle, « Partager
+  par un lien… » et l'ouverture d'un lien partagé échouent ;
+- publier une version d'offre qui accorde la fonction `project_sharing` avant que quiconque puisse partager (sans elle, la commande
+  reste effacée : c'est voulu) ;
+- déposer le `.htaccess` de la livraison (`deploy/htaccess.template` : `Referrer-Policy: no-referrer` et `X-Robots-Tag: noindex`
+  sur une adresse avec `?product=`) ;
+- rappel : le `api.php` du banc demande à l'hébergement le cURL sortant en HTTPS (depuis la 5.30.0) ; nouveau pour « Entraîner
+  dans Colab » : l'extension `zip` de PHP (déjà demandée par l'export) et un hébergement qui laisse passer les requêtes venues de
+  Colab (`banc/LISEZMOI.md`, « La clé d'entraînement ») ; la durée d'une clé se règle par `jetonHeures` dans `banc-config.php`
+  (facultatif, 24 h par défaut).
+
 ### Ajouté
 
 - **Photomontage : le projet posé sur une photo de votre jardin** (demande du propriétaire, 20 novembre 2026). Dans la Vue 3D, le
