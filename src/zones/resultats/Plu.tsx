@@ -17,6 +17,7 @@ import { GRANDEURS_PLU, valeurLisible, type FaitPlu, type ReglementPlu } from '.
 import type { VerdictPlu } from '../../engine/regles/plu/conformite.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
+import { IndicationFormalite } from '../composants/IndicationFormalite.js';
 
 type Ligne = [string, React.ReactNode];
 
@@ -135,6 +136,24 @@ function LigneFait({ f, r, commandes }: { f: FaitPlu; r: ReglementPlu; commandes
 
 const MOT_ETAT: Record<VerdictPlu['etat'], string> = { ecart: 'Écart', 'a-verifier': 'À vérifier', conforme: 'Conforme' };
 
+/**
+ * Un verdict : celui qui vise un objet du plan est un bouton qui le selectionne (le plan le montre, avec son marqueur d'ecart) ;
+ * celui de la parcelle entiere reste un texte.
+ */
+function Verdict({ v, resultats }: { v: VerdictPlu; resultats: Resultats }) {
+  const contenu = <><b>{MOT_ETAT[v.etat]}</b> — {v.message}</>;
+  const cle = v.objet;
+  const choisi = !!cle && resultats.etat.selectedKey === cle;
+  return (
+    <li className={'pluVerdict pluVerdict-' + v.etat + (choisi ? ' choisi' : '')} data-etat={v.etat} data-objet={cle ?? undefined}>
+      {cle
+        ? <button type="button" className="pluVerdictObjet" data-controle="plu.selectionnerObjet" data-nom="Sélectionner l’objet du verdict" aria-current={choisi ? 'true' : undefined}
+            title={choisi ? 'Objet sélectionné sur le plan' : 'Sélectionner cet objet sur le plan'} onClick={() => resultats.selectionnerObjetDuVerdict(cle)}>{contenu}</button>
+        : contenu}
+    </li>
+  );
+}
+
 /** La conformite du projet aux regles retenues : avertissements, jamais un blocage. */
 function Conformite({ resultats, r }: { resultats: Resultats; r: ReglementPlu }) {
   const c = resultats.conformitePlu();
@@ -149,9 +168,10 @@ function Conformite({ resultats, r }: { resultats: Resultats; r: ReglementPlu })
         ? <div className="hint">Aucune règle retenue : cochez celles que vous avez vérifiées dans le texte pour contrôler le projet.</div>
         : <div className="hint" id="pluBilan">{c.ecarts + ' écart(s), ' + c.aVerifier + ' point(s) à vérifier, ' + c.conformes + ' conforme(s), sur ' + retenues + ' règle(s) retenue(s).'}</div>}
       {verdicts.length > 0 && <ul className="pluVerdicts">
-        {verdicts.map((v, i) => <li key={i} className={'pluVerdict pluVerdict-' + v.etat} data-etat={v.etat}><b>{MOT_ETAT[v.etat]}</b> — {v.message}</li>)}
+        {verdicts.map((v, i) => <Verdict key={i} v={v} resultats={resultats} />)}
       </ul>}
       {retenues > 0 && !verdicts.length && <div className="hint">Aucun ouvrage du projet n’est concerné par les règles retenues.</div>}
+      {c.ecarts > 0 && <div className="hint">Un ouvrage en écart porte un marqueur « PLU » sur le plan, et son recul mesuré s’y dessine ; touchez un écart pour sélectionner l’objet.</div>}
       <div className="hint">Ces avertissements ne bloquent rien : seul le service urbanisme de la commune dit si un projet est conforme.</div>
     </div>
   );
@@ -199,6 +219,7 @@ export function Plu({ resultats, commandes }: { resultats: Resultats; commandes:
         {lieu && <a id="pluGeoportailLien" href={lienGeoportailUrbanisme(lieu.longitude, lieu.latitude)} target="_blank" rel="noopener" className="hint">
           Ouvrir la parcelle sur le Géoportail de l'urbanisme ↗</a>}
       </div>
+      {parcelle && <IndicationFormalite indication={resultats.formalite()} id="pluFormalite" />}
       <div id="pluContenu"><Contenu resultats={resultats} /></div>
       {parcelle && <Reglement resultats={resultats} commandes={commandes} />}
       <div className="hint">Le zonage vient du Géoportail de l'urbanisme (données versées par la commune) et reste attaché à la parcelle : il se sauvegarde avec le projet. C'est une information de repérage, pas une autorisation : seul le règlement complet, et le service urbanisme de la commune, font foi.</div>

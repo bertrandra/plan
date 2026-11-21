@@ -18,6 +18,7 @@ import { computeTerrasseLayers } from '../engine/layers.js';
 import { solDuProjet } from '../engine/sol.js';
 import { interrogerPlu } from '../geo/apiIgn.js';
 import type { ConformitePlu } from '../engine/regles/plu/conformite.js';
+import type { IndicationFormalite } from '../engine/regles/plu/formalite.js';
 import type { ContexteLecturePlu } from './plu/lecturePlu.js';
 import { creerServicePlu, type ServicePlu } from './plu/servicePlu.js';
 import { idMesure } from '../model/cles.js';
@@ -89,6 +90,10 @@ export interface Resultats {
   basculerFaitPlu(id: string): void;
   /** Le projet controle contre les faits valides : des avertissements, jamais un blocage (engine/regles/plu/conformite.ts). */
   conformitePlu(): ConformitePlu;
+  /** La formalite d'urbanisme du projet d'apres les regles nationales : une indication (engine/regles/plu/formalite.ts). */
+  formalite(): IndicationFormalite;
+  /** Selectionne l'objet d'un verdict du PLU s'il ne l'est pas deja. */
+  selectionnerObjetDuVerdict(cle: string): void;
   parcelle(): ObjetPlan | null | undefined;
   lieu(): Lieu;
 

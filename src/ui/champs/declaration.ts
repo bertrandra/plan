@@ -66,9 +66,9 @@ export function sectionDeclaration(c: ContexteChamps): Section {
   ];
   if (r.regime === 'permis') {
     champs.push({ type: 'alerte', cle: 'dp-permis', libelle: '', nom: 'Alerte : permis de construire', texte: () => 'Avec ' + fr(r.emprise) + ' m² d\'emprise au sol créée, le projet dépasse le seuil de la déclaration préalable : il relève d\'un permis de construire (cerfa 13406). Le dossier produit ici peut servir de base, pas être déposé tel quel.' });
-  } else if (r.regime === 'aucune') {
-    champs.push({ type: 'alerte', cle: 'dp-aucune', libelle: '', nom: 'Alerte : aucune formalité', texte: () => 'Moins de 5 m² d\'emprise au sol créée : aucune formalité, sauf en secteur protégé ou si le PLU en demande une.' });
   }
+  // « Aucune formalité » ne se dit plus ici : l'indication en tete du dialogue repond pour tout le projet, secteur protege, terrasse
+  // surelevee et bassins compris (engine/regles/plu/formalite.ts, zones/composants/IndicationFormalite.tsx).
   champs.push({
     type: 'bouton', cle: 'dp-generer', libelle: '', nom: 'Générer le dossier de déclaration préalable', texte: () => 'Générer le dossier (cerfa 13703 et pièces)',
     agit: { commande: 'export.declaration' }, actif: () => ouvrages.length > 0, executer: (cx) => cx.executerCommande('export.declaration')

@@ -3,7 +3,9 @@
 // marque le projet modifie, comme l'interrogation du zonage.
 
 import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
-import { conformitePlu, type ConformitePlu } from '../../engine/regles/plu/conformite.js';
+import type { ConformitePlu } from '../../engine/regles/plu/conformite.js';
+import type { IndicationFormalite } from '../../engine/regles/plu/formalite.js';
+import { conformiteDuPlan, formaliteDuPlan } from './conformiteDuPlan.js';
 import { showToast } from '../../shell/dialogs.js';
 import { lireReglementPlu, type ContexteLecturePlu } from './lecturePlu.js';
 import type { EtatApp } from '../../core/state.js';
@@ -14,6 +16,8 @@ export interface ContexteServicePlu {
   pushHistory: (...objets: object[]) => void;
   markDirty: (...objets: object[]) => void;
   trouverParcelle: () => ObjetPlan | null | undefined;
+  /** Redessine le plan et ses zones : la selection d'un objet depuis un verdict. */
+  render?: () => void;
   lecturePlu?: ContexteLecturePlu;
 }
 
@@ -22,6 +26,10 @@ export interface ServicePlu {
   lireReglementPlu(): Promise<void>;
   basculerFaitPlu(id: string): void;
   conformitePlu(): ConformitePlu;
+  /** La formalite d'urbanisme du projet d'apres les regles nationales : une indication (engine/regles/plu/formalite.ts). */
+  formalite(): IndicationFormalite;
+  /** Selectionne l'objet d'un verdict s'il ne l'est pas deja (une navigation : ni annulation, ni projet modifie). */
+  selectionnerObjetDuVerdict(cle: string): void;
 }
 
 export function creerServicePlu(etat: EtatApp, ctx: ContexteServicePlu, magasin: Magasin): ServicePlu {
@@ -65,6 +73,14 @@ export function creerServicePlu(etat: EtatApp, ctx: ContexteServicePlu, magasin:
       ctx.markDirty(parcelle);
       magasin.notifier();
     },
-    conformitePlu: () => conformitePlu(etat.objects, ctx.trouverParcelle()?.reglementPlu),
+    // Calculees une fois par ecriture, pour l'onglet, sa pastille et le calque du plan (conformiteDuPlan.ts).
+    conformitePlu: () => conformiteDuPlan(etat.objects),
+    formalite: () => formaliteDuPlan(etat.objects),
+    selectionnerObjetDuVerdict(cle) {
+      if (etat.selectedKey === cle || !etat.objects.some((o) => o.key === cle)) return;
+      etat.selectedKey = cle;
+      etat.highlight = { type: null, index: null };
+      ctx.render?.();
+    },
   };
 }

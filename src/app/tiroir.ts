@@ -38,6 +38,8 @@ export interface Onglet {
    * onglets au plus pour une terrasse en mode simple). Cache, il se calcule comme avant : les exports et le dossier ne changent pas.
    */
   expert?: true;
+  /** Un nombre porte par l'onglet, et ce qu'il compte en mots (« 2 écarts au PLU ») : pose par `onglets()`, jamais dans `ONGLETS`. */
+  pastille?: { nombre: number; dit: string };
 }
 
 export const ONGLETS: Onglet[] = [
@@ -82,6 +84,8 @@ export interface ContexteTiroir {
   piscineSelectionnee: () => ObjetPlan | undefined;
   /** La selection quand c'est une pergola ou un carport : son onglet la suit, et porte son nom. */
   abriSelectionne: () => ObjetPlan | undefined;
+  /** Le nombre d'ecarts du projet aux regles du PLU retenues (app/plu/conformiteDuPlan.ts) : l'onglet PLU le porte. */
+  ecartsPlu?: () => number;
 }
 
 export interface Tiroir {
@@ -153,7 +157,8 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
     onglets: () => {
       const abri = ctx.abriSelectionne();
       return ongletsVisibles(terrasseSelectionnee(), piscineSelectionnee(), reliefPresent(), !!abri, modeExpert())
-        .map(o => o.groupe === 'abri' && abri ? { ...o, libelle: libelleAbri(abri) } : o);
+        .map(o => o.groupe === 'abri' && abri ? { ...o, libelle: libelleAbri(abri) } : o)
+        .map(o => { const n = o.id === 'plu' ? ctx.ecartsPlu?.() ?? 0 : 0; return n > 0 ? { ...o, pastille: { nombre: n, dit: n + (n > 1 ? ' écarts au PLU' : ' écart au PLU') } } : o; });
     },
     activer,
     definirHauteur,

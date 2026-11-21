@@ -1,5 +1,5 @@
-// Les seuils de la lecture du PLU et du controle du projet (regles/plu/reglages.json, lot L4) : le lecteur du fichier, qui le refuse
-// s'il est mal forme. Les regles qui les appliquent sont dans engine/regles/plu/conformite.ts ; la lecture (le nombre de pages
+// Les seuils de la lecture du PLU, du controle du projet et de la formalite d'urbanisme (regles/plu/reglages.json, lot L4) : le
+// lecteur du fichier, qui le refuse s'il est mal forme. Les regles qui les appliquent sont dans engine/regles/plu/conformite.ts ; la lecture (le nombre de pages
 // envoyees) dans app/plu/lecturePlu.ts.
 
 import donnees from '../../../regles/plu/reglages.json';
@@ -11,6 +11,12 @@ export const BORNES_PLU = {
   'plu.toleranceDistanceM': [0, 0.5],
   'plu.tolerancePart': [0, 0.05],
   'plu.toleranceAngleDeg': [0, 5],
+  // Le dessus d'une terrasse au-dessus du sol au-dela duquel elle est tenue pour surelevee (recul, emprise, formalite).
+  'plu.terrasseSureleveeM': [0.2, 1.5],
+  // Les seuils nationaux de la formalite d'urbanisme (engine/regles/plu/formalite.ts), en m² d'emprise au sol creee.
+  'formalite.empriseSansFormaliteM2': [1, 20],
+  'formalite.empriseDeclarationM2': [5, 40],
+  'formalite.empriseExtensionZoneUrbaineM2': [20, 100],
 } as const;
 
 export type NomReglagePlu = keyof typeof BORNES_PLU;

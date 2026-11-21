@@ -36,6 +36,8 @@ export interface Surface {
   pergolas: SVGGElement;
   /** Les mats des parasols : remis en fin de SVG a chaque rendu, pour rester lisibles. */
   mats: SVGGElement;
+  /** Les ecarts au PLU : un marqueur sur l'ouvrage, le recul mesure (render/pluOverlay.ts) ; devant les objets, inerte. */
+  plu: SVGGElement;
   nord: SVGGElement;
   echelle: SVGGElement;
   cotes: SVGGElement;
@@ -81,7 +83,7 @@ export function creerSurface(etat: EtatApp): Surface {
     // Le nom des rues aussi : il situe, il ne se clique pas.
     rues: groupe(true, 'ruesGroup'),
     objets: groupe(false, 'objetsGroup'),
-    piscines: groupe(true), parasols: groupe(true), pergolas: groupe(true), mats: groupe(true),
+    piscines: groupe(true), parasols: groupe(true), pergolas: groupe(true), mats: groupe(true), plu: groupe(true, 'pluGroup'),
     nord: groupe(), echelle: groupe(), cotes: groupe(), couches: groupe(), releves: groupe(true),
     appliquerTaille() {
       stage.style.width = etat.scene.W + 'px'; stage.style.height = etat.scene.H + 'px';
@@ -109,6 +111,6 @@ export function creerSurface(etat: EtatApp): Surface {
   s.appliquerTaille();
   s.poserRepere(etat.scene);
   stage.appendChild(svg);
-  svg.append(defs, s.ortho, s.grille, s.relief, s.rues, s.objets, s.piscines, s.parasols, s.pergolas, s.mats, s.releves);
+  svg.append(defs, s.ortho, s.grille, s.relief, s.rues, s.objets, s.piscines, s.parasols, s.pergolas, s.mats, s.plu, s.releves);
   return s;
 }

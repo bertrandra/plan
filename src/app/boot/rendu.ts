@@ -5,6 +5,7 @@ import { synchroniserContexteTerrasse } from '../../core/contexteTerrasse.js';
 import { rendreScene, rendreObjets, type ContexteRendu } from '../../render/pipeline.js';
 import { dessinerCourbesRelief } from '../../render/relief.js';
 import { dessinerNomsDesRues } from '../../render/rues.js';
+import { redessinerEcartsPlu } from '../plu/calquePlu.js';
 import { creerApercuVue } from '../../render/apercuVue.js';
 import { dessinerReleves } from '../../render/releve.js';
 import { dessinerCloture, margeAcces } from '../../render/cloture.js';
@@ -116,6 +117,8 @@ export function creerRendu(d: DependancesRendu) {
       // Posees sur le plan, dans le repere du dessin : refaites seulement si ce qu'elles lisent a change (render/calquesGardes.ts).
       dessinerRelief: () => redessinerSiChange(surface.relief, 'courbes de niveau', cleDesCalques(dessin.etatDessin(), lesTerrains), () =>
         dessinerCourbesRelief(surface.relief, etat.objects, dessin.sceneDessin(), etat.voisinageVisible)),
+      // Les ecarts au PLU sur le plan : un marqueur sur l'ouvrage, le recul mesure (app/plu/calquePlu.ts).
+      dessinerEcartsPlu: () => redessinerEcartsPlu(surface.plu, dessin.etatDessin(), etat),
       // Le nom des rues, si la case de la section « Voisinage » est cochee (render/rues.ts).
       dessinerRues: () => { if (etat.voisinageVisible) dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque); else surface.rues.innerHTML = ''; },
       // Les ouvertures relevees puis la cloture, dans le meme groupe : le premier le vide. Dessinees en metres, sous la

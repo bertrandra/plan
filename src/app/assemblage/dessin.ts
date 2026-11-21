@@ -158,7 +158,8 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       const ctx = enQueue(q);
       const parasols = etat.objects.filter((o) => estOuvrage(o, PARASOL));
       parasols.forEach((o) => amenerDevant(o, ctx));
-      q.push(s.mats, s.nord, s.echelle, s.cotes, s.couches);
+      // Le calque des ecarts au PLU (app/plu/calquePlu.ts) garde sa place devant les ouvrages, sous le nord et les cotes.
+      q.push(s.mats, s.plu, s.nord, s.echelle, s.cotes, s.couches);
       const sel = etat.selectedKey && etat.selectedKey !== 'parcelle' ? etat.objects.find((o) => o.key === etat.selectedKey) : undefined;
       if (sel) remonterPoignees(sel, ctx);
       // Ce que cet empilement sort du calque des objets : ces objets-la se replacent.
