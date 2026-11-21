@@ -14,6 +14,7 @@ import { SEGMENTS_FACADE, etapeFacade, etatDuSegment, nomEtape, numerosDuSegment
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { EtapeCalculee } from '../../facade/releve/enchainement.js';
 import { Icone, type NomIcone } from '../icones.js';
+import { texteEcran } from '../../ui/texteFacade.js';
 
 /** La commande qui ouvre une etape : declaree par l'ecran qui porte la barre. */
 export const COMMANDE_ETAPE = 'facade.etape';
@@ -57,7 +58,7 @@ const segmentDe = (id: IdEtape): SegmentFacade | undefined => SEGMENTS_FACADE.fi
 function lignes(etapes: readonly EtapeAffichee[], enCours: IdEtape | null, ouverte: IdEtape | null, numeros: boolean): [string, string] {
   // Sans les numeros (l'audit de la personne ordinaire, composants/numerosEtapes.ts) : le nom de l'etape, et ses textes lus sans eux.
   const libelleEtape = (id: IdEtape) => nomEtape(id, numeros);
-  const dire = numeros ? (t: string) => t : sansNumeros;
+  const dire = (t: string) => texteEcran(numeros ? t : sansNumeros(t));
   const finies = etapes.filter((e) => e.etat !== 'a-venir' && e.etat !== 'en-cours' && e.etat !== 'saute');
   const derniere = finies[finies.length - 1];
   // Chaque etape se dit par son numero (E7 Calage du mur) : la poignee que le proprietaire emploie.

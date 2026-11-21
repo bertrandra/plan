@@ -11,6 +11,7 @@ import type { OuvertureFacade, TypeOuverture, PartieBasse, CalageReleve } from '
 import { LIBELLES_OUVERTURE, fr } from './commun.js';
 import { ChampCm, Elevation } from './Elevation.js';
 import { pxParMDuCalage, textePrecision } from '../../facade/releve/analyseSerie.js';
+import { texteEcran } from '../../ui/texteFacade.js';
 
 /**
  * Les gestes de la structure (spec facades §12), en une touche : la taille de l'ouverture choisie
@@ -173,7 +174,7 @@ function CartePartiesBasses({ parties, largeur, hauteurMur, maj }: { parties: Pa
         return (
           <div key={i} role="group" aria-label={'Partie basse ' + ou}>
             <p className="releveNote">
-              Partie basse {ou}, sur {fr(p.fin - p.debut)} m{auBoutGauche || auBoutDroit ? " ; elle va jusqu'au pignon voisin." : ' ; elle va sur toute la profondeur du bâtiment.'}
+              Partie basse {ou}, sur {fr(p.fin - p.debut)} m{auBoutGauche || auBoutDroit ? ' ; elle va jusqu’au pignon voisin.' : ' ; elle va sur toute la profondeur du bâtiment.'}
             </p>
             <div className="releveChamps">
               {/* Le decrochement d'une partie au bout du mur ; une partie au milieu en a deux. */}
@@ -201,7 +202,7 @@ export function EditionFacade({ v, onAnnuler, onValider, pied = 'releve' }: { v:
         <Elevation texture={v.texture} Ht={v.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partiesBasses} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie}
           devinees={v.devinees} garder={v.garder} />
         <BarreOuvertures v={v} />
-        {precision && <p className="releveNote">{precision}</p>}
+        {precision && <p className="releveNote">{texteEcran(precision)}</p>}
         {choisie !== null && ouvertures[choisie] && (
           <FicheOuverture
             v={v}

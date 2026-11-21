@@ -25,6 +25,7 @@ import type { Validation } from '../../app/audit/parcelle/validation.js';
 import type { ArbitrageProposition, Proposition } from '../../regles/decisions.js';
 import type { DecisionProposition } from '../../model/fichierAuditParcelle.js';
 import { libelleOuMot } from '../../shell/motsInconnus.js';
+import { motEcran, texteEcran } from '../../ui/texteFacade.js';
 
 const ORIGINES: Record<Proposition['source'], string> = { mesure: 'Mesure de Plan', claude: 'Claude', arbitrage: 'Sources arbitrées' };
 const DECISIONS_FICHIER = { validee: 'Validée', refusee: 'Refusée' } as const;
@@ -78,28 +79,28 @@ export function Arbitrage({ a, main, choisie, choisir }: { a: ArbitragePropositi
         const o = (e.currentTarget as HTMLDetailsElement).open;
         if (choisir && o !== !!choisie) choisir(o);
       }}>
-      <summary>{a.attribut === 'silhouetteFacade' && a.groupes[0] && <PictoSilhouette valeur={a.groupes.find((g) => g.retenu)?.valeur ?? a.groupes[0].valeur} />}<span className="decisionArbitrage">{MOTS_DECISION[a.decision as keyof typeof MOTS_DECISION] ?? 'À arbitrer'}</span>{' · ' + a.libelle + (a.cibleNom ? ' · ' + a.cibleNom : '') + ' (aujourd’hui : ' + a.avant + ')'}</summary>
-      <p className="raisonArbitrage">{a.raison}</p>
+      <summary>{a.attribut === 'silhouetteFacade' && a.groupes[0] && <PictoSilhouette valeur={a.groupes.find((g) => g.retenu)?.valeur ?? a.groupes[0].valeur} />}<span className="decisionArbitrage">{MOTS_DECISION[a.decision as keyof typeof MOTS_DECISION] ?? 'À arbitrer'}</span>{' · ' + texteEcran(a.libelle) + (a.cibleNom ? ' · ' + a.cibleNom : '') + ' (aujourd’hui : ' + a.avant + ')'}</summary>
+      <p className="raisonArbitrage">{texteEcran(a.raison)}</p>
       <div className="defileAudit">
-        <table className="attrTable tableArbitrage" aria-label={'Sources : ' + a.libelle + (a.cibleNom ? ' · ' + a.cibleNom : '')}>
+        <table className="attrTable tableArbitrage" aria-label={'Sources : ' + texteEcran(a.libelle) + (a.cibleNom ? ' · ' + a.cibleNom : '')}>
           <thead><tr><th>Source</th><th>Dit</th><th>Confiance</th><th>Score</th><th>Règle</th><th>Groupe</th></tr></thead>
           <tbody>{a.groupes.flatMap((g) => g.lignes.map((l, i) => (
-            <tr key={g.valeur + l.source}><td>{l.libelle}</td><td>{a.attribut === 'silhouetteFacade' && <PictoSilhouette valeur={l.valeur} />}{l.valeur}</td><td>{pct(l.confiance)}</td><td>{String(l.score).replace('.', ',')}</td><td>{l.regle ?? '—'}</td><td>{i === 0 ? (g.retenu ? 'Retenu' : 'Écarté') + ' (' + String(g.score).replace('.', ',') + ')' : ''}</td></tr>
+            <tr key={g.valeur + l.source}><td>{l.libelle}</td><td>{a.attribut === 'silhouetteFacade' && <PictoSilhouette valeur={l.valeur} />}{l.valeur}</td><td>{pct(l.confiance)}</td><td>{String(l.score).replace('.', ',')}</td><td>{l.regle ? texteEcran(l.regle) : '—'}</td><td>{i === 0 ? (g.retenu ? 'Retenu' : 'Écarté') + ' (' + String(g.score).replace('.', ',') + ')' : ''}</td></tr>
           )))}</tbody>
         </table>
       </div>
       {main && (
-        <div className="mainArbitrage" role="group" aria-label={'Décider : ' + a.libelle}>
+        <div className="mainArbitrage" role="group" aria-label={'Décider : ' + texteEcran(a.libelle)}>
           {a.groupes.map((g, i) => !g.retenu || a.decision === 'manuelle'
             ? <button key={g.valeur} type="button" className="secondary small" data-controle="auditParcelle.retenirSource" onClick={() => main.retenir(i)}>{'Retenir « ' + g.valeur + ' »'}</button> : null)}
           {a.options
-            ? <select aria-label={'Forcer : ' + a.libelle} data-controle="auditParcelle.forcerValeur" value={force} onChange={(e) => { setForce(''); if (e.target.value) main.forcer(e.target.value); }}>
+            ? <select aria-label={'Forcer : ' + texteEcran(a.libelle)} data-controle="auditParcelle.forcerValeur" value={force} onChange={(e) => { setForce(''); if (e.target.value) main.forcer(e.target.value); }}>
                 <option value="">Forcer une valeur…</option>
                 {a.options.map((o) => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)}
               </select>
             : (a.accord === 'nombre' || a.accord === 'angle') && (
               <span className="forcerNombre">
-                <input type="number" step="any" aria-label={'Forcer : ' + a.libelle + (a.unite ? ' (' + a.unite + ')' : '')} value={force} onChange={(e) => setForce(e.target.value)} />
+                <input type="number" step="any" aria-label={'Forcer : ' + texteEcran(a.libelle) + (a.unite ? ' (' + motEcran(a.unite) + ')' : '')} value={force} onChange={(e) => setForce(e.target.value)} />
                 <button type="button" className="secondary small" data-controle="auditParcelle.forcerValeur" disabled={force === '' || !Number.isFinite(Number(force))} onClick={() => { main.forcer(force); setForce(''); }}>Forcer</button>
               </span>)}
           {delaMain && <button type="button" className="secondary small" data-controle="auditParcelle.reprendreChoix" onClick={main.reprendre}>Reprendre le choix du moteur</button>}
@@ -153,8 +154,8 @@ function LigneProposition({ p, cochee, basculer, lecture, choisie, choisir, sele
         <span className="avantApres"><span className="avantProposition">{p.avant}</span><span aria-hidden="true"> → </span><span className="texteMasque">, devient </span><span>{p.apres}</span></span>
         <span className="origineProposition">{libelleOuMot(ORIGINES, p.source) + (p.confiance !== null ? (p.source === 'claude' ? (p.effet.type === 'ajoutObjet' || p.id.startsWith('jardin:') ? ' · certitude ' : ' · passes d’accord ') : ' · confiance ') + Math.round(p.confiance * 100) + ' %' : '')}{p.indices[0] ? ' · ' + p.indices[0].texte : ''}</span>
         {lecture && <span className="decisionProposition">{'Décision de l’audit : ' + texteDecision(lecture.decision)}</span>}
-        {p.remplaceChoix && <span className="reserveProposition">{'Remplace votre choix : ' + p.remplaceChoix}</span>}
-        {p.reserve && <span className="reserveProposition">{p.reserve}</span>}
+        {p.remplaceChoix && <span className="reserveProposition">{'Remplace votre choix : ' + texteEcran(p.remplaceChoix)}</span>}
+        {p.reserve && <span className="reserveProposition">{texteEcran(p.reserve)}</span>}
       </label>
       {p.arbitrages?.map((a) => <Arbitrage key={a.attribut} a={a} choisie={selection === idArbitrageDeLigne(a)} choisir={(oui) => selectionner(oui ? idArbitrageDeLigne(a) : null)} />)}
       </div>
@@ -226,7 +227,7 @@ function ObservationsClaude({ batiments, session, lecture }: { batiments: readon
                           onChange={() => (fait ? v.annulerConfirmation(b.cle, o.id, o.confirmer ?? {}) : v.confirmerObservation(b.cle, o.id, o.confirmer ?? {}))} />
                         <span role="status">{fait ? 'Confirmé par vous : noté dans « Ce que je vois ». Décochez pour revenir dessus.' : 'Je confirme'}</span>
                       </label>)}
-                    {o.confirmer && !lecture && !fait && o.raison && <span className="origineProposition">{o.raison}</span>}
+                    {o.confirmer && !lecture && !fait && o.raison && <span className="origineProposition">{texteEcran(o.raison)}</span>}
                   </li>
                 );
               })}

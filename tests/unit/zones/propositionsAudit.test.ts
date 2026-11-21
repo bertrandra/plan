@@ -172,6 +172,28 @@ describe('les sources d un attribut arbitre dans l ecran des propositions', () =
     expect(hote.querySelector('.decisionArbitrage')?.textContent).toBe('Forcé par vous');
   });
 
+  it('écrit à l’écran les accents et l’apostrophe des textes gardés tels quels dans le fichier d’audit (le reste du lot 4)', () => {
+    // La donnee est celle que la reconciliation ecrit et qu'un fichier d'audit garde : libelle de regles/reconciliation.json, raison
+    // aux identifiants bruts, regle sans accents, unite « degres ». L'ecran les ecrit en francais correct sans la changer.
+    const couverture = {
+      cible: 'batiment:maison', accord: 'egal' as const, attribut: 'couverture', libelle: 'Couverture du toit', decision: 'manuelle' as const, avant: 'Tuiles', regles: [],
+      raison: 'Photo de façade seul ne décide pas : Photo de façade : ardoise-ecaille ; Claude : zinc.',
+      groupes: [{ valeur: 'Ardoise en écaille', score: 2.7, retenu: true, lignes: [{ source: 'photo', libelle: 'Photo de façade', valeur: 'Ardoise en écaille', confiance: 0.9, score: 2.7, regle: 'ouvertures detectees sur la photo (contours, coins trouves)' }] }],
+    };
+    act(() => racine.render(createElement(Arbitrage, { a: couverture })));
+    expect(hote.querySelector('.raisonArbitrage')?.textContent).toBe('Photo de façade seule ne décide pas : Photo de façade : ardoise en écaille ; Claude : zinc.');
+    expect(hote.querySelector('tbody tr td:nth-child(5)')?.textContent).toBe('ouvertures détectées sur la photo (contours, coins trouvés)');
+    expect(couverture.raison).toContain('ardoise-ecaille');
+    const egout = { ...couverture, attribut: 'hauteurEgout', libelle: "Hauteur à l'égout", accord: 'nombre' as const, unite: 'm', raison: 'Score insuffisant (2,7 pour 3 requis) : Photo de façade : 5,6 m.', avant: '6 m' };
+    act(() => racine.render(createElement(Arbitrage, { a: egout, main: { retenir: vi.fn(), forcer: vi.fn(), reprendre: vi.fn() } })));
+    expect(hote.querySelector('summary')?.textContent).toBe('À arbitrer · Hauteur à l’égout (aujourd’hui : 6 m)');
+    expect(hote.querySelector('table')?.getAttribute('aria-label')).toBe('Sources : Hauteur à l’égout');
+    expect(hote.querySelector('.mainArbitrage')?.getAttribute('aria-label')).toBe('Décider : Hauteur à l’égout');
+    expect(hote.querySelector('.forcerNombre input')?.getAttribute('aria-label')).toBe('Forcer : Hauteur à l’égout (m)');
+    act(() => racine.render(createElement(Arbitrage, { a: { ...egout, attribut: 'sensFaitage', libelle: 'Sens du faîtage', accord: 'angle' as const, unite: 'degres' }, main: { retenir: vi.fn(), forcer: vi.fn(), reprendre: vi.fn() } })));
+    expect(hote.querySelector('.forcerNombre input')?.getAttribute('aria-label')).toBe('Forcer : Sens du faîtage (degrés)');
+  });
+
   it('un seul détail ouvert à la fois : ouvrir un arbitrage referme l’autre et le choisit ; le fermer le désélectionne', async () => {
     const autre = { ...a, attribut: 'sensFaitage', libelle: 'Sens du faîtage' };
     function Deux() {

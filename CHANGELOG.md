@@ -64,6 +64,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   l'indication en tête du dialogue répond pour tout le projet. Le cerfa, ses pièces et la relecture avant l'export ne changent pas
   (ils gardent le régime calculé par `export/cerfa13703.ts`, qui tient une terrasse pour de plain-pied).
 
+- **Accents de l'audit des façades et de la calibration : le reste du lot 4** (demande du propriétaire, 20 novembre 2026). Le lot 4
+  (#737) avait laissé de côté les écrans de l'audit des façades, de la calibration (Admin › Calibration) et de l'avant/après
+  (Admin › Audits), dont une partie des textes sort de la chaîne É1 à É14 et de la réconciliation : ce sont aussi des données
+  (le résumé d'une étape et la raison d'un arbitrage s'enregistrent dans le fichier d'audit et dans un cas de calibration, des
+  tests les comparent, les identifiants partent chez Claude). Elles ne changent donc pas ; une table d'affichage,
+  `src/ui/texteFacade.ts` (comme `ui/tableau.ts` et `ui/nomCote.ts`), les écrit en français correct **à l'écran seulement**, et
+  laisse passer tel quel ce qu'elle ne connaît pas. À l'écran : les types et les mots montrés en identifiants (« fenetre »,
+  « porte-fenetre », « trapeze », « indetermine », « cheminee », « ardoise-ecaille », « meuliere », l'unité « degres ») deviennent
+  « fenêtre », « porte-fenêtre », « trapèze », « indéterminé », « cheminée », « ardoise en écaille », « meulière », « degrés »
+  (actions et éléments d'une étape, listes Calcul / Claude / Manuel, boîtes de Claude, raison et réserve d'un arbitrage) ; la
+  règle « ouvertures détectées sur la photo (contours, coins trouvés) » ; « Photo de façade seule ne décide pas » ; la focale
+  rangée de l'É3 à la virgule (« 27,2 mm éq. ») ; l'apostrophe typographique du reste de l'audit (« Hauteur à l’égout », « la photo
+  ne voyait le mur qu’à… ») ; dans la liste des étalons de synthèse, les étiquettes (« pied-caché », « visée-décentrée »,
+  « dégradé »…) et la description de l'étalon 21, écrite sans accents dans le corpus. Corrigés sur place, parce qu'ils ne sont que
+  des messages d'écran : les refus d'un cas de calibration mal formé (« Cas réel incomplet… », « Ce n’est pas un cas de façade
+  réelle. ») et « jusqu’au pignon voisin » de l'éditeur de façade. **Restent tels quels** : les noms des étalons
+  (`21-ebrasements-profonds-biais`, des identifiants), le nom du modèle d'une réponse rejouée, les adresses et les noms d'objets
+  du projet. Rien de ce que Claude lit, de ce qui s'enregistre ou s'exporte ne change : `deploy/` régénéré sans écart,
+  `VERSION_CHAINE_FACADES` 16, aucun fichier de `tests/fixtures/` touché, banc des façades identique (hors durées), AE 101 identique.
+  Point de fumée **191** (nouveau).
+
 ## [5.36.0] — 2026-11-17
 
 Version **mineure** au sens de `MD/RELEASE.md` : le lot 4 de la simplification de l'IHM ajoute un geste (§2.1 : « new feature »),

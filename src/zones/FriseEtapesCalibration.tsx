@@ -23,6 +23,7 @@ import { AjusterMur } from './releve/AjusterMur.js';
 import { VueFacade3d } from './VueFacade3d.js';
 import type { Carreaux } from '../regles/facades/observations.js';
 import { enteteDuRun } from '../facade/releve/enchainement.js';
+import { motEcran, texteEcran } from '../ui/texteFacade.js';
 
 /** Un point du quadrilatere (haut gauche, haut droit, bas droit, bas gauche) a (s, t) en parts de sa largeur et de sa hauteur. */
 function dansLeQuad(q: readonly P2[], s: number, t: number): P2 {
@@ -67,7 +68,7 @@ function BoitesIa({ boites, l, rayon }: { boites: NonNullable<ImagesEtapes['ia']
   const b = choisie !== null ? boites[choisie] : undefined;
   return <>
     {boites.map((x, k) => x.quad.length === 4 && <polygon key={'ia' + k} className={'calBoiteIa' + (x.cochee ? ' cochee' : ' seule') + (k === choisie ? ' choisie' : '')} points={points(x.quad)} vectorEffect="non-scaling-stroke"
-      role="button" tabIndex={0} aria-label={`Boîte de Claude ${k + 1} : ${x.ia.type}, ${x.cochee ? 'cochée, retrouvée par la détection' : 'seule, décochée'}`}
+      role="button" tabIndex={0} aria-label={`Boîte de Claude ${k + 1} : ${motEcran(x.ia.type)}, ${x.cochee ? 'cochée, retrouvée par la détection' : 'seule, décochée'}`}
       onClick={() => setChoisie(k === choisie ? null : k)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setChoisie(k === choisie ? null : k); }} />)}
     {b?.ia.carreaux && b.quad.length === 4 && traitsDesCarreaux(b.quad, b.ia.carreaux).map(([p, q], k) => <line key={'c' + k} className="calCarreau" x1={p.x} y1={p.y} x2={q.x} y2={q.y} vectorEffect="non-scaling-stroke" />)}
     {b && <text className="calTexteIa" x={Math.min(l - 4, (b.quad[0]?.x ?? 0))} y={Math.max(rayon * 3, (b.quad[0]?.y ?? 0) - rayon)} fontSize={rayon * 2.2}>{carreauxEnClair(b.ia.carreaux)}</text>}
@@ -222,8 +223,9 @@ function RelectureDuCas({ rejeu, cas, relire }: { rejeu: Enchainement; cas: CasS
  * avertissement (un mot, une bordure d'alerte, le texte entier en infobulle et pour le lecteur d'ecran).
  */
 function MentionObjectif({ bilan, parReperes, complet = false }: { bilan: BilanPhotoRedressement | undefined; parReperes: boolean; complet?: boolean }) {
-  const d = bilan ? objectifDeLaPhoto(bilan, parReperes) : null;
-  if (!d) return null;
+  const lu = bilan ? objectifDeLaPhoto(bilan, parReperes) : null;
+  if (!lu) return null;
+  const d = { ...lu, texte: texteEcran(lu.texte) };
   return <small className={'calObjectif' + (d.alerte ? ' alerte' : '')} data-objectif={bilan?.objectif?.source} title={d.texte}>{complet ? d.texte : <>{d.court}<span className="texteMasque">{d.texte.slice(d.court.length)}</span></>}</small>;
 }
 
@@ -395,8 +397,8 @@ export function EtapeOuverte(p: PropsEtape) {
   return (
     <section className={'calEtapeOuverte ' + etat} aria-label={'Étape ' + def.numero + ', ' + def.nom}>
       <h3 className="calTitre2">{def.numero} · {def.nom} <span className={'calFriseEtat ' + etat}>{LIBELLES_ETAT[etat]}</span></h3>
-      <p className="calResume">{e?.resume ?? 'Pas encore calculée : « Rejouer » déroule le cas.'}</p>
-      {e?.verite && <p className={'calVerite' + (e.verite.juste ? ' juste' : ' faux')}>{e.verite.texte}</p>}
+      <p className="calResume">{e ? texteEcran(e.resume) : 'Pas encore calculée : « Rejouer » déroule le cas.'}</p>
+      {e?.verite && <p className={'calVerite' + (e.verite.juste ? ' juste' : ' faux')}>{texteEcran(e.verite.texte)}</p>}
       {e && <ActionsEtape actions={e.actions} libelle={'Les actions de l’' + def.numero} image={imagesDesActions(p.images, p.cas.images, p.url)}
         {...(p.choixElement ? { extra: (x) => (x.famille ? p.choixElement?.(x) : null) } : {})} {...(p.gesteAction ? { geste: p.gesteAction } : {})} />}
       {p.forcage}

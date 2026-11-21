@@ -9,6 +9,7 @@
 import { etapeFacade, sansNumeros, LIBELLES_ETAT, FAMILLES_CLAUDE, type ActionEtape, type CleImageEtape, type ElementAction, type FamilleClaude, type TypeAction, type ValeurElement } from '../../model/etapeFacade.js';
 import { useContext, type ReactNode } from 'react';
 import { NumerosEtapes } from './numerosEtapes.js';
+import { motEcran, texteEcran } from '../../ui/texteFacade.js';
 
 /** Le type d'une action en un mot, sur son badge. */
 export const LIBELLES_TYPE_ACTION: Readonly<Record<TypeAction, string>> = { code: 'Code', claude: 'Claude', manuel: 'Manuel', mesure: 'Mesure' };
@@ -36,12 +37,12 @@ const MOTS_VALEURS: Readonly<Record<string, string>> = {
   photo: 'photo', focale35: 'focale (mm éq.)', champDeg: 'champ (°)', sourceFocale: 'source', largeurPx: 'largeur (px)', hauteurPx: 'hauteur (px)', volets: 'volets', allege: 'allège', forme: 'forme',
 };
 
-/** Une valeur en clair : les nombres a la francaise, vrai et faux en mots. */
+/** Une valeur en clair : les nombres a la francaise, vrai et faux en mots, un identifiant dans les mots de l'ecran (« fenêtre »). */
 export function valeurEnClair(v: string | number | boolean | null): string {
   if (v === null) return '—';
   if (typeof v === 'boolean') return v ? 'oui' : 'non';
   if (typeof v === 'number') return Number.isInteger(v) ? String(v) : String(Math.round(v * 1000) / 1000).replace('.', ',');
-  return v;
+  return motEcran(v);
 }
 
 /** Des valeurs en une ligne : « largeur (m) 9,5 · hauteur (m) 5,6 ». */
@@ -71,7 +72,7 @@ function LigneElement({ x, rang, extra }: { x: ElementAction; rang: number; extr
     <li className={'elementAction' + (x.famille ? ' deClaude famille-' + x.famille : ' duCalcul')} data-cle={x.cle} data-statut={x.statut}>
       <span className="elementTete">
         {x.famille ? <PastilleFamille famille={x.famille} /> : <span className="pastilleFamille calcul">Calcul</span>}
-        <strong>{x.type}</strong> <span className="elementStatut">{LIBELLES_STATUT[x.statut]}{vers}</span>
+        <strong>{motEcran(x.type)}</strong> <span className="elementStatut">{LIBELLES_STATUT[x.statut]}{vers}</span>
       </span>
       {x.rect && <span className="calNote">x {valeurEnClair(x.rect.x)} m, y {valeurEnClair(x.rect.y)} m, {valeurEnClair(x.rect.l)} × {valeurEnClair(x.rect.h)} m</span>}
       {x.details && Object.keys(x.details).length > 0 && <span className="calNote">{valeursEnClair(x.details)}</span>}
@@ -121,7 +122,8 @@ interface Props {
 /** Les actions d'une etape, chacune avec son badge, son etat, son avant et son apres, et ses elements. */
 export function ActionsEtape({ actions, image, extra, geste, libelle }: Props) {
   // Sans les numeros (l'audit de la personne ordinaire) : les textes de la chaine se lisent sans « É7 » ni « V1 ».
-  const dire = useContext(NumerosEtapes) ? (t: string) => t : sansNumeros;
+  const avecNumeros = useContext(NumerosEtapes);
+  const dire = (t: string) => texteEcran(avecNumeros ? t : sansNumeros(t));
   if (!actions.length) return null;
   return (
     <ol className="actionsEtape" aria-label={libelle}>

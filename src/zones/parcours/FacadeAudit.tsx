@@ -41,6 +41,7 @@ import type { CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { PhotoCas } from '../../model/audit.js';
 import type { GabaritMur } from '../../facade/gabaritMur.js';
 import type { AssemblageAAjuster } from '../../facade/releve/enchainement.js';
+import { texteEcran } from '../../ui/texteFacade.js';
 
 /** Un repere ne compte deplace qu'au-dela de ce nombre de pixels de la photo : l'arrondi au dixieme ne deplace rien. */
 const REPERE_DEPLACE_PX = 0.5;
@@ -262,7 +263,7 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
   // eux) et le mode expert les lisent ; la personne ordinaire, l'administrateur d'une organisation compris, lit le nom de l'etape
   // (composants/numerosEtapes.ts). Rien n'est calcule autrement : les textes de la chaine sont lus sans eux.
   const numeros = enAdmin() || modeExpertActif();
-  const dire = numeros ? (t: string) => t : sansNumeros;
+  const dire = (t: string) => texteEcran(numeros ? t : sansNumeros(t));
   const etapeDite = (id: NonNullable<typeof ouverte>) => (numeros ? 'l’' + etapeFacade(id).numero : 'l’étape « ' + etapeFacade(id).nom + ' »');
   return (
     <NumerosEtapes.Provider value={numeros}>
