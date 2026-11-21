@@ -6,4 +6,6 @@ return [
   'motDePasse' => 'A-CHANGER',
   // Ou vivent les photos et le marquage : par defaut data/apprentissage/ a cote de ce fichier (hors de public_html/).
   // 'dossierDonnees' => __DIR__ . '/data/apprentissage',
+  // La duree d'une cle d'entrainement (etape 6, « Entrainer dans Colab »), en heures : 24 par defaut, de 1 a 72.
+  // 'jetonHeures' => 24,
 ];
