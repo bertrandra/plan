@@ -257,11 +257,34 @@ function poserEtRetenir(o: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d,
   if (co.scene.children.length > n0) poseParObjet.set(o.key, co.scene.children.slice(n0));
 }
 
-/** Ce que `poser` ajoute a la scene, retenu comme pose hors objets (masque par la vue epuree). */
-export function retenirHorsObjets(scene: THREE_NS.Scene, poser: () => void): void {
+/**
+ * Ce que `poser` ajoute a la scene, retenu comme pose hors objets (masque par la vue epuree). `duProjet` : ce que le projet ajoute au
+ * jardin (la structure de sa terrasse), que le photomontage garde seul sur la photo (three/photomontage3d.ts).
+ */
+export function retenirHorsObjets(scene: THREE_NS.Scene, poser: () => void, duProjet = false): void {
   const n0 = scene.children.length;
   poser();
-  horsObjets.push(...scene.children.slice(n0));
+  const poses = scene.children.slice(n0);
+  horsObjets.push(...poses);
+  if (duProjet) for (const r of poses) horsObjetsDuProjet.add(r);
+}
+
+/** Les poses hors objets que le projet ajoute au jardin : la structure de la terrasse courante. */
+let horsObjetsDuProjet = new WeakSet<THREE_NS.Object3D>();
+
+/**
+ * Un filtre d'affichage de plus que l'epure : le photomontage (three/photomontage3d.ts), qui ne laisse que le projet. Rejoue comme
+ * elle a chaque pose (scene batie, structure arrivee, objet remplace) ; `null` le retire. La scene n'en garde rien : le filtre tient
+ * lui-meme ce qu'il a masque.
+ */
+let filtre: (() => void) | null = null;
+export function poserFiltre3d(f: (() => void) | null): void { filtre = f; }
+
+/** La scene retenue et ce que chaque objet du plan y a pose, pour un filtre qui la parcourt sans la rebatir ; null sans scene. */
+export function sceneRetenue(): { sc: SceneVue3d; ground: THREE_NS.Mesh; parObjet: ReadonlyMap<string, readonly THREE_NS.Object3D[]>; duProjet: (r: THREE_NS.Object3D) => boolean } | null {
+  const d = derniere;
+  if (!d || !vue3d.scene || d.sc !== vue3d.scene) return null;
+  return { sc: d.sc, ground: d.ground, parObjet: poseParObjet, duProjet: (r) => horsObjetsDuProjet.has(r) };
 }
 
 /**
@@ -408,6 +431,7 @@ export function remplacerObjets3d(cles: readonly string[], etat: PlanVuDeLa3d): 
   }
   // Un batiment repose (l'apercu « Après » de l'audit) suit la vue epuree comme les autres.
   if (garderSeulement) appliquerEpure();
+  filtre?.();
   rafraichirArbres(co.scene as THREE_NS.Scene, d.ground);
   // Les objets remplaces se montrent a l'image suivante (three/renduDemande.ts).
   demanderRendu(d.sc);
@@ -419,6 +443,7 @@ export function oublierLaScene(): void {
   poseParObjet.clear();
   poseCloture = [];
   horsObjets = [];
+  horsObjetsDuProjet = new WeakSet();
   masquesParEpure = new WeakSet();
   // Une comparaison avant / apres meurt avec sa scene : a son auteur de la reposer (signalerSceneBatie).
   comparaison.apres.clear();
@@ -442,7 +467,8 @@ export function retenirLaScene(d: { sc: SceneVue3d; co: ContexteObjets; obj: Obj
   epurerSiBesoin();
 }
 
-/** L'audit de la parcelle en cours : la scene ne montre que ce qu'il garde. */
+/** L'audit de la parcelle en cours : la scene ne montre que ce qu'il garde ; de meme le photomontage (`poserFiltre3d`). */
 export function epurerSiBesoin(): void {
   if (garderSeulement) appliquerEpure();
+  filtre?.();
 }

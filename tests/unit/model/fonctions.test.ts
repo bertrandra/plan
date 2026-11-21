@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aParticularite, estTerrain, estTerrasse, estVueUtilisable, fonctionAdmise, parcelleDuProjet, terrasseOuPremiere } from '../../../src/model/fonctions.js';
+import { aParticularite, estAjouteParLeProjet, estTerrain, estTerrasse, estVueUtilisable, fonctionAdmise, parcelleDuProjet, terrasseOuPremiere } from '../../../src/model/fonctions.js';
 import { synchroniserContexteTerrasse } from '../../../src/core/contexteTerrasse.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
@@ -61,5 +61,26 @@ describe('profils de fonction', () => {
     const parcelle = { ...objet('terrain', 'polygon'), key: 'parcelle' };
     expect(parcelleDuProjet([voisine, parcelle])?.key).toBe('parcelle');
     expect(parcelleDuProjet([voisine])?.key).toBe('v1');
+  });
+});
+
+describe('ce que le projet ajoute au jardin (photomontage)', () => {
+  const o = (fonction: string, plus: Record<string, unknown> = {}) => ({ key: 'o', fonction, type: 'polygon', ...plus }) as unknown as ObjetPlan;
+
+  it('retient les ouvrages du projet : terrasse, pergola, carport, piscine, parasol, dalle, chemin, mobilier', () => {
+    for (const f of ['terrasse', 'pergola', 'carport', 'piscine', 'dalle', 'chemin', 'mobilier', 'massif', 'equipement', 'autre']) expect(estAjouteParLeProjet(o(f)), f).toBe(true);
+    expect(estAjouteParLeProjet(o('parasol', { type: 'circle' }))).toBe(true);
+  });
+
+  it('ecarte ce que la photo montre deja : terrain, batiments, arbres, points de vue, limites', () => {
+    for (const f of ['terrain', 'batiment', 'annexe', 'arbre', 'camera', 'limite']) expect(estAjouteParLeProjet(o(f)), f).toBe(false);
+    expect(estAjouteParLeProjet({ ...o('terrain'), key: 'parcelle' } as ObjetPlan)).toBe(false);
+  });
+
+  it('ecarte un ouvrage existant, un objet de l IGN et tout ce qui est chez un voisin', () => {
+    expect(estAjouteParLeProjet(o('terrasse', { existant: true }))).toBe(false);
+    expect(estAjouteParLeProjet(o('piscine', { voisinage: true }))).toBe(false);
+    expect(estAjouteParLeProjet(o('dalle', { bdtopo: { surParcellePrincipale: true } }))).toBe(false);
+    expect(estAjouteParLeProjet(o('chemin', { cadastre: { idu: 'x' } }))).toBe(false);
   });
 });

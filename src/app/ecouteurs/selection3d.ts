@@ -10,6 +10,7 @@
 // touchers : la selection s'y tait. L'objet choisi se voit dans la scene par le trait renforce de l'audit (three/traitDePres.ts),
 // pose et retire au fil de la selection.
 
+import { photomontage } from '../photomontage/etat.js';
 import { estArbre, estChoisiEn3d, estParasol, estTerrasse } from '../../model/fonctions.js';
 import { enPoints } from '../../model/formes.js';
 import { pointInPolygon } from '../../geometry/basic.js';
@@ -32,7 +33,7 @@ export const TOUCHER_MS = 450;
 export function toucherPrisAilleurs(): boolean {
   const p = parcours.courant()?.type;
   return !!sessionToit() || !!controleurAudit() || p === 'auditParcelle' || p === 'auditCas' || p === 'auditFin'
-    || !!affichage3d.comparaison || promenadeActive();
+    || !!affichage3d.comparaison || promenadeActive() || photomontage.actif;
 }
 
 /**

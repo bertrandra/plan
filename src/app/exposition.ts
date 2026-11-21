@@ -230,6 +230,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'export.choisirPhoto': partout('parcours'),
   'export.retirerPhoto': partout('parcours'),
   'export.glb': menu('menuExporter'),
+  'export.photomontage': menu('menuExporter', 'vue3d'),
 
   // ---- Vue 3D ---------------------------------------------------------------------------------
   '3d.zoomAvant': partout('vue3d'),
@@ -245,6 +246,11 @@ export const EXPOSITION: Record<string, Ligne> = {
   '3d.captureHd': partout('vue3d'),
   '3d.promenade': partout('vue3d'),
   '3d.enregistrerPointDeVue': partout('vue3d'),
+  // Le photomontage (app/ecouteurs/photomontage.ts) : son bouton dans la colonne de la camera, puis son panneau, sous la photo. Son
+  // image s'enregistre du panneau ; l'entree du menu Exporter y mene (feuille Projet au doigt).
+  '3d.photomontage': partout('vue3d'),
+  '3d.photomontageAjuster': partout('vue3d'),
+  '3d.photomontageRecaler': partout('vue3d'),
   // Le mode audit (app/audit/branchement.ts) : sa barre, dans la Vue 3D.
   'audit.suivre': partout('vue3d'),
   'audit.cas': partout('vue3d'),

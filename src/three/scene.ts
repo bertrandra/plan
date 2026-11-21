@@ -36,7 +36,7 @@ import type * as THREE_NS from 'three';
 import type { ObjetPlan, ObjetCercle, PtBrut, Relief } from '../model/types.js';
 import { aDesSommets, enPoints } from '../model/formes.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
-import { visibleEnIsolement } from '../model/fonctions.js';
+import { visibleEnIsolement, estAjouteParLeProjet } from '../model/fonctions.js';
 import { maisonDe } from '../model/placement.js';
 import { estOuvrage, TERRAIN } from '../model/ouvrages/index.js';
 import { solDeLaScene, geometrieSol, bornesCarre, type SolRelief } from './relief3d.js';
@@ -391,7 +391,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     // La scene a pu etre remplacee entre-temps : construire dans une scene morte laisserait des
     // meshes orphelins et un canevas noir.
     if(vue3d.scene !== sc) return;
-    if(obj && layers) retenirHorsObjets(scene, () => construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal, sol: solMoteur }));
+    // La structure de la terrasse du projet : le photomontage la garde (three/photomontage3d.ts) ; pas celle d'une terrasse existante.
+    if(obj && layers) retenirHorsObjets(scene, () => construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal, sol: solMoteur }), estAjouteParLeProjet(obj));
     epurerSiBesoin();
     appliquerOmbres(scene, ground);   // les pieces qui viennent d'arriver projettent aussi
     animer();

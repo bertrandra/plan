@@ -13,7 +13,7 @@ export type NomIcone =
   | 'dupliquer' | 'supprimer' | 'reculer' | 'positionInitiale' | 'cote' | 'aligner'
   | 'grille' | 'ajuster' | 'recadrer' | 'tournerDroite' | 'tournerCorps' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
-  | 'plus' | 'moins' | 'cadenas' | 'info' | 'cube' | 'orbite' | 'deplacer' | 'loupe' | 'image'
+  | 'plus' | 'moins' | 'cadenas' | 'info' | 'cube' | 'orbite' | 'deplacer' | 'loupe' | 'image' | 'photomontage'
   | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte' | 'scinder' | 'fusionner' | 'angle' | 'travee' | 'decroche'
   | 'tourner' | 'vueDessus' | 'toitAvant';
 
@@ -88,6 +88,8 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   deplacer: <path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" />,
   loupe: <><circle cx="10.5" cy="10.5" r="6" /><path d="M15 15l5.5 5.5" /></>,
   image: <><rect x="3.5" y="5" width="17" height="14" rx="2" /><circle cx="9" cy="10" r="1.6" /><path d="M20.5 16l-5-5-8.5 8" /></>,
+  // Une photo (son cadre, son horizon) et la terrasse posee dessus : le photomontage de la Vue 3D.
+  photomontage: <><rect x="3.5" y="5" width="17" height="14" rx="2" /><path d="M3.5 11h17" strokeDasharray="2 2.5" /><path d="M7.5 16.5l2.5-3.5h6.5l-2.5 3.5z" /></>,
   personne: <><circle cx="12" cy="5" r="2.2" /><path d="M12 8v7M8.5 21l3.5-6 3.5 6M8 11h8" /></>,
   pleinEcran: <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />,
   soleil: <><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" /></>,

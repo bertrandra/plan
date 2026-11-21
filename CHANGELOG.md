@@ -7,6 +7,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Photomontage : le projet posé sur une photo de votre jardin** (demande du propriétaire, 20 novembre 2026). Dans la Vue 3D, le
+  bouton « Photomontage sur une photo » (et l'entrée du menu Exporter) ouvre un mode pour tout le monde, au bureau comme au
+  téléphone : vous choisissez une photo du jardin (un fichier, ou l'appareil photo que le téléphone propose), ramenée à 2 048 px de
+  côté ; elle s'affiche derrière la scène, qui prend son rapport et ne dessine plus que **ce que le projet ajoute** (terrasse,
+  pergola, carport, piscine, parasol, dalle, chemin, mobilier), avec son ombre portée sur un sol invisible. Ni terrain, ni gazon, ni
+  ciel, ni voisinage, ni arbres ; les bâtiments de la parcelle ne se dessinent pas mais **cachent** ce que le projet a derrière eux.
+  **La caméra se cale d'après la photo quand elle le peut** : sa position (GPS de l'EXIF, à hauteur d'œil, 1,6 m du sol ; acceptée
+  hors de la parcelle jusqu'à 150 m du projet), sa direction (boussole), son champ (focale équivalente 24×36, en paysage comme en
+  portrait). L'écran dit ce qui a été lu et ce qui ne l'a pas été ; ce qui manque est remplacé par une vue face au projet. Ce
+  calage est un point de départ (le GPS d'un téléphone se trompe de plusieurs mètres) : on ajuste ensuite le regard, le point de vue,
+  la hauteur et le zoom, au doigt sur l'image (la caméra tourne sur elle-même, comme un photographe), par des boutons de 44 px ou au
+  clavier (flèches, Maj + flèches, + et −, pages). Une opacité du projet aide à comparer ; « Montrer la maison en transparence »
+  teinte les bâtiments et trace l'horizon, le temps du réglage, jamais dans l'image sauf choix explicite. « Enregistrer l'image »
+  télécharge la photo avec le projet incrusté, en JPEG ou en PNG, **à la taille de la photo** (pas celle de l'écran). Quitter le mode
+  rend la Vue 3D exactement comme avant. **La photo reste sur l'appareil** : elle n'est envoyée ni au serveur ni à Claude, et rien ne
+  s'écrit dans le projet (ni schéma, ni « modifié », ni Ctrl+Z ; permis en lecture seule). Aucun export existant ne change, les
+  empreintes ne bougent pas. Code : `core/photomontage.ts` (le calage, pur), `three/photomontage3d.ts`, `app/photomontage/`,
+  `zones/vue3d/Photomontage.tsx`, chargés à la demande avec la 3D. **Non essayé sur un vrai téléphone ni sur une vraie photo
+  géolocalisée** : la fumée (point 190) joue une photo de synthèse à l'EXIF connu.
 - **Banc d'apprentissage : « Entraîner dans Colab », l'aller-retour en cinq gestes au lieu d'une quinzaine** (demande du
   propriétaire, 20 novembre 2026 : « moins de gestes entre l'export et le dépôt du modèle »). À l'étape 6, un bouton fige le jeu sur
   le serveur du banc, crée une **clé d'entraînement** et télécharge un carnet `.ipynb` déjà rempli. Dans Google Colab, « Tout
