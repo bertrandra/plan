@@ -1,5 +1,5 @@
-// L'aller-retour avec Colab (etape 6 « Entrainer dans Colab », etape 3 pour le modele depose) : ce que l'ecran dit d'une cle
-// d'entrainement et d'un modele depose par un carnet. Sans DOM ; le serveur (api.php) fait tout le reste.
+// L'entrainement sur le Mac (etape 6 « Entrainer sur mon Mac », etape 3 pour le modele depose) : ce que l'ecran dit d'une cle
+// d'entrainement, du script qui la porte et du modele qu'il depose. Sans DOM ; le serveur (api.php) fait tout le reste.
 
 import type { DepotModele, JetonEntrainement } from './types.js';
 
@@ -23,17 +23,17 @@ export function resteDuJeton(j: Pick<JetonEntrainement, 'expireLe'>, maintenant:
   return s >= 3600 ? `${Math.floor(s / 3600)} h` : `${Math.max(1, Math.floor(s / 60))} min`;
 }
 
-/** Ou en est une cle : le carnet ne l'a pas encore utilisee, il a lu le jeu (il entraine), ou il a depose son modele. */
+/** Ou en est une cle : le script ne l'a pas encore utilisee, il a lu le jeu (il entraine), ou il a depose son modele. */
 export function etatDuJeton(j: Pick<JetonEntrainement, 'lectures' | 'depose'>): { etat: 'attente' | 'entrainement' | 'depose'; libelle: string } {
   if (j.depose) return { etat: 'depose', libelle: 'Modèle déposé : activez-le à l’étape 3' };
-  if (j.lectures > 0) return { etat: 'entrainement', libelle: 'Jeu lu par le carnet : entraînement en cours' };
-  return { etat: 'attente', libelle: 'En attente du carnet' };
+  if (j.lectures > 0) return { etat: 'entrainement', libelle: 'Jeu lu par le script : entraînement en cours sur le Mac' };
+  return { etat: 'attente', libelle: 'En attente du script' };
 }
 
-/** D'ou vient un modele depose par un carnet : sa date, son jeu, son mAP. Une ligne, pour la carte du modele (etape 3). */
+/** D'ou vient un modele depose par un script d'entrainement : sa date, son jeu, son mAP. Une ligne, pour la carte du modele (etape 3). */
 export function origineDuModele(d: DepotModele, fuseau?: string): string {
   const n = photosDuJeu(d.jeu);
-  const morceaux = [`Déposé par Colab le ${dateCourte(d.le, fuseau)}`, `jeu du ${dateCourte(d.jeu.le, fuseau)} (${n} photo${n > 1 ? 's' : ''}${d.jeu.verifieesSeulement ? (n > 1 ? ' vérifiées' : ' vérifiée') : ''})`];
+  const morceaux = [`Déposé par le script d’entraînement le ${dateCourte(d.le, fuseau)}`, `jeu du ${dateCourte(d.jeu.le, fuseau)} (${n} photo${n > 1 ? 's' : ''}${d.jeu.verifieesSeulement ? (n > 1 ? ' vérifiées' : ' vérifiée') : ''})`];
   if (d.depart === 'zero') morceaux.push('de zéro');
   morceaux.push(typeof d.bilan.map === 'number' ? `mAP ${decimal(d.bilan.map)}` : 'mAP non mesuré');
   return morceaux.join(' · ');
@@ -44,10 +44,16 @@ export function bilanParType(d: DepotModele): { nom: string; map: number }[] {
   return Object.entries(d.bilan.parType ?? {}).map(([nom, map]) => ({ nom, map })).sort((a, b) => b.map - a.map || a.nom.localeCompare(b.nom));
 }
 
-/** Le carnet telecharge est-il un .ipynb lisible qui parle a ce banc : de quoi ne pas proposer un fichier casse. */
-export function carnetValable(carnet: string): boolean {
-  try {
-    const c = JSON.parse(carnet) as { nbformat?: unknown; cells?: unknown };
-    return c.nbformat === 4 && Array.isArray(c.cells) && c.cells.length > 0;
-  } catch { return false; }
+/** La premiere et la derniere ligne du script que le serveur rend : de quoi reconnaitre un fichier entier. */
+export const DEBUT_DU_SCRIPT = '#!/bin/bash\n';
+export const FIN_DU_SCRIPT = '# fin du script du banc';
+
+/** Le script telecharge est-il entier, et parle-t-il a ce banc avec une cle : de quoi ne pas proposer un fichier casse. */
+export function scriptValable(script: string): boolean {
+  return script.startsWith(DEBUT_DU_SCRIPT) && script.trimEnd().endsWith(FIN_DU_SCRIPT) && /^BANC_CLE='bj_[0-9a-f]{16}_[0-9a-f]{64}'$/m.test(script) && /^BANC_ADRESSE='https?:\/\/[^']+\/api\.php'$/m.test(script);
+}
+
+/** La commande a coller dans le Terminal du Mac pour lancer le script telecharge (Safari et les autres le rangent dans Téléchargements). */
+export function commandeDuScript(fichier: string): string {
+  return /^[A-Za-z0-9._-]+$/.test(fichier) ? `bash ~/Downloads/${fichier}` : '';
 }

@@ -161,7 +161,7 @@ export interface Modele {
   installe: boolean;
   catalogue?: boolean;
   actif?: boolean;
-  /** D'ou vient un modele depose par un carnet d'entrainement (etape 6, « Entrainer dans Colab ») ; absent d'un modele depose a la main. */
+  /** D'ou vient un modele depose par un script d'entrainement (etape 6, « Entrainer sur mon Mac ») ; absent d'un modele depose a la main. */
   depot?: DepotModele;
 }
 
@@ -175,19 +175,19 @@ export interface JeuExporte {
   octets?: number;
 }
 
-/** Ce que le serveur garde d'un depot fait par un carnet : sa date, son jeu, son architecture et son bilan sur le bloc test. */
+/** Ce que le serveur garde d'un depot fait par un script d'entrainement : sa date, son jeu, son architecture et son bilan sur le bloc test. */
 export interface DepotModele {
-  par: 'colab';
+  par: 'entrainement';
   le: string;
   architecture: string;
   depart: 'coco' | 'zero';
   jeu: JeuExporte;
-  /** mAP50-95 et mAP50 du bloc test, et le mAP50-95 de chaque type ; vide quand le carnet n'a pas pu mesurer. */
+  /** mAP50-95 et mAP50 du bloc test, et le mAP50-95 de chaque type ; vide quand le script n'a pas pu mesurer. */
   bilan: { map?: number; map50?: number; parType?: Record<string, number> };
   octets: number;
 }
 
-/** Une cle d'entrainement vivante, vue de l'ecran : jamais la cle elle-meme, que seul le carnet telecharge porte. */
+/** Une cle d'entrainement vivante, vue de l'ecran : jamais la cle elle-meme, que seul le script telecharge porte. */
 export interface JetonEntrainement {
   id: string;
   creeLe: string;

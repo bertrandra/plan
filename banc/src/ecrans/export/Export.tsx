@@ -2,23 +2,23 @@
 // prend le jeu au format COCO. Pour comparer, le jeu sort aussi au format natif d'Ultralytics (images/ et labels/ par bloc, data.yaml, un script
 // d'entrainement) : en detection pour YOLO26n (par defaut) ou YOLOv10n (pour repartir des poids du depot facade), en segmentation pour
 // YOLO26n-seg ou YOLO11n-seg ; ou dans le format du banc (annotations.json), pour garder les arbres, les attributs et les polygones.
-// L'ecran se lit de haut en bas : ce qui entre dans le jeu (tuiles), le format, « Entrainer dans Colab » (le carnet qui fait l'aller-retour
-// tout seul, Colab.tsx), puis le zip a telecharger pour le faire a la main ; le reste se replie.
+// L'ecran se lit de haut en bas : ce qui entre dans le jeu (tuiles), le format, « Entrainer sur mon Mac » (le script qui fait l'aller-retour
+// tout seul, Entrainement.tsx), puis le zip a telecharger pour le faire a la main ; le reste se replie.
 
 import { useMemo } from 'react';
 import type { Banc } from '../../App.js';
 import { cibleDuNom, libelleDe, nomsYolo } from '../../classes.js';
 import { Icone } from '../../ui/Icones.js';
 import { Page, Section, Segments, Tuile, Tuiles, Vide } from '../../ui/Page.js';
-import { Colab } from './Colab.js';
-import { useColab } from './useColab.js';
+import { Entrainement } from './Entrainement.js';
+import { useEntrainement } from './useEntrainement.js';
 import { useExport, VARIANTES, type Format } from './useExport.js';
 
 const FORMATS: { valeur: Format; libelle: string }[] = [
   { valeur: 'rfdetr', libelle: 'RF-DETR · Apache 2.0' }, { valeur: 'detect', libelle: 'YOLO détection' }, { valeur: 'seg', libelle: 'YOLO contours' }, { valeur: 'natif', libelle: 'Format du banc' },
 ];
 const MOTS: Record<Format, string> = {
-  rfdetr: 'RF-DETR (Roboflow) : licence Apache 2.0 pour le code et les poids, libre dans un produit commercial. Le jeu au format COCO, un carnet Colab et un script.',
+  rfdetr: 'RF-DETR (Roboflow) : licence Apache 2.0 pour le code et les poids, libre dans un produit commercial. Le jeu au format COCO et son script d’entraînement.',
   detect: 'Ultralytics, sous AGPL-3.0 : un modèle entraîné avec eux, servi dans une application, impose d’en publier le code ou d’acheter leur licence. Pour comparer.',
   seg: 'Les contours (polygones) plutôt que les boîtes, sous AGPL-3.0 comme la détection YOLO.',
   natif: 'annotations.json : les arbres, les attributs et les polygones tels quels, pour un autre outil ou une sauvegarde.',
@@ -26,7 +26,7 @@ const MOTS: Record<Format, string> = {
 
 export function EcranExport({ banc }: { banc: Banc }) {
   const c = useExport(banc);
-  const colab = useColab(banc, { format: c.format, variante: c.variante, depart: c.depart, verifiees: c.verifiees });
+  const entrainement = useEntrainement(banc, { format: c.format, variante: c.variante, depart: c.depart, verifiees: c.verifiees });
   const noms = useMemo(() => nomsYolo(banc.classes), [banc.classes]);
   const nomFormat = c.format === 'natif' ? 'format du banc' : VARIANTES[c.format].find((v) => v.valeur === c.variante)?.libelle ?? c.variante;
   return (
@@ -52,13 +52,13 @@ export function EcranExport({ banc }: { banc: Banc }) {
               <Segments label="Variante" valeur={c.variante} options={VARIANTES[c.format]} onChange={c.setVariante} />
               <Segments label="Départ" valeur={c.depart} options={[{ valeur: 'coco', libelle: 'Avec COCO' }, { valeur: 'zero', libelle: 'De zéro' }]} onChange={c.setDepart} />
             </div>}
-            {c.format !== 'natif' && <p className="aide">{c.depart === 'coco' ? 'Le modèle part de ce qu’il sait déjà voir (COCO), ou de depart.pt posé à côté du script.' : 'L’architecture seule, rien d’appris : 300 époques, et il faut plus de photos pour rattraper le départ COCO.'}</p>}
+            {c.format !== 'natif' && <p className="aide">{c.depart === 'coco' ? 'Le modèle part de ce qu’il sait déjà voir (COCO), ou de depart.pt (YOLO), posé dans ~/banc-entrainement ou à côté de entrainer.py.' : 'L’architecture seule, rien d’appris : 300 époques, et il faut plus de photos pour rattraper le départ COCO.'}</p>}
           </div>
         </Section>
-        {c.format !== 'natif' && <Colab banc={banc} c={colab} nomFormat={nomFormat + (c.depart === 'zero' ? ' · de zéro' : '')} licence={c.format === 'rfdetr' ? 'apache' : 'agpl'} />}
+        {c.format !== 'natif' && <Entrainement banc={banc} c={entrainement} nomFormat={nomFormat + (c.depart === 'zero' ? ' · de zéro' : '')} licence={c.format === 'rfdetr' ? 'apache' : 'agpl'} />}
         <Section titre={c.format === 'natif' ? 'Télécharger' : 'Ou à la main'}>
           <div className="pile-export">
-            {c.format !== 'natif' && <p className="aide">Le même jeu en .zip, avec son script et son carnet : à envoyer vous-même à Colab ou à un PC, puis le modèle se dépose à l’étape 3 avec ses noms.</p>}
+            {c.format !== 'natif' && <p className="aide">Le même jeu en .zip, avec son script <code>entrainer.py</code> : à entraîner vous-même, sur ce Mac ou sur une autre machine, puis le modèle se dépose à l’étape 3 avec ses noms.</p>}
             <a className={'bouton grand' + (c.format === 'natif' ? ' principal' : '')} href={c.url} download><Icone nom="exporter" /> Télécharger le jeu · {nomFormat}{c.format !== 'natif' && c.depart === 'zero' ? ' · de zéro' : ''} <small>({c.dansLeJeu} photo(s), .zip)</small></a>
           </div>
         </Section>
@@ -67,9 +67,9 @@ export function EcranExport({ banc }: { banc: Banc }) {
         <ol className="etapes-guide">
           <li>Corriger et qualifier une première série (une trentaine d’objets par type au moins), puis répartir les blocs (7) : 70 % train, 20 % val, 10 % test, stratifié par type.</li>
           <li>Choisir <b>RF-DETR Nano</b> (Apache 2.0, libre pour Plan) ; YOLO26n ou YOLOv10n (AGPL) restent là pour comparer.</li>
-          <li>« Entraîner dans Colab » : importer le carnet téléchargé dans Google Colab (GPU gratuit) et lancer « Tout exécuter ». Il lit le jeu, entraîne, mesure le test et dépose le modèle à l’étape 3.</li>
+          <li>« Entraîner sur mon Mac » : coller dans Terminal la commande affichée après le téléchargement du script. Il installe ce qu’il lui faut, lit le jeu, entraîne (puce Apple Silicon, sinon le processeur), mesure le test et dépose le modèle à l’étape 3.</li>
           <li>Activer le modèle déposé à l’étape 3 : ses noms sont déjà reliés à vos types, sa résolution est posée, son mAP est dit.</li>
-          <li>À la main, si vous préférez (ou sur un PC avec carte graphique) : télécharger le zip, ouvrir son <code>entrainer.ipynb</code> dans Colab ou lancer <code>python3 entrainer.py 0</code>, puis déposer le modèle à l’étape 3 (<code>modele-banc.onnx</code> et <code>noms.txt</code> pour RF-DETR, avec sa résolution ; <code>best.onnx</code> et <code>names</code> pour YOLO).</li>
+          <li>À la main, si vous préférez (ou sur un PC avec carte graphique) : télécharger le zip et lancer <code>python3 entrainer.py</code> dans son dossier (<code>mps</code> à la suite sur un Mac Apple Silicon, <code>0</code> ou <code>cuda</code> avec une carte NVIDIA), puis déposer le modèle à l’étape 3 (<code>modele-banc.onnx</code> et <code>noms.txt</code> pour RF-DETR, avec sa résolution ; <code>best.onnx</code> et <code>names</code> pour YOLO).</li>
           <li>Lancer le brouillon sur les photos non annotées : il pose et qualifie ; vous corrigez, la série grandit, on réentraîne.</li>
         </ol>
         <p className="aide">Le test (10 %) ne sert jamais à l’entraînement : <code>entrainer.py</code> le mesure à la fin (mAP par type). La validation (20 %) arrête l’entraînement quand il ne progresse plus. Pour choisir, entraînez les variantes sur les mêmes blocs (vers 150 photos vérifiées) et gardez le meilleur mAP du test.</p>

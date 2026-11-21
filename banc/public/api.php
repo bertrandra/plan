@@ -10,7 +10,7 @@
 //   images/<id>/vignette.jpg     la vignette du catalogue
 //   images/<id>/annotation.json  le marquage : rectangles et polygones, en pixels de redressee.jpg (etapes 3 a 5)
 //   modeles/<id>.onnx, .json     les modeles YOLO du brouillon (ceux du depot facade, et ceux que vous entrainez)
-//   jetons/<id>.json, .zip       les jetons d'entrainement (etape 6, « Entrainer dans Colab ») : haches, et le jeu de leur export
+//   jetons/<id>.json, .zip       les jetons d'entrainement (etape 6, « Entrainer sur mon Mac ») : haches, et le jeu de leur export
 //
 // Le banc n'utilise rien de Plan : ni son code, ni ses donnees, ni sa session.
 
@@ -596,7 +596,7 @@ const BANC_DEPARTS = ['coco', 'zero'];
 
 /**
  * Fabrique l'archive du jeu dans un fichier temporaire et rend ou elle est, son nom et ce qu'elle contient. Deux appelants : le
- * telechargement de l'etape 6 (exporter) et le jeton d'entrainement, qui range l'archive sous lui pour que le carnet la lise.
+ * telechargement de l'etape 6 (exporter) et le jeton d'entrainement, qui range l'archive sous lui pour que le script d'entrainement la lise.
  */
 function export_fabriquer(string $format, bool $verifiees, string $base = '', string $depart = 'coco'): array {
   if (!in_array($format, ['detect', 'seg', 'rfdetr', 'natif'], true)) erreur(400, 'Format inconnu (detect, seg, rfdetr, natif).');
@@ -679,11 +679,9 @@ function export_fabriquer(string $format, bool $verifiees, string $base = '', st
       foreach ($coco as $b => $c) $zip->addFromString("$racine/{$dossierCoco[$b]}/_annotations.coco.json", json_encode(['info' => ['description' => "Banc d'apprentissage des facades", 'date_created' => gmdate('c')], 'images' => $c['images'], 'annotations' => $c['annotations'], 'categories' => $categories], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
       $zip->addFromString("$racine/noms.txt", implode("\n", array_map(fn($n, $k) => "$k: $n", $classes, array_keys($classes))) . "\n");
       $zip->addFromString("$racine/entrainer.py", script_rfdetr($archi));
-      $zip->addFromString("$racine/entrainer.ipynb", carnet_rfdetr($archi, $racine));
     } else {
     $zip->addFromString("$racine/data.yaml", "# Jeu du banc d'apprentissage des facades, " . gmdate('c') . "\npath: .\ntrain: images/train\nval: images/val\ntest: images/test\nnames:\n$noms");
     $zip->addFromString("$racine/entrainer.py", script_entrainement($format, $archi));
-    $zip->addFromString("$racine/entrainer.ipynb", carnet_colab($format, $racine, $archi));
     }
   }
   $zip->addFromString("$racine/bilan.json", json_encode(['format' => $format, 'architecture' => $archi['id'] ?? null, 'depart' => $archi['depart'] ?? null, 'verifieesSeulement' => $verifiees, 'images' => $compte, 'objetsParClasse' => $parClasse, 'aQualifier' => $aQualifier, 'classes' => $classes, 'le' => gmdate('c')], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
@@ -705,7 +703,7 @@ function exporter(string $format, bool $verifiees, string $base = '', string $de
 function script_entrainement(string $format, array $a): string {
   $poids = $a['poids'];
   if ($a['depart'] === 'zero') return "# Entrainement du banc d'apprentissage des facades ({$a['nom']}, $format, sans COCO : de zero), Ultralytics 8.4.\n"
-    . "#   pip install ultralytics==8.4.*\n#   python3 entrainer.py [cpu|0]\n"
+    . "#   pip install ultralytics==8.4.*\n#   python3 entrainer.py [cpu|mps|0]\n"
     . "# L'architecture seule ({$a['yaml']}), sans aucun poids appris : rien de COCO, rien du depot facade. Il faut plus d'epoques et plus\n"
     . "# de photos qu'avec COCO ; a comparer au meme jeu parti de COCO (mAP du bloc test, affiche a la fin).\n"
     . "# Le modele .onnx produit se depose dans le banc (etape 3, Modeles), avec la liste de ses classes (data.yaml).\n"
@@ -715,7 +713,7 @@ function script_entrainement(string $format, array $a): string {
     . "m.val(data='data.yaml', split='test')\n"
     . "m.export({$a['export']})\n";
   return "# Entrainement du banc d'apprentissage des facades ({$a['nom']}, $format, parti de COCO), Ultralytics 8.4.\n"
-    . "#   pip install ultralytics==8.4.*\n#   python3 entrainer.py [cpu|0]\n"
+    . "#   pip install ultralytics==8.4.*\n#   python3 entrainer.py [cpu|mps|0]\n"
     . "# Poids de depart : depart.pt pose a cote de ce script s'il y en a un, sinon $poids (COCO). depart.pt doit etre de la meme\n"
     . "# architecture : un modele du depot facade (YOLOv10n) pour un export YOLOv10n, ou un modele du banc deja entraine. Ultralytics garde\n"
     . "# ce qui sert (le tronc) et refait la tete aux noms du jeu.\n"
@@ -728,34 +726,6 @@ function script_entrainement(string $format, array $a): string {
 }
 
 /**
- * Le meme entrainement en carnet Google Colab (GPU gratuit) : envoyer le zip, entrainer, mesurer sur le test, recuperer best.onnx et la
- * liste des noms a deposer dans le banc (etape 3).
- */
-function carnet_colab(string $format, string $racine, array $a): string {
-  $poids = $a['poids'];
-  $code = fn(string $s) => ['cell_type' => 'code', 'metadata' => (object)[], 'execution_count' => null, 'outputs' => [], 'source' => $s];
-  $texte = fn(string $s) => ['cell_type' => 'markdown', 'metadata' => (object)[], 'source' => $s];
-  $cellules = [
-    $texte("# Banc d'apprentissage des façades — entraînement {$a['nom']} ($format, " . ($a['depart'] === 'zero' ? 'sans COCO, de zéro' : 'parti de COCO') . ")\n\nExécution > Modifier le type d'exécution > **GPU**, puis lancer les cellules dans l'ordre. "
-      . "La validation (val) arrête l'entraînement quand il ne progresse plus ; le test n'est lu qu'à la fin."),
-    $code("!pip install -q 'ultralytics==8.4.*'"),
-    $texte("Envoyer le zip exporté par le banc (`$racine.zip`)."),
-    $code("from google.colab import files\nimport zipfile, os, glob\nenvoi = files.upload()\nzipfile.ZipFile(next(iter(envoi))).extractall('.')\nos.chdir(sorted(glob.glob('banc-*/'))[-1])\nprint(open('data.yaml').read())"),
-    ...($a['depart'] === 'zero' ? [
-      $code("from ultralytics import YOLO\n# Sans COCO : l'architecture seule ({$a['yaml']}), rien d'appris ; plus d'époques.\nm = YOLO('{$a['yaml']}')\nm.train(data='data.yaml', pretrained=False, epochs=300, patience=60, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)"),
-    ] : [
-    $texte("Facultatif : envoyer des poids de départ `.pt` **de la même architecture** ({$a['nom']}) : un modèle du banc déjà entraîné" . ($a['id'] === 'yolov10n' ? ", ou le modèle fenêtres/portes ou volets du dépôt facade" : '') . ". Sans eux, l'entraînement part de `$poids` (COCO). Passer la cellule pour partir de COCO."),
-    $code("depart = files.upload()\nopen('depart.pt', 'wb').write(next(iter(depart.values()))) if depart else None"),
-    $code("from ultralytics import YOLO\nm = YOLO('depart.pt' if os.path.exists('depart.pt') else '$poids')\nm.train(data='data.yaml', epochs=150, patience=30, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)"),
-    ]),
-    // Le chemin que l'entrainement rend : Ultralytics 8.4 range project='runs' sous runs/detect/ (ou segment/), et non runs/banc/.
-    $code("best = YOLO(str(m.trainer.best))\nprint('Poids :', m.trainer.best)\nmesure = best.val(data='data.yaml', split='test')\nprint('mAP50-95 test :', mesure.box.map)\nfor i, n in best.names.items(): print(i, n, round(float(mesure.box.maps[i]), 3))"),
-    $code("chemin = best.export({$a['export']})\nfiles.download(chemin)\nprint('Noms à coller dans le banc (étape 3) :')\nfor i, n in best.names.items(): print(f'{i}: {n}')"),
-  ];
-  return json_encode(['cells' => $cellules, 'metadata' => ['accelerator' => 'GPU', 'kernelspec' => ['name' => 'python3', 'display_name' => 'Python 3'], 'language_info' => ['name' => 'python']], 'nbformat' => 4, 'nbformat_minor' => 5], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-}
-
-/**
  * L'entrainement RF-DETR (Apache 2.0) livre avec le jeu COCO : avec COCO (les poids publies par Roboflow, Apache 2.0) ou sans (de zero),
  * arret quand la validation ne progresse plus, mesure sur le test, puis l'export ONNX (input [1, 3, R, R], dets, labels) a deposer dans
  * le banc (etape 3) avec noms.txt.
@@ -764,7 +734,7 @@ function script_rfdetr(array $a): string {
   $creer = $a['depart'] === 'zero' ? "{$a['classe']}(pretrain_weights=None)" : "{$a['classe']}()";
   return "# Entrainement du banc d'apprentissage des facades : {$a['nom']} (Roboflow, licence Apache 2.0, code et poids), "
     . ($a['depart'] === 'zero' ? 'sans COCO (de zero)' : 'parti de COCO') . ".\n"
-    . "#   pip install 'rfdetr[train,loggers]==1.12.*'\n#   python3 entrainer.py [cpu|cuda]\n"
+    . "#   pip install 'rfdetr[train,loggers]==1.12.*'\n#   python3 entrainer.py [cpu|mps|cuda]\n"
     . "# Le jeu est au format COCO (train/, valid/, test/ et leurs _annotations.coco.json) ; les noms, dans l'ordre des indices, sont dans noms.txt.\n"
     . "# Le modele .onnx produit (sortie/inference_model.onnx) se depose dans le banc (etape 3), avec noms.txt et la resolution {$a['resolution']}.\n"
     . "import glob, os, shutil, sys\nfrom rfdetr import {$a['classe']}\n\n"
@@ -778,24 +748,6 @@ function script_rfdetr(array $a): string {
     . "shutil.copy(next(f for f in glob.glob('sortie/*.onnx') if f.endswith('_int8.onnx')), 'modele-banc.onnx')\n"
     . "shutil.copy(next(f for f in glob.glob('sortie/*.onnx') if not f.endswith('_int8.onnx')), 'modele-banc-fp32.onnx')\n"
     . "print('Modele :', os.path.abspath('modele-banc.onnx'))\nprint(open('noms.txt').read())\n";
-}
-
-/** Le meme entrainement RF-DETR en carnet Google Colab (GPU gratuit). */
-function carnet_rfdetr(array $a, string $racine): string {
-  $code = fn(string $s) => ['cell_type' => 'code', 'metadata' => (object)[], 'execution_count' => null, 'outputs' => [], 'source' => $s];
-  $texte = fn(string $s) => ['cell_type' => 'markdown', 'metadata' => (object)[], 'source' => $s];
-  $creer = $a['depart'] === 'zero' ? "{$a['classe']}(pretrain_weights=None)" : "{$a['classe']}()";
-  $cellules = [
-    $texte("# Banc d'apprentissage des façades — entraînement {$a['nom']} (" . ($a['depart'] === 'zero' ? 'sans COCO, de zéro' : 'parti de COCO') . ")\n\n"
-      . "RF-DETR (Roboflow), licence **Apache 2.0** pour le code et les poids. Exécution > Modifier le type d'exécution > **GPU**, puis lancer les cellules dans l'ordre. "
-      . "La validation arrête l'entraînement quand il ne progresse plus ; le test n'est lu qu'à la fin."),
-    $code("!pip install -q 'rfdetr[train,loggers]==1.12.*'"),
-    $texte("Envoyer le zip exporté par le banc (`$racine.zip`)."),
-    $code("from google.colab import files\nimport zipfile, os, glob\nenvoi = files.upload()\nzipfile.ZipFile(next(iter(envoi))).extractall('.')\nos.chdir(sorted(glob.glob('banc-*/'))[-1])\nprint(open('noms.txt').read())"),
-    $code("from rfdetr import {$a['classe']}\nm = $creer\nm.train(dataset_dir='.', output_dir='sortie', epochs=" . ($a['depart'] === 'zero' ? 300 : 100) . ", batch_size=8, grad_accum_steps=2, early_stopping=True, early_stopping_patience=" . ($a['depart'] === 'zero' ? 40 : 15) . ", run_test=True, log_per_class_metrics=True, tensorboard=False)"),
-    $code("import shutil\nbest = {$a['classe']}(pretrain_weights='sortie/checkpoint_best_total.pth')\n# int8 (environ 4 fois plus petit, a deposer d'abord) et la pleine precision.\nbest.export(output_dir='sortie', quantization='int8', calibration_data='train')\nshutil.copy(next(f for f in glob.glob('sortie/*.onnx') if f.endswith('_int8.onnx')), 'modele-banc.onnx')\nshutil.copy(next(f for f in glob.glob('sortie/*.onnx') if not f.endswith('_int8.onnx')), 'modele-banc-fp32.onnx')\nfiles.download('modele-banc.onnx')\nprint('Noms à coller dans le banc (étape 3), résolution {$a['resolution']} :')\nprint(open('noms.txt').read())"),
-  ];
-  return json_encode(['cells' => $cellules, 'metadata' => ['accelerator' => 'GPU', 'kernelspec' => ['name' => 'python3', 'display_name' => 'Python 3'], 'language_info' => ['name' => 'python']], 'nbformat' => 4, 'nbformat_minor' => 5], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -992,8 +944,9 @@ function relais_servir(string $id, string $taille): void {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Les jetons d'entrainement (demande du proprietaire, 20 novembre 2026 : un aller-retour Colab avec moins de gestes). L'etape 6 cree
-// un jeton et telecharge un carnet qui le porte ; le carnet lit lui-meme le jeu ici, entraine, puis depose lui-meme le modele ici.
+// Les jetons d'entrainement (demande du proprietaire, 20 novembre 2026 : moins de gestes entre l'export et le depot du modele ; 21
+// novembre : l'entrainement se fait sur son Mac). L'etape 6 cree un jeton et telecharge un script qui le porte, a lancer dans le
+// Terminal ; le script lit lui-meme le jeu ici, entraine sur le Mac, puis depose lui-meme le modele ici.
 // Ce que le jeton ouvre, sans session : lire le jeu de SON export (une archive figee a sa creation, rangee sous lui) et deposer UN
 // modele. Ce qu'il n'ouvre pas : tout le reste de l'API (aucune autre route ne le lit), une photo hors de cette archive, une seconde
 // ecriture. Il est tire au hasard (32 octets), garde hache (jamais en clair, jamais journalise), vit 24 h, se revoque depuis l'ecran.
@@ -1003,7 +956,7 @@ const BANC_JETON = '/^bj_([0-9a-f]{16})_([0-9a-f]{64})$/';
 const BANC_JETON_ID = '/^[0-9a-f]{16}$/';
 /** Les cles vivantes a la fois : chacune garde une copie du jeu sur le disque. */
 const BANC_JETON_VIVANTS = 5;
-/** Les essais manques par adresse en quinze minutes, et les lectures du jeu par jeton (un carnet relance, pas une aspiration). */
+/** Les essais manques par adresse en quinze minutes, et les lectures du jeu par jeton (un script relance, pas une aspiration). */
 const BANC_JETON_ESSAIS = 20;
 const BANC_JETON_LECTURES = 20;
 /**
@@ -1063,24 +1016,24 @@ function octets_ini(string $v): int {
   return (int)((float)$v * (['K' => 1024, 'M' => 1048576, 'G' => 1073741824][strtoupper(substr($v, -1))] ?? 1));
 }
 
-/** La taille des morceaux que le carnet enverra : 4 Mo, moins si post_max_size de cet hebergement est plus bas (64 Ko de marge). */
+/** La taille des morceaux que le script enverra : 4 Mo, moins si post_max_size de cet hebergement est plus bas (64 Ko de marge). */
 function jeton_morceau(): int {
   $max = octets_ini((string)ini_get('post_max_size'));
   return $max > 0 ? max(65536, min(4 * 1048576, $max - 65536)) : 4 * 1048576;
 }
 
 /**
- * Cree un jeton pour un export : fige le jeu dans une archive rangee sous lui, et rend le carnet qui le porte. Le jeton en clair ne
- * sort qu'ici, dans le carnet ; le serveur n'en garde que le hache.
+ * Cree un jeton pour un export : fige le jeu dans une archive rangee sous lui, et rend le script qui le porte. Le jeton en clair ne
+ * sort qu'ici, dans le script ; le serveur n'en garde que le hache.
  */
 function jeton_creer(): void {
   $b = corps_json();
   $format = (string)($b['format'] ?? '');
   if (!in_array($format, ['rfdetr', 'detect', 'seg'], true)) erreur(400, 'Un entraînement demande un format RF-DETR ou YOLO (pas le format du banc).');
-  // L'adresse du banc, ecrite dans le carnet : celle par laquelle la page appelle deja cette API. En https, sauf sur le poste local.
+  // L'adresse du banc, ecrite dans le script : celle par laquelle la page appelle deja cette API. En https, sauf sur le poste local.
   $adresse = (string)($b['adresse'] ?? '');
   if (strlen($adresse) > 300 || !preg_match('#^(https?)://([A-Za-z0-9.-]{1,253})(:[0-9]{1,5})?(/[A-Za-z0-9._~-]+)*/api\.php$#', $adresse, $m)) erreur(400, 'Adresse du banc invalide.');
-  if ($m[1] !== 'https' && !in_array($m[2], ['localhost', '127.0.0.1'], true)) erreur(400, 'Le banc doit être servi en https pour qu’un carnet lui parle.');
+  if ($m[1] !== 'https' && !in_array($m[2], ['localhost', '127.0.0.1'], true)) erreur(400, 'Le banc doit être servi en https pour qu’un script d’entraînement lui parle.');
   // Ou vont les noms du jeu dans l'arbre, calcule par la page comme pour un modele depose a la main (correspondanceParDefaut).
   $correspondance = [];
   foreach ((array)($b['correspondance'] ?? []) as $nom => $cible) {
@@ -1101,8 +1054,8 @@ function jeton_creer(): void {
     'jeu' => ['racine' => $x['racine'], 'le' => gmdate('c'), 'images' => $x['images'], 'verifieesSeulement' => $x['verifiees'], 'octets' => filesize($f['zip']), 'classes' => count($x['classes'])],
     'correspondance' => $correspondance, 'lectures' => 0, 'envois' => 0, 'parties' => 0, 'depose' => null];
   ecrire_json($f['json'], $j);
-  $carnet = carnet_jeton($format, $j, $adresse, "bj_{$id}_{$secret}", jeton_morceau());
-  repondre(201, ['jeton' => jeton_public($j), 'fichier' => 'banc-colab-' . $j['architecture']['id'] . '-' . gmdate('Ymd-His') . '.ipynb', 'carnet' => $carnet]);
+  $fichier = 'entrainer-banc-' . $j['architecture']['id'] . ($j['architecture']['depart'] === 'zero' ? '-zero' : '') . '-' . gmdate('Ymd-His') . '.sh';
+  repondre(201, ['jeton' => jeton_public($j), 'fichier' => $fichier, 'script' => script_jeton($format, $j, $adresse, "bj_{$id}_{$secret}", jeton_morceau(), $fichier)]);
 }
 
 function jeton_revoquer(?string $id): void {
@@ -1126,14 +1079,14 @@ function jeton_presente(): array {
     if (is_array($lu) && is_string($lu['hache'] ?? null) && strlen($lu['hache']) === 64) { $j = $lu; $hache = $lu['hache']; }
   }
   $juste = hash_equals($hache, hash('sha256', $secret));
-  // Un jeton echu presente par son carnet s'efface ici, avec son jeu : il n'attend pas que quelqu'un rouvre l'etape 6.
+  // Un jeton echu presente par son script s'efface ici, avec son jeu : il n'attend pas que quelqu'un rouvre l'etape 6.
   if ($juste && $j && (int)($j['expire'] ?? 0) <= time()) { jeton_effacer($j['id']); $j = null; }
   if (!$juste || !$j) { essais($ip, true, 'essais-jetons.json'); erreur(401, 'Jeton refusé.'); }
   return $j;
 }
 
 /**
- * Change un jeton sous verrou : deux requetes du meme carnet ne se marchent pas dessus. `$f` recoit le jeton relu et le rend change ;
+ * Change un jeton sous verrou : deux requetes du meme script ne se marchent pas dessus. `$f` recoit le jeton relu et le rend change ;
  * un jeton revoque entre-temps se refuse comme un jeton inconnu.
  */
 function jeton_changer(string $id, callable $f) {
@@ -1149,8 +1102,17 @@ function jeton_changer(string $id, callable $f) {
   return $rendu;
 }
 
+/**
+ * Ou en est ce jeton, pour le script qui le porte : ce qu'il lui reste a vivre, son jeu, s'il a deja depose. Rien qu'il ne sache
+ * deja, et aucune lecture comptee : de quoi refuser une cle echue avant des heures d'entrainement, pas apres.
+ */
+function entrainement_etat(array $j): void {
+  repondre(200, ['reste' => max(0, (int)$j['expire'] - time()), 'expireLe' => gmdate('c', (int)$j['expire']), 'architecture' => $j['architecture']['id'],
+    'jeu' => ['racine' => $j['jeu']['racine'], 'images' => $j['jeu']['images']], 'depose' => !empty($j['depose'])]);
+}
+
 /** Le jeu de l'export de ce jeton : l'archive figee a sa creation, et rien d'autre. */
-function colab_jeu(array $j): void {
+function entrainement_jeu(array $j): void {
   if (!empty($j['depose'])) erreur(409, 'Ce jeton a déjà déposé son modèle : il ne sert plus.');
   $zip = jeton_changer($j['id'], function (array &$j, array $f) {
     if ((int)($j['lectures'] ?? 0) >= BANC_JETON_LECTURES) erreur(429, 'Ce jeu a été lu trop de fois avec ce jeton : créez-en un autre.');
@@ -1172,7 +1134,7 @@ function colab_jeu(array $j): void {
  * Un morceau du modele, dans l'ordre : le n° 0 recommence le depot, le suivant doit etre celui qu'on attend. Les octets vont dans un
  * fichier range sous le jeton (hors de public_html), jamais a un nom donne par l'appelant, et jamais plus que la borne.
  */
-function colab_morceau(array $j, string $n): void {
+function entrainement_morceau(array $j, string $n): void {
   if (!preg_match('/^[0-9]{1,4}$/', $n)) erreur(400, 'Numéro de morceau invalide.');
   $n = (int)$n;
   $recu = jeton_changer($j['id'], function (array &$j, array $f) use ($n) {
@@ -1278,7 +1240,7 @@ function onnx_refus(string $fichier): ?string {
 }
 
 /**
- * Ce que le carnet dit de son modele, champ par champ. L'architecture et la resolution doivent etre celles de l'export du jeton ; les
+ * Ce que le script dit de son modele, champ par champ. L'architecture et la resolution doivent etre celles de l'export du jeton ; les
  * noms sont bornes en nombre, en longueur et en caracteres ; le bilan est une liste fermee de nombres entre 0 et 1 (ce qui n'en est
  * pas un est laisse, comme pour le mur d'une vue). Rien d'autre du corps n'est garde.
  */
@@ -1299,10 +1261,10 @@ function depot_valide(array $b, array $j): array {
 
 /**
  * La fin du depot : la taille et l'empreinte annoncees doivent etre celles des octets recus, le fichier doit etre un ONNX, ce que le
- * carnet en dit doit etre valable. Alors seulement il devient un modele de l'etape 3, sous un nom choisi ici, INACTIF : une personne
+ * script en dit doit etre valable. Alors seulement il devient un modele de l'etape 3, sous un nom choisi ici, INACTIF : une personne
  * l'active. Le jeton a servi : il ne depose plus, ne lit plus, et son jeu est efface.
  */
-function colab_fin(array $j): void {
+function entrainement_fin(array $j): void {
   // Dit avant de lire le corps : un jeton qui a servi recoit la meme reponse quoi qu'il envoie.
   if (!empty($j['depose'])) erreur(409, 'Ce jeton a déjà déposé son modèle : il ne dépose plus.');
   $b = corps_json();
@@ -1314,15 +1276,15 @@ function colab_fin(array $j): void {
     $d = depot_valide($b, $j);
     $refus = onnx_refus($f['partie']);
     if ($refus !== null) { @unlink($f['partie']); $j['parties'] = 0; ecrire_json($f['json'], $j); erreur(415, 'Modèle refusé : ' . $refus . '.'); }
-    $id = 'colab-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(3));
+    $id = 'entrainement-' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(3));
     $dm = dossier('modeles');
     if (!rename($f['partie'], "$dm/$id.onnx")) erreur(500, 'Enregistrement impossible.');
     $a = $j['architecture'];
     $correspondance = [];
     foreach ($d['classes'] as $c) $correspondance[$c] = (string)($j['correspondance'][$c] ?? '');
-    $description = ['nom' => $a['nom'] . ' · Colab du ' . gmdate('d/m/Y'), 'format' => $a['format'], ...($a['format'] === 'rf-detr' ? ['resolution' => $a['resolution']] : []),
+    $description = ['nom' => $a['nom'] . ' · entraîné le ' . gmdate('d/m/Y'), 'format' => $a['format'], ...($a['format'] === 'rf-detr' ? ['resolution' => $a['resolution']] : []),
       'classes' => $d['classes'], 'correspondance' => $correspondance, 'seuil' => 0.3, 'actif' => false, 'ajouteLe' => gmdate('c'),
-      'depot' => ['par' => 'colab', 'le' => gmdate('c'), 'architecture' => $a['id'], 'depart' => $a['depart'], 'jeu' => array_diff_key($j['jeu'], ['octets' => 1]), 'bilan' => (object)$d['bilan'],
+      'depot' => ['par' => 'entrainement', 'le' => gmdate('c'), 'architecture' => $a['id'], 'depart' => $a['depart'], 'jeu' => array_diff_key($j['jeu'], ['octets' => 1]), 'bilan' => (object)$d['bilan'],
         'octets' => filesize("$dm/$id.onnx"), 'sha256' => $b['sha256']]];
     ecrire_json("$dm/$id.json", $description);
     @unlink($f['zip']);
@@ -1332,99 +1294,384 @@ function colab_fin(array $j): void {
   repondre(201, ['depose' => true, 'modele' => $modele['id'], 'nom' => $modele['nom']]);
 }
 
-/** Une chaine ecrite dans le code Python du carnet : un litteral JSON, que Python lit tel quel (ASCII, tout le reste echappe). */
+/** Une chaine ecrite dans le code Python du script : un litteral JSON, que Python lit tel quel (ASCII, tout le reste echappe). */
 function python(string $s): string { return (string)json_encode($s, JSON_UNESCAPED_SLASHES); }
 
+/** Une chaine ecrite dans le shell du script : entre apostrophes, rien n'y est interprete. */
+function shell(string $s): string { return "'" . str_replace("'", "'\\''", $s) . "'"; }
+
 /**
- * Le carnet d'un jeton : le meme entrainement que celui du zip (carnet_rfdetr, carnet_colab), sans rien a envoyer ni a rapporter a la
- * main. « Tout executer » : il lit le jeu ici avec sa cle, entraine, mesure le test, exporte l'ONNX et le depose ici avec ses noms, sa
- * resolution et son bilan. Si le depot echoue, il propose le fichier au telechargement, pour le depot a la main de l'etape 3.
+ * Ce que le script entraine, en Python : les memes reglages qu'en 5.37.0 (epoques, patience, taille d'image, lot, graine,
+ * poids de depart), a un mot pres : l'appareil de calcul, choisi sur la machine (mps sur Apple Silicon, cpu sinon) au lieu du GPU
+ * d'un service. `epoques` ne vaut autre chose que None que pour un essai (BANC_EPOQUES).
  */
-function carnet_jeton(string $format, array $j, string $adresse, string $jeton, int $morceau): string {
-  $a = $j['architecture'] + (BANC_ARCHITECTURES[$format][$j['architecture']['id']] ?? []);
-  $a['yaml'] = preg_replace('/\.pt$/', '.yaml', $a['poids'] ?? '');
+function python_entrainement(string $format, array $a): string {
   $zero = $a['depart'] === 'zero';
-  $code = fn(string $s) => ['cell_type' => 'code', 'metadata' => (object)[], 'execution_count' => null, 'outputs' => [], 'source' => $s];
-  $texte = fn(string $s) => ['cell_type' => 'markdown', 'metadata' => (object)[], 'source' => $s];
-  $heures = (int)round(((int)$j['expire'] - time()) / 3600);
-  $entete = "# Banc d'apprentissage des façades — entraînement {$a['nom']} (" . ($zero ? 'sans COCO, de zéro' : 'parti de COCO') . ")\n\n"
-    . ($format === 'rfdetr' ? "RF-DETR (Roboflow), licence **Apache 2.0** pour le code et les poids.\n\n"
-      : "YOLO d'Ultralytics, licence **AGPL-3.0** : un modèle entraîné avec eux, servi dans une application, impose d'en publier le code ou d'acheter leur licence. Pour comparer.\n\n")
-    . "**Exécution > Tout exécuter**, et c'est tout : le carnet lit le jeu sur le banc, entraîne (la validation arrête l'entraînement quand il ne progresse plus), "
-    . "mesure le test, puis dépose le modèle à l'étape 3 du banc, où il ne reste qu'à l'activer.\n\n"
-    . "**Ce carnet contient une clé valable $heures h : ne le partagez pas.** Elle ne permet que de lire ce jeu et de déposer un modèle ; elle se révoque à l'étape 6 du banc.";
-  $lire = "import glob, hashlib, math, os, zipfile, requests\n"
-    . 'BANC = ' . python($adresse) . "\n"
-    . "# La cle de ce carnet : ne la partagez pas.\n"
-    . 'CLE = {"X-Banc-Jeton": ' . python($jeton) . ", \"User-Agent\": \"banc-colab\"}\n"
-    . "if os.path.isdir('/content'): os.chdir('/content')\n"
-    . "r = requests.get(BANC, params={'r': 'colab-jeu'}, headers=CLE, stream=True, timeout=900)\n"
-    . "assert r.status_code == 200, 'Le banc refuse le jeu : ' + r.text[:300]\n"
-    . "with open('jeu.zip', 'wb') as f:\n    for bloc in r.iter_content(1 << 20): f.write(bloc)\n"
-    . "zipfile.ZipFile('jeu.zip').extractall('.')\n"
-    . 'os.chdir(' . python($j['jeu']['racine']) . ")\n";
-  $deposer = "def part(v):\n"
-    . "    try: v = float(v)\n    except Exception: return None\n"
-    . "    return round(v, 4) if math.isfinite(v) and 0 <= v <= 1 else None\n\n"
-    . "def deposer(chemin, description):\n"
-    . "    octets = open(chemin, 'rb').read()\n"
-    . "    for n, debut in enumerate(range(0, len(octets), $morceau)):\n"
-    . "        r = requests.post(BANC, params={'r': 'colab-modele', 'partie': n}, headers={**CLE, 'Content-Type': 'application/octet-stream'}, data=octets[debut:debut + $morceau], timeout=900)\n"
-    . "        assert r.status_code == 200, 'morceau %d : %s' % (n, r.text[:300])\n"
-    . "    r = requests.post(BANC, params={'r': 'colab-modele', 'fin': '1'}, headers=CLE, json={**description, 'taille': len(octets), 'sha256': hashlib.sha256(octets).hexdigest()}, timeout=900)\n"
-    . "    assert r.status_code == 201, r.text[:300]\n"
-    . "    return r.json()\n\n"
-    . "bilan = {k: v for k, v in {'map': part(bilan.get('map')), 'map50': part(bilan.get('map50'))}.items() if v is not None}\n"
-    . "bilan['parType'] = {n: part(v) for n, v in par_type.items() if part(v) is not None}\n"
-    . "try:\n"
-    . "    recu = deposer(MODELE, {'architecture': " . python($a['id']) . ", 'resolution': {$a['resolution']}, 'classes': noms, 'bilan': bilan})\n"
-    . "    print('Déposé dans le banc :', recu['nom'], '— il ne reste qu’à l’activer à l’étape 3.')\n"
-    . "except Exception as e:\n"
-    . "    print('Dépôt impossible (%s). Téléchargez le modèle et déposez-le à la main à l’étape 3, avec ces noms et la résolution {$a['resolution']} :' % e)\n"
-    . "    for i, n in enumerate(noms): print(f'{i}: {n}')\n"
-    . "    from google.colab import files\n    files.download(MODELE)\n";
   if ($format === 'rfdetr') {
     $creer = $zero ? "{$a['classe']}(pretrain_weights=None)" : "{$a['classe']}()";
-    $cellules = [
-      $texte($entete),
-      $code("!pip install -q 'rfdetr[train,loggers]==1.12.*'"),
-      $code($lire . "noms = [l.split(': ', 1)[1].strip() for l in open('noms.txt') if ': ' in l]\nprint(len(noms), 'noms :', ', '.join(noms))"),
-      $code("from rfdetr import {$a['classe']}\nm = $creer\nm.train(dataset_dir='.', output_dir='sortie', epochs=" . ($zero ? 300 : 100) . ", batch_size=8, grad_accum_steps=2, early_stopping=True, early_stopping_patience=" . ($zero ? 40 : 15) . ", run_test=True, log_per_class_metrics=True, tensorboard=False)"),
-      $code("import shutil\nbest = {$a['classe']}(pretrain_weights='sortie/checkpoint_best_total.pth')\n"
-        . "# Le modele quantifie int8 (environ 4 fois plus petit) : c'est lui qui est depose.\n"
-        . "best.export(output_dir='sortie', quantization='int8', calibration_data='train')\n"
-        . "MODELE = shutil.copy(next(f for f in glob.glob('sortie/*.onnx') if f.endswith('_int8.onnx')), 'modele-banc.onnx')\n"
-        . "# Le bilan sur le bloc test (mAP par type) ; s'il ne se mesure pas, le modele est depose sans lui.\n"
-        . "bilan, par_type = {}, {}\ntry:\n"
-        . "    mesure = best.evaluate(split='test', dataset_dir='.', output_dir='sortie', log_per_class_metrics=True)\n"
-        . "    bilan = {'map': mesure.get('test/mAP_50_95'), 'map50': mesure.get('test/mAP_50')}\n"
-        . "    par_type = {n: mesure.get('test/AP/' + n) for n in noms}\n"
-        . "    print('mAP50-95 test :', bilan['map'])\n"
-        . "except Exception as e:\n    print('Bilan du test non mesuré :', e)"),
-      $code($deposer),
-    ];
-  } else {
-    $entrainer = $zero
-      ? "from ultralytics import YOLO\n# Sans COCO : l'architecture seule ({$a['yaml']}), rien d'appris ; plus d'epoques.\nm = YOLO('{$a['yaml']}')\nm.train(data='data.yaml', pretrained=False, epochs=300, patience=60, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)"
-      : "from ultralytics import YOLO\n# Des poids de depart de la meme architecture, s'il y en a (/content/depart.pt, pose dans les fichiers de Colab avant de lancer) ; sinon COCO.\nm = YOLO('/content/depart.pt' if os.path.exists('/content/depart.pt') else '{$a['poids']}')\nm.train(data='data.yaml', epochs=150, patience=30, imgsz=640, batch=16, device=0, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)";
-    $cellules = [
-      $texte($entete),
-      $code("!pip install -q 'ultralytics==8.4.*'"),
-      $code($lire . "print(open('data.yaml').read())"),
-      $code($entrainer),
-      $code("best = YOLO(str(m.trainer.best))\nnoms = [best.names[i] for i in sorted(best.names)]\n"
-        . "# Le bilan sur le bloc test (mAP par type) ; s'il ne se mesure pas, le modele est depose sans lui.\n"
-        . "bilan, par_type = {}, {}\ntry:\n"
-        . "    mesure = best.val(data='data.yaml', split='test')\n"
-        . "    bilan = {'map': mesure.box.map, 'map50': mesure.box.map50}\n"
-        . "    par_type = {noms[int(c)]: mesure.box.class_result(k)[3] for k, c in enumerate(mesure.box.ap_class_index)}\n"
-        . "    print('mAP50-95 test :', bilan['map'])\n"
-        . "except Exception as e:\n    print('Bilan du test non mesuré :', e)\n"
-        . "MODELE = best.export({$a['export']})"),
-      $code($deposer),
-    ];
+    return "def entrainer(appareil, epoques):\n"
+      . "    from rfdetr import {$a['classe']}\n"
+      . "    noms = [l.split(': ', 1)[1].strip() for l in open('noms.txt', encoding='utf-8') if ': ' in l]\n"
+      . "    m = $creer\n"
+      . "    m.train(dataset_dir='.', output_dir='sortie', epochs=epoques or " . ($zero ? 300 : 100) . ", batch_size=8, grad_accum_steps=2, early_stopping=True, early_stopping_patience=" . ($zero ? 40 : 15) . ", run_test=True, log_per_class_metrics=True, tensorboard=False, device=appareil)\n"
+      . "    best = {$a['classe']}(pretrain_weights='sortie/checkpoint_best_total.pth')\n"
+      . "    # Le modele quantifie int8 (environ 4 fois plus petit) : c'est lui qui est depose.\n"
+      . "    best.export(output_dir='sortie', quantization='int8', calibration_data='train')\n"
+      . "    modele = shutil.copy(next(f for f in glob.glob('sortie/*.onnx') if f.endswith('_int8.onnx')), 'modele-banc.onnx')\n"
+      . "    # Le bilan sur le bloc test (mAP par type) ; s'il ne se mesure pas, le modele est depose sans lui.\n"
+      . "    bilan, par_type = {}, {}\n"
+      . "    try:\n"
+      . "        mesure = best.evaluate(split='test', dataset_dir='.', output_dir='sortie', log_per_class_metrics=True, device=appareil)\n"
+      . "        bilan = {'map': mesure.get('test/mAP_50_95'), 'map50': mesure.get('test/mAP_50')}\n"
+      . "        par_type = {n: mesure.get('test/AP/' + n) for n in noms}\n"
+      . "    except Exception as e:\n"
+      . "        print('Bilan du test non mesuré :', e, flush=True)\n"
+      . "    return modele, noms, bilan, par_type\n";
   }
-  return json_encode(['cells' => $cellules, 'metadata' => ['accelerator' => 'GPU', 'kernelspec' => ['name' => 'python3', 'display_name' => 'Python 3'], 'language_info' => ['name' => 'python']], 'nbformat' => 4, 'nbformat_minor' => 5], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+  $depart = $zero
+    ? "    # Sans COCO : l'architecture seule ({$a['yaml']}), rien d'appris ; plus d'epoques.\n"
+      . "    m = YOLO('{$a['yaml']}')\n"
+      . "    m.train(data='data.yaml', pretrained=False, epochs=epoques or 300, patience=60, imgsz=640, batch=16, device=appareil, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)\n"
+    : "    # Des poids de depart de la meme architecture, s'il y en a (depart.pt, pose dans le dossier d'entrainement avant de lancer) ; sinon COCO.\n"
+      . "    depart = os.path.join(DOSSIER, 'depart.pt')\n"
+      . "    m = YOLO(depart if os.path.exists(depart) else '{$a['poids']}')\n"
+      . "    m.train(data='data.yaml', epochs=epoques or 150, patience=30, imgsz=640, batch=16, device=appareil, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)\n";
+  return "def entrainer(appareil, epoques):\n"
+    . "    from ultralytics import YOLO\n"
+    . $depart
+    . "    best = YOLO(str(m.trainer.best))\n"
+    . "    noms = [best.names[i] for i in sorted(best.names)]\n"
+    . "    # Le bilan sur le bloc test (mAP par type) ; s'il ne se mesure pas, le modele est depose sans lui.\n"
+    . "    bilan, par_type = {}, {}\n"
+    . "    try:\n"
+    . "        mesure = best.val(data='data.yaml', split='test', device=appareil)\n"
+    . "        bilan = {'map': mesure.box.map, 'map50': mesure.box.map50}\n"
+    . "        par_type = {noms[int(c)]: mesure.box.class_result(k)[3] for k, c in enumerate(mesure.box.ap_class_index)}\n"
+    . "    except Exception as e:\n"
+    . "        print('Bilan du test non mesuré :', e, flush=True)\n"
+    . "    modele = best.export({$a['export']})\n"
+    . "    return str(modele), noms, bilan, par_type\n";
+}
+
+/**
+ * Le script d'un jeton, a lancer dans le Terminal d'un Mac (demande du proprietaire, 21 novembre 2026 : entrainer sur son Mac). Un
+ * seul fichier : du shell (bash 3.2, celui de macOS) qui trouve Python, cree un environnement isole dans un dossier a lui, installe
+ * le paquet d'entrainement, puis lance le Python qu'il embarque : lire le jeu ici avec sa cle, entrainer (mps sur Apple Silicon, cpu
+ * sinon), mesurer le test, exporter l'ONNX et le deposer ici avec ses noms, sa resolution et son bilan. Relance, il reprend ou il
+ * s'etait arrete. Si le depot echoue, il dit ou est le modele et avec quels noms le deposer a la main (etape 3).
+ */
+function script_jeton(string $format, array $j, string $adresse, string $jeton, int $morceau, string $fichier): string {
+  $a = $j['architecture'] + (BANC_ARCHITECTURES[$format][$j['architecture']['id']] ?? []);
+  $a['yaml'] = preg_replace('/\.pt$/', '.yaml', $a['poids'] ?? '');
+  $rfdetr = $format === 'rfdetr';
+  $modele = <<<'SCRIPT'
+#!/bin/bash
+# Banc d'apprentissage des facades : entrainement @@NOM@@ (@@DEPART@@) sur ce Mac.
+# @@LICENCE@@
+#
+# CE FICHIER CONTIENT UNE CLE valable @@HEURES@@ h : ne le partagez pas. Elle ne permet que de lire ce jeu et de deposer un modele ;
+# elle se revoque a l'etape 6 du banc.
+#
+# Le lancer, dans le Terminal :
+#     bash ~/Downloads/@@FICHIER@@
+#
+# Ce qu'il fait : il trouve Python 3, cree un environnement Python isole, y installe @@PAQUETS@@,
+# lit le jeu sur le banc, entraine (mps sur un Mac Apple Silicon, cpu sinon), mesure le bloc test, exporte le modele ONNX et le
+# depose a l'etape 3 du banc, inactif.
+# Tout se range dans ~/banc-entrainement (rien ailleurs) ; pour tout effacer :  rm -rf ~/banc-entrainement
+# Relance, il reprend ou il s'etait arrete : ni l'installation ni le jeu ne se retelechargent ; un modele deja entraine est
+# seulement depose. Un entrainement interrompu, lui, repart de son debut.
+#
+# Reglages, tous facultatifs (variables d'environnement, devant la commande) :
+#   BANC_DOSSIER=/un/dossier     ranger ailleurs que dans ~/banc-entrainement
+#   BANC_PYTHON=/chemin/python3  le Python a utiliser (3.10 ou plus recent)
+#   BANC_APPAREIL=cpu            l'appareil de calcul (par defaut : mps sur Apple Silicon, cpu sinon)
+#   BANC_EPOQUES=1               pour un essai seulement : un entrainement raccourci (le modele depose ne vaut rien)
+#   BANC_ESSAI_MODELE=/x.onnx    pour un essai seulement : n'installe et n'entraine rien, depose ce fichier a la place
+
+set -u
+umask 077
+BANC_ADRESSE=@@ADRESSE@@
+BANC_CLE=@@CLE@@
+BANC_JEU=@@RACINE@@
+BANC_ARCHITECTURE=@@ARCHITECTURE@@
+BANC_RESOLUTION=@@RESOLUTION@@
+BANC_MORCEAU=@@MORCEAU@@
+FAMILLE=@@FAMILLE@@
+DOSSIER="${BANC_DOSSIER:-$HOME/banc-entrainement}"
+
+dire() { printf '\n==> %s\n' "$*"; }
+arreter() { printf '\nARRÊT : %s\n' "$*" >&2; exit 1; }
+trap 'printf "\nInterrompu. Relancez la même commande pour reprendre.\n" >&2; exit 130' INT
+
+printf 'Banc d’apprentissage des façades : entraînement @@NOM@@ (@@DEPART_ECRAN@@) sur cette machine.\n'
+# La cle ne s'affiche jamais en entier : son debut suffit a la reconnaitre dans la liste de l'etape 6.
+printf 'Clé d’entraînement %s… (ce fichier la contient : ne le partagez pas).\n' "${BANC_CLE:0:11}"
+printf 'Dossier de travail : %s\n' "$DOSSIER"
+
+# 1. La machine.
+SYSTEME="$(uname -s 2>/dev/null || echo inconnu)"
+PUCE="$(uname -m 2>/dev/null || echo inconnue)"
+if [ "$SYSTEME" != "Darwin" ]; then printf 'Remarque : ce script est écrit pour macOS ; ici « %s », sans garantie.\n' "$SYSTEME"; fi
+mkdir -p "$DOSSIER" || arreter "Le dossier $DOSSIER ne peut pas être créé."
+LIBRE="$(df -Pk "$DOSSIER" 2>/dev/null | awk 'NR==2 { print int($4 / 1048576) }')"
+if [ -n "$LIBRE" ] && [ "$LIBRE" -lt 5 ]; then printf 'Attention : %s Go libres seulement ; l’installation et le jeu en demandent environ 5 (ordre de grandeur).\n' "$LIBRE"; fi
+
+# 2. Python 3.10 ou plus recent, avec de quoi creer un environnement isole.
+python_convient() { "$1" -c 'import sys, venv, ensurepip; sys.exit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
+PY=""
+if [ -n "${BANC_PYTHON:-}" ]; then
+  python_convient "$BANC_PYTHON" || arreter "BANC_PYTHON ($BANC_PYTHON) n’est pas un Python 3.10 ou plus récent."
+  PY="$BANC_PYTHON"
+else
+  for p in python3.12 python3.13 python3.11 python3.10 python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/Current/bin/python3; do
+    if command -v "$p" >/dev/null 2>&1 && python_convient "$p"; then PY="$(command -v "$p")"; break; fi
+  done
+fi
+[ -n "$PY" ] || arreter "Python 3.10 ou plus récent est introuvable sur ce Mac (celui fourni avec macOS est trop ancien).
+Installez-le depuis https://www.python.org/downloads/macos/ (le programme d’installation « macOS 64-bit universal2 »),
+ou par Homebrew : brew install python@3.12 — puis relancez la même commande."
+dire "1/6 Python : $PY ($("$PY" -c 'import platform; print(platform.python_version())'), $SYSTEME $PUCE)"
+
+# Tout ce que les outils gardent en cache reste dans le dossier de travail : l'effacer efface tout.
+export PIP_CACHE_DIR="$DOSSIER/cache/pip" HF_HOME="$DOSSIER/cache/huggingface" TORCH_HOME="$DOSSIER/cache/torch"
+export YOLO_CONFIG_DIR="$DOSSIER/cache/ultralytics" MPLCONFIGDIR="$DOSSIER/cache/matplotlib" RF_HOME="$DOSSIER/cache/roboflow"
+export PIP_DISABLE_PIP_VERSION_CHECK=1
+# Sur Apple Silicon, une operation que mps ne sait pas faire retombe sur le processeur au lieu d'arreter l'entrainement.
+export PYTORCH_ENABLE_MPS_FALLBACK=1
+mkdir -p "$DOSSIER/cache/ultralytics" "$DOSSIER/cache/matplotlib"
+
+# 3. L'environnement isole et ce qu'il faut pour entrainer (une seule fois : relance, cette etape est passee).
+ENV="$DOSSIER/env-$FAMILLE"
+if [ ! -x "$ENV/bin/python" ]; then
+  dire "2/6 Création de l’environnement Python isolé ($ENV)…"
+  "$PY" -m venv "$ENV" || arreter "L’environnement Python n’a pas pu être créé dans $ENV."
+else
+  dire "2/6 Environnement Python déjà là ($ENV)."
+fi
+PAQUETS=(@@PAQUETS_SHELL@@)
+if [ -n "${BANC_ESSAI_MODELE:-}" ]; then
+  dire "3/6 ESSAI (BANC_ESSAI_MODELE) : rien n’est installé ni entraîné, le fichier donné sera déposé."
+elif [ "$(cat "$ENV/banc-installe.txt" 2>/dev/null)" = "${PAQUETS[*]}" ]; then
+  dire "3/6 Déjà installé : ${PAQUETS[*]}"
+else
+  dire "3/6 Installation de ${PAQUETS[*]} (un à plusieurs Go à télécharger la première fois : patience)…"
+  "$ENV/bin/python" -m pip install --upgrade pip || arreter "pip ne se met pas à jour : vérifiez la connexion à Internet, puis relancez la même commande."
+  "$ENV/bin/python" -m pip install "${PAQUETS[@]}" || arreter "L’installation a échoué (connexion coupée, ou place manquante ?). Relancez la même commande : ce qui est déjà téléchargé est gardé."
+  printf '%s' "${PAQUETS[*]}" > "$ENV/banc-installe.txt"
+  # Les paquets telecharges ne servent plus une fois installes : leur copie (plusieurs Go) ne reste pas sur le disque.
+  rm -rf "$DOSSIER/cache/pip"
+fi
+
+# 4. Le reste est du Python, ecrit a cote (un fichier, pour que les lecteurs de donnees de macOS puissent le relire) ; il ne porte
+# pas la cle, qui lui arrive par l'environnement.
+cat > "$DOSSIER/entrainer_banc.py" <<'PYTHON_DU_BANC'
+@@PYTHON@@
+PYTHON_DU_BANC
+# Sur un Mac, caffeinate empeche la mise en veille automatique tant que l'entrainement tourne (pas celle d'un portable qu'on referme).
+VEILLE=""
+if command -v caffeinate >/dev/null 2>&1; then VEILLE="caffeinate -i"; fi
+BANC_ADRESSE="$BANC_ADRESSE" BANC_CLE="$BANC_CLE" BANC_JEU="$BANC_JEU" BANC_ARCHITECTURE="$BANC_ARCHITECTURE" BANC_RESOLUTION="$BANC_RESOLUTION" \
+  BANC_MORCEAU="$BANC_MORCEAU" BANC_DOSSIER="$DOSSIER" $VEILLE "$ENV/bin/python" "$DOSSIER/entrainer_banc.py"
+CODE=$?
+case "$CODE" in
+  0) printf '\nTerminé. Le modèle est à l’étape 3 du banc, inactif : il ne reste qu’à l’activer.\n' ;;
+  2|3|130) exit "$CODE" ;;
+  *) printf '\nARRÊT : le script s’est arrêté sur une erreur inattendue (code %s) ; ce qui précède dit laquelle. Relancez la même commande pour reprendre.\n' "$CODE" >&2 ; exit "$CODE" ;;
+esac
+# fin du script du banc
+SCRIPT;
+  $python = <<<'PYTHON'
+# Ecrit par le script d'entrainement du banc d'apprentissage des facades. Il ne porte pas la cle : elle arrive par l'environnement.
+import glob, hashlib, json, math, os, shutil, ssl, sys, time, traceback, urllib.error, urllib.parse, urllib.request, zipfile
+
+DOSSIER = os.environ.get('BANC_DOSSIER', '')
+
+
+class Arret(Exception):
+    """Une fin prevue : le message dit quoi faire."""
+
+
+def dire(n, texte):
+    print('\n==> %s %s' % (n, texte), flush=True)
+
+
+def certificats():
+    """Les autorites de certification du systeme, plus celles du paquet certifi s'il est installe : le Python de python.org pour
+    macOS n'a pas celles du systeme tant qu'on n'a pas lance son « Install Certificates », et https echouerait sans raison visible."""
+    contexte = ssl.create_default_context()
+    try:
+        import certifi
+        contexte.load_verify_locations(certifi.where())
+    except Exception:
+        pass
+    return contexte
+
+
+def appeler(cle, params, methode='GET', corps=None, entetes=None):
+    """Un appel au banc avec la cle. Rend la reponse ; un refus ou une panne deviennent un Arret qui dit quoi faire."""
+    r = urllib.request.Request(os.environ['BANC_ADRESSE'] + '?' + urllib.parse.urlencode(params), data=corps, method=methode,
+                               headers={'X-Banc-Jeton': cle, 'User-Agent': 'banc-entrainement', **(entetes or {})})
+    try:
+        return urllib.request.urlopen(r, timeout=900, context=certificats())
+    except urllib.error.HTTPError as e:
+        try:
+            message = json.loads(e.read().decode('utf-8', 'replace')).get('erreur', '')
+        except Exception:
+            message = ''
+        if e.code == 401:
+            raise Arret('la clé de ce script est refusée : elle a expiré ou a été révoquée. Créez-en une autre à l’étape 6 du banc '
+                        '(« Entraîner sur mon Mac ») et lancez le nouveau script : l’installation est gardée.')
+        raise Arret('le banc refuse (%d) : %s' % (e.code, message or 'sans explication'))
+    except (urllib.error.URLError, OSError) as e:
+        raise Arret('le banc ne répond pas (%s). Vérifiez la connexion à Internet, puis relancez la même commande.' % getattr(e, 'reason', e))
+
+
+def duree(secondes):
+    return '%d h %02d min' % (secondes // 3600, secondes % 3600 // 60) if secondes >= 3600 else '%d min' % max(1, secondes // 60)
+
+
+def lire_le_jeu(cle, racine):
+    """Le jeu de la cle, range dans le dossier de travail ; deja la, il n'est pas relu."""
+    temoin = os.path.join(DOSSIER, racine, '.jeu-complet')
+    if os.path.exists(temoin):
+        dire('4/6', 'Jeu déjà là (%s) : pas de nouveau téléchargement.' % os.path.join(DOSSIER, racine))
+        return
+    dire('4/6', 'Téléchargement du jeu…')
+    partiel = os.path.join(DOSSIER, racine + '.zip.partiel')
+    with appeler(cle, {'r': 'entrainement-jeu'}) as r, open(partiel, 'wb') as f:
+        shutil.copyfileobj(r, f, 1 << 20)
+    try:
+        with zipfile.ZipFile(partiel) as z:
+            # Le jeu ne s'ouvre que dans son dossier : un nom qui en sortirait arrete tout.
+            for n in z.namelist():
+                if not n.startswith(racine + '/') or '..' in n.split('/') or '\\' in n:
+                    raise Arret('le jeu reçu contient un nom inattendu (%s) : rien n’a été ouvert.' % n)
+            shutil.rmtree(os.path.join(DOSSIER, racine), ignore_errors=True)
+            z.extractall(DOSSIER)
+    except zipfile.BadZipFile:
+        raise Arret('le jeu reçu est incomplet (connexion coupée ?). Relancez la même commande.')
+    finally:
+        os.remove(partiel)
+    open(temoin, 'w').close()
+    print('Jeu rangé dans %s' % os.path.join(DOSSIER, racine), flush=True)
+
+
+def appareil_de_calcul():
+    """mps sur un Mac Apple Silicon, cpu sinon (Mac Intel) ; BANC_APPAREIL l'impose."""
+    voulu = os.environ.get('BANC_APPAREIL', '').strip()
+    if voulu:
+        return voulu, 'imposé par BANC_APPAREIL'
+    import torch
+    if getattr(torch.backends, 'mps', None) is not None and torch.backends.mps.is_available():
+        return 'mps', 'la puce graphique d’Apple Silicon'
+    return 'cpu', 'le processeur : pas de puce Apple Silicon utilisable ici, l’entraînement sera lent'
+
+
+@@ENTRAINER@@
+
+def part(v):
+    try:
+        v = float(v)
+    except Exception:
+        return None
+    return round(v, 4) if math.isfinite(v) and 0 <= v <= 1 else None
+
+
+def deposer(cle, chemin, description):
+    """Le depot du modele : des morceaux dans l'ordre, puis la fin avec sa taille et son empreinte."""
+    octets = open(chemin, 'rb').read()
+    morceau = int(os.environ['BANC_MORCEAU'])
+    for n, debut in enumerate(range(0, len(octets), morceau)):
+        appeler(cle, {'r': 'entrainement-modele', 'partie': n}, 'POST', octets[debut:debut + morceau], {'Content-Type': 'application/octet-stream'}).close()
+    corps = json.dumps({**description, 'taille': len(octets), 'sha256': hashlib.sha256(octets).hexdigest()}).encode()
+    with appeler(cle, {'r': 'entrainement-modele', 'fin': '1'}, 'POST', corps, {'Content-Type': 'application/json'}) as r:
+        return json.loads(r.read().decode('utf-8'))
+
+
+def principal():
+    # La cle quitte l'environnement des qu'elle est lue : les processus lances ensuite (lecteurs de donnees) ne l'heritent pas.
+    cle = os.environ.pop('BANC_CLE')
+    racine = os.environ['BANC_JEU']
+    resolution = int(os.environ['BANC_RESOLUTION'])
+    with appeler(cle, {'r': 'entrainement-etat'}) as r:
+        etat = json.loads(r.read().decode('utf-8'))
+    if etat.get('depose'):
+        raise Arret('cette clé a déjà déposé son modèle : il est à l’étape 3 du banc. Pour réentraîner, créez une autre clé à l’étape 6.')
+    images = etat.get('jeu', {}).get('images', {})
+    print('Clé acceptée, valable encore %s. Jeu : %d photo(s) pour apprendre, %d pour valider, %d pour le test.'
+          % (duree(int(etat.get('reste', 0))), images.get('train', 0), images.get('val', 0), images.get('test', 0)), flush=True)
+    print('Si l’entraînement dure plus longtemps que la clé, le modèle reste dans le dossier de travail et se dépose à la main (étape 3).', flush=True)
+    # Lu avant de changer de dossier : un chemin relatif se comprend depuis la ou la commande est lancee.
+    essai = os.environ.get('BANC_ESSAI_MODELE', '').strip()
+    essai = os.path.abspath(essai) if essai else ''
+    lire_le_jeu(cle, racine)
+    os.chdir(os.path.join(DOSSIER, racine))
+
+    resultat = 'resultat-banc.json'
+    if essai:
+        dire('5/6', 'ESSAI : pas d’entraînement, dépôt de %s' % essai)
+        noms = ([l.split(': ', 1)[1].strip() for l in open('noms.txt', encoding='utf-8') if ': ' in l] if os.path.exists('noms.txt')
+                else [l.split(': ', 1)[1].strip() for l in open('data.yaml', encoding='utf-8') if l.startswith('  ') and ': ' in l])
+        fait = {'modele': essai, 'noms': noms, 'bilan': {}}
+    elif os.path.exists(resultat) and os.path.exists(json.load(open(resultat, encoding='utf-8'))['modele']):
+        fait = json.load(open(resultat, encoding='utf-8'))
+        dire('5/6', 'Modèle déjà entraîné (%s) : il est seulement déposé.' % fait['modele'])
+    else:
+        appareil, pourquoi = appareil_de_calcul()
+        epoques = int(os.environ.get('BANC_EPOQUES', '0') or 0) or None
+        dire('5/6', 'Entraînement sur « %s » (%s)%s. Cela peut durer des heures : laissez le Mac branché et éveillé.'
+             % (appareil, pourquoi, ', ESSAI raccourci à %d époque(s)' % epoques if epoques else ''))
+        debut = time.time()
+        try:
+            modele, noms, bilan, par_type = entrainer(appareil, epoques)
+        except KeyboardInterrupt:
+            raise
+        except BaseException:
+            traceback.print_exc()
+            raise Arret('l’entraînement s’est arrêté sur l’erreur ci-dessus (appareil « %s »).%s' % (appareil,
+                        ' Pour l’essayer sur le processeur, plus lent : BANC_APPAREIL=cpu devant la même commande.' if appareil != 'cpu' else ''))
+        bilan = {k: v for k, v in {'map': part(bilan.get('map')), 'map50': part(bilan.get('map50'))}.items() if v is not None}
+        bilan['parType'] = {n: part(v) for n, v in par_type.items() if part(v) is not None}
+        fait = {'modele': os.path.abspath(modele), 'noms': noms, 'bilan': bilan}
+        json.dump(fait, open(resultat, 'w', encoding='utf-8'))
+        print('Entraînement fini en %s. mAP50-95 du bloc test : %s' % (duree(int(time.time() - debut)), bilan.get('map', 'non mesuré')), flush=True)
+
+    dire('6/6', 'Dépôt du modèle dans le banc…')
+    try:
+        recu = deposer(cle, fait['modele'], {'architecture': os.environ['BANC_ARCHITECTURE'], 'resolution': resolution, 'classes': fait['noms'], 'bilan': fait['bilan']})
+    except Arret as e:
+        print('\nARRÊT : dépôt impossible — %s' % e, file=sys.stderr)
+        print('Le modèle est gardé ici : %s\nIl se dépose à la main à l’étape 3 du banc (« Déposer un modèle entraîné »), avec la résolution %d et ces noms :'
+              % (fait['modele'], resolution), file=sys.stderr)
+        for i, n in enumerate(fait['noms']):
+            print('%d: %s' % (i, n), file=sys.stderr)
+        return 3
+    print('Déposé dans le banc : %s' % recu['nom'], flush=True)
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(principal())
+    except Arret as e:
+        print('\nARRÊT : %s' % e, file=sys.stderr)
+        sys.exit(2)
+    except KeyboardInterrupt:
+        # Le shell qui a lance ce fichier dit lui-meme « Interrompu ».
+        sys.exit(130)
+PYTHON;
+  $paquets = $rfdetr ? ['rfdetr[train,loggers,onnx]==1.12.*'] : ['ultralytics==8.4.*', 'onnx', 'onnxslim', 'onnxruntime'];
+  $heures = (int)round(((int)$j['expire'] - time()) / 3600);
+  $zero = $a['depart'] === 'zero';
+  // Le Python d'abord : ce qu'il contient ne doit pas etre repris par le remplacement des reperes du shell.
+  return strtr($modele, ['@@PYTHON@@' => strtr($python, ['@@ENTRAINER@@' => python_entrainement($format, $a)])]
+    + ['@@NOM@@' => $a['nom'], '@@DEPART@@' => $zero ? 'sans COCO, de zero' : 'parti de COCO', '@@DEPART_ECRAN@@' => $zero ? 'sans COCO, de zéro' : 'parti de COCO',
+      '@@LICENCE@@' => $rfdetr ? 'RF-DETR (Roboflow), licence Apache 2.0 pour le code et les poids.'
+        : "YOLO d'Ultralytics, licence AGPL-3.0 : un modele entraine avec eux, servi dans une application, impose d'en publier le code ou d'acheter leur licence. Pour comparer.",
+      '@@HEURES@@' => (string)$heures, '@@FICHIER@@' => $fichier, '@@PAQUETS@@' => implode(' ', $paquets), '@@PAQUETS_SHELL@@' => implode(' ', array_map('shell', $paquets)),
+      '@@ADRESSE@@' => shell($adresse), '@@CLE@@' => shell($jeton), '@@RACINE@@' => shell($j['jeu']['racine']), '@@ARCHITECTURE@@' => shell($a['id']),
+      '@@RESOLUTION@@' => (string)(int)$a['resolution'], '@@MORCEAU@@' => (string)$morceau, '@@FAMILLE@@' => $rfdetr ? 'rfdetr' : 'yolo']);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1435,10 +1682,11 @@ if (PHP_SAPI !== 'cli' || getenv('BANC_TEST_ROUTER')) {
   $r = (string)($_GET['r'] ?? '');
   $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
   $id = isset($_GET['id']) ? (string)$_GET['id'] : null;
-  // Les deux routes du carnet d'entrainement : un jeton, pas de session (aucun temoin pose, aucune session ouverte). Elles sont ici,
+  // Les trois routes du script d'entrainement : un jeton, pas de session (aucun temoin pose, aucune session ouverte). Elles sont ici,
   // avant tout le reste, et nulle part ailleurs : aucune autre route ne lit l'en-tete du jeton.
-  if ("$methode $r" === 'GET colab-jeu') colab_jeu(jeton_presente());
-  if ("$methode $r" === 'POST colab-modele') { $j = jeton_presente(); isset($_GET['fin']) ? colab_fin($j) : colab_morceau($j, (string)($_GET['partie'] ?? '')); }
+  if ("$methode $r" === 'GET entrainement-etat') entrainement_etat(jeton_presente());
+  if ("$methode $r" === 'GET entrainement-jeu') entrainement_jeu(jeton_presente());
+  if ("$methode $r" === 'POST entrainement-modele') { $j = jeton_presente(); isset($_GET['fin']) ? entrainement_fin($j) : entrainement_morceau($j, (string)($_GET['partie'] ?? '')); }
   demarrer_session();
   if ($r === 'etat') repondre(200, ['connecte' => connecte()]);
   // Une ecriture vient de la page du banc, jamais d'un formulaire d'un autre site : l'en-tete X-Banc le dit.

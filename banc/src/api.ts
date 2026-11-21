@@ -78,11 +78,11 @@ export const api = {
   /** Les cles d'entrainement vivantes (etape 6), et la duree d'une cle neuve, en heures. */
   jetons: () => appel<{ heures: number; jetons: JetonEntrainement[] }>('GET', 'jetons'),
   /**
-   * Cree une cle pour cet export et rend le carnet qui la porte. L'adresse du banc ecrite dans le carnet est celle de cette API, vue
+   * Cree une cle pour cet export et rend le script qui la porte. L'adresse du banc ecrite dans le script est celle de cette API, vue
    * de la page ; la correspondance dit ou iront les noms du modele depose.
    */
   creerJeton: (d: { format: 'detect' | 'seg' | 'rfdetr'; base: string; depart: 'coco' | 'zero'; verifiees: boolean; correspondance: Record<string, string> }) =>
-    appel<{ jeton: JetonEntrainement; fichier: string; carnet: string }>('POST', 'jetons', {}, { ...d, adresse: new URL(URL_API, document.baseURI).href }),
+    appel<{ jeton: JetonEntrainement; fichier: string; script: string }>('POST', 'jetons', {}, { ...d, adresse: new URL(URL_API, document.baseURI).href }),
   revoquerJeton: (id: string) => appel<{ revoque: string }>('DELETE', 'jeton', { id }),
   urlExport: (format: 'detect' | 'seg' | 'rfdetr' | 'natif', verifiees: boolean, base = '', depart: 'coco' | 'zero' = 'coco') => route('export', { format, verifiees: verifiees ? '1' : '0', ...(base ? { base, depart } : {}) }),
 };
