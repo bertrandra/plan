@@ -11,6 +11,7 @@ vi.mock('../../../../src/shell/dialogs.js', () => ({
 vi.mock('../../../../src/shell/download.js', () => ({ telechargerBlob: (nom: string) => { journal.blobs.push(nom); } }));
 
 import { creerRegistre } from '../../../../src/app/commandes.js';
+import { creerMagasin } from '../../../../src/app/magasin.js';
 import { brancherVue3d, type ContexteVue3d } from '../../../../src/app/ecouteurs/vue3d.js';
 import { brancherVisionneuse, type ContexteVisionneuse } from '../../../../src/app/ecouteurs/visionneuse.js';
 import { vue3d, glb, affichage3d } from '../../../../src/three/etat3d.js';
@@ -41,7 +42,7 @@ function monter(ecrire = true) {
     zoom3D: vi.fn(), tournerVue: vi.fn(), vue3dOuverte: () => true, setMode3D: vi.fn(), hauteurDesYeux: vi.fn(), buildThreeScene: vi.fn(), createObjectDOM: vi.fn(),
     setVue3dPleinePage: vi.fn((v: boolean) => { plein = v; }), setGlbViewerPleinePage: vi.fn(),
     vue3dPleinePage: () => plein, glbViewerPleinePage: () => false, resizeThreeScene: vi.fn(), resizeGlbViewerScene: vi.fn(),
-    lieuActuel: () => ({ latitude: 48.9, longitude: 2.13 })
+    lieuActuel: () => ({ latitude: 48.9, longitude: 2.13 }), magasin: creerMagasin(a.etat)
   };
   const cmd = creerRegistre(droits(ecrire));
   const reglages = brancherVue3d(a, ctx, cmd);

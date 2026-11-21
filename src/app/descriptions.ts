@@ -36,6 +36,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'export.listeAchatPdf': 'Télécharge la liste d’achat des terrasses cochées, rayon par rayon, à imprimer : une case par ligne et par longueur de barre',
   'export.listeAchatCsv': 'Télécharge la liste d’achat en CSV pour un tableur : les lignes de la Nomenclature, sections et barres du commerce comprises',
   'export.dossier': 'Produit un dossier PDF des terrasses cochées dans l’explorateur : plans, coupes et quantités',
+  'export.photomontage': 'Télécharge la photo du jardin avec le projet incrusté, à la taille de la photo (2 048 px au plus) ; sans photomontage en cours, ouvre le photomontage dans la Vue 3D',
   'export.glb': 'Télécharge la scène 3D au format GLB, pour une visionneuse ou un logiciel 3D',
   'export.resume': 'Écrit le résumé texte du projet dans l’onglet Résumé du tiroir',
   'export.copierResume': 'Copie le résumé texte du projet dans le presse-papiers',
@@ -135,6 +136,9 @@ export const DESCRIPTIONS: Record<string, string> = {
   '3d.captureHd': 'Télécharge la vue 3D en haute définition (trois fois l’écran), pour la montrer au client',
   '3d.promenade': 'Enchaîne les points de vue enregistrés puis fait le tour de la maison, au pas ; un geste sur la vue l’arrête',
   '3d.enregistrerPointDeVue': 'Ajoute au plan un point de vue qui retient la caméra actuelle',
+  '3d.photomontage': 'Pose le projet sur une photo de votre jardin : la Vue 3D ne montre plus que ce que le projet ajoute, vu d’où la photo a été prise ; rebasculer rend la Vue 3D d’avant',
+  '3d.photomontageAjuster': 'Déplace, tourne, incline, monte ou zoome le point de vue du photomontage, pour que le projet tombe juste sur la photo',
+  '3d.photomontageRecaler': 'Remet le point de vue là où la photo le plaçait (position, direction et focale lues dans la photo, sinon face au projet)',
   '3d.pleinePage': 'Affiche la vue 3D sur toute la page',
 
   // ---- Visionneuse --------------------------------------------------------------------------------

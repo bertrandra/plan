@@ -88,7 +88,7 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     vue3dPleinePage: () => affichage3d.pleinePage3d,
     glbViewerPleinePage: () => affichage3d.pleinePageGlb,
     resizeThreeScene: () => siOuverte((n) => n.resizeThreeScene()), resizeGlbViewerScene: () => siOuverte((n) => n.resizeGlbViewerScene()),
-    lieuActuel
+    lieuActuel, magasin
   }, commandes);
 
   const modes = creerModes({

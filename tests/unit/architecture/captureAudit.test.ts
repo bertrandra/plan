@@ -25,15 +25,21 @@ const IMPORT = [/\baccept\s*[:=]\s*['"]image\//];
 const AUDIT = ['zones/parcours/AuditParcelle.tsx', 'zones/parcours/AuditCas.tsx'];
 /** L'import de photos dans un cas de calibration (demande du proprietaire, 9 novembre 2026). */
 const CALIBRATION = ['zones/EditeurCasCalibration.tsx'];
+/**
+ * La photo du jardin du photomontage (demande du proprietaire, 20 novembre 2026 : « poser la terrasse 3D sur une photo du jardin prise
+ * au telephone ») : pas une photo de facade, et elle ne quitte pas le navigateur. Un champ fichier qui accepte une image, sans camera
+ * ouverte ni `capture` : au telephone, le navigateur propose de lui-meme l'appareil photo ou la phototheque.
+ */
+const PHOTOMONTAGE = ['zones/vue3d/Photomontage.tsx'];
 
 describe('aucun ecran de capture hors de l audit', () => {
   it('seuls les ecrans de l audit prennent une photo ; la calibration en importe dans un cas, sans camera', () => {
     const lus = fichiers(src).map((f) => ({ f: rel(f), texte: readFileSync(f, 'utf8') }));
     const camera = lus.filter((x) => CAMERA.some((r) => r.test(x.texte))).map((x) => x.f).sort();
     const importent = lus.filter((x) => IMPORT.some((r) => r.test(x.texte))).map((x) => x.f).sort();
-    // La camera : l'audit seul. L'import d'une image : l'audit et l'editeur d'un cas de la calibration.
+    // La camera : l'audit seul. L'import d'une image : l'audit, l'editeur d'un cas de la calibration et le photomontage.
     expect(camera.filter((f) => !AUDIT.includes(f))).toEqual([]);
-    expect([...new Set([...camera, ...importent])].sort()).toEqual([...AUDIT, ...CALIBRATION].sort());
+    expect([...new Set([...camera, ...importent])].sort()).toEqual([...AUDIT, ...CALIBRATION, ...PHOTOMONTAGE].sort());
   });
 
   it('le nouveau cas depuis des photos passe par le champ de l editeur, sans camera ni champ a lui', () => {
@@ -46,6 +52,13 @@ describe('aucun ecran de capture hors de l audit', () => {
     const editeur = readFileSync(join(src, 'zones/EditeurCasCalibration.tsx'), 'utf8');
     expect(editeur.match(/type="file"/g)).toHaveLength(1);
     expect(editeur).not.toMatch(/\bcapture\s*=/);
+  });
+
+  it('le photomontage choisit une photo du jardin par un seul champ fichier, sans camera', () => {
+    const panneau = readFileSync(join(src, 'zones/vue3d/Photomontage.tsx'), 'utf8');
+    expect(panneau.match(/type="file"/g)).toHaveLength(1);
+    expect(panneau).not.toMatch(/\bcapture\s*=|getUserMedia/);
+    expect(CONTROLES).toHaveProperty('photomontage.photo');
   });
 
   it('le releve n a plus de commande ni de controle de capture ; la photo d un mur passe par l audit', () => {

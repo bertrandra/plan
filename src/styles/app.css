@@ -1732,6 +1732,57 @@
   .bouton3d[aria-disabled="true"]{ opacity:.35; cursor:not-allowed; }
   .bouton3d[aria-disabled="true"]:hover{ background:var(--panel-bg); }
   .separateur3d{ height:1px; background:var(--border); margin:2px 0; }
+  /* Le photomontage (zones/vue3d/Photomontage.tsx) : la scene prend le rapport de la photo, le panneau du mode se range dessous et
+     defile s'il le faut. Rien ne couvre l'image qu'on cale. `--haut-photo` : la hauteur laissee a l'image, selon la classe d'ecran. */
+  html[data-photomontage]{ --haut-photo:max(240px, calc(100dvh - 470px)); }
+  html[data-photomontage]:not([data-classe="large"]){ --haut-photo:calc((100dvh - var(--reserve-haut, 56px)) * 0.5); }
+  html[data-photomontage] #terrasse3dWrap{ display:flex !important; flex-direction:column; align-items:center; }
+  html[data-photomontage] #terrasse3dWrap .hote3d{
+    position:relative; inset:auto; flex:0 0 auto; height:auto !important; aspect-ratio:var(--rapport-photo, 1.5);
+    width:min(100%, calc(var(--haut-photo) * var(--rapport-photo, 1.5)));
+  }
+  html[data-photomontage] .hote3d canvas{ cursor:grab; }
+  .panneauPhotomontage{ width:100%; margin-top:8px; display:flex; flex-direction:column; gap:8px; font-family:var(--sans); font-size:0.8rem; }
+  html[data-photomontage]:not([data-classe="large"]) .panneauPhotomontage{
+    flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; margin:0; padding:10px 12px calc(var(--reserve-bas, 0px) + 12px); background:var(--panel-bg);
+  }
+  .calagePm{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; color:var(--ink-soft); font-size:0.76rem; }
+  .calagePm li{ padding-left:14px; position:relative; }
+  .calagePm li::before{ content:''; position:absolute; left:2px; top:0.5em; width:6px; height:6px; border-radius:50%; border:1px solid var(--ink-soft); }
+  .calagePm li[data-lu="oui"]{ color:var(--ink); }
+  .calagePm li[data-lu="oui"]::before{ background:var(--ok); border-color:var(--ok); }
+  .groupesPm{ display:flex; flex-wrap:wrap; gap:8px 12px; }
+  .groupePm{ margin:0; padding:6px 8px 8px; border:1px solid var(--hairline); border-radius:var(--r-champ); display:flex; align-items:center; gap:6px; min-width:0; }
+  .groupePm legend{ padding:0 4px; font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .groupeLargePm{ flex:1 1 260px; flex-wrap:wrap; gap:6px 14px; }
+  .boutonPm{
+    width:44px; height:44px; min-width:44px; padding:0; display:inline-flex; align-items:center; justify-content:center;
+    border:1px solid var(--rule); border-radius:var(--r-bouton); background:var(--panel-bg); color:var(--ink);
+  }
+  .boutonPm:hover:not(:disabled){ background:var(--accent-light); color:var(--on-accent-light); }
+  .boutonPm:disabled, .boutonTextePm:disabled{ opacity:.45; cursor:not-allowed; }
+  .valeurPm{ min-width:4.2em; text-align:center; font-variant-numeric:tabular-nums; font-weight:600; }
+  .boutonTextePm{ min-height:44px; padding:0 14px; display:inline-flex; align-items:center; gap:6px; border-radius:var(--r-bouton); font-family:var(--sans); font-size:0.8rem; }
+  .actionsPm{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .curseurPm{ display:flex; align-items:center; gap:8px; min-height:44px; flex:1 1 220px; }
+  .curseurPm input[type=range]{ flex:1 1 90px; min-width:90px; min-height:44px; }
+  .curseurPm output{ min-width:3.2em; text-align:right; font-variant-numeric:tabular-nums; }
+  .casePm{ display:flex; align-items:center; gap:8px; min-height:44px; }
+  .casePm input{ width:20px; height:20px; }
+  .formatPm{ display:flex; align-items:center; gap:6px; min-height:44px; }
+  .formatPm select{ min-height:44px; }
+  .notePm{ margin:0; color:var(--ink-soft); font-size:0.72rem; }
+  /* Sans photo : une carte sur la Vue 3D, qui propose d'en choisir une. */
+  .invitePhotomontage{
+    position:absolute; z-index:4; left:50%; top:50%; transform:translate(-50%, -50%); width:min(92%, 420px); padding:16px 18px;
+    display:flex; flex-direction:column; gap:10px; background:var(--panel-bg); color:var(--ink); border:1px solid var(--border);
+    border-radius:var(--r-panneau); box-shadow:var(--ombre-flottante); font-family:var(--sans); font-size:0.8rem;
+  }
+  .invitePhotomontage h3{ margin:0; font-family:var(--serif); font-size:1.1rem; }
+  .invitePhotomontage p{ margin:0; }
+  /* L'horizon de la camera, repere de calage : un trait qui ne prend aucun geste. */
+  .horizonPhotomontage{ position:absolute; z-index:1; left:0; right:0; height:0; border-top:1px dashed var(--accent); pointer-events:none; }
+  .horizonPhotomontage span{ position:absolute; right:6px; top:2px; padding:0 4px; font-family:var(--sans); font-size:0.64rem; background:var(--panel-bg); color:var(--ink); border-radius:4px; }
   /* Le mode audit (app/audit/) : l'etat de la promenade et ses deux gestes. Sur bureau, en ligne au-dessus
      de la scene ; au doigt, en bas de l'ecran, ou le pouce l'atteint. Cibles de 44 px partout : on s'en
      sert en marchant. */

@@ -37,6 +37,8 @@ import { minutesHeureDoree, capturerHd, lancerPromenade, arreterPromenade, prome
 import { moteur3d } from '../../three/demande3d.js';
 import type { PointDeVue } from '../../three/etat3d.js';
 import { estQualite3d, parametresQualite, qualiteParDefaut, type Qualite3d } from '../../three/qualite.js';
+import { brancherPhotomontage } from './photomontage.js';
+import type { Magasin } from '../magasin.js';
 
 /** Ce que les commandes de la Vue 3D pilotent, en plus de l'atelier. */
 export interface ContexteVue3d {
@@ -57,6 +59,8 @@ export interface ContexteVue3d {
   resizeThreeScene: () => void;
   resizeGlbViewerScene: () => void;
   lieuActuel: () => { latitude: number; longitude: number };
+  /** Le magasin : le photomontage y lit la vue montree et la version du plan. */
+  magasin: Magasin;
 }
 
 /** Les cases du panneau de la Vue 3D (zones/vue3d/) : ce qu'il y a dans la scène. */
@@ -162,6 +166,18 @@ function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
 
 }
 
+/**
+ * Le photomontage (app/ecouteurs/photomontage.ts) : un mode de la Vue 3D, charge a son premier geste. Il coche « Tous les objets »
+ * le temps du mode (la maison en transparence en a besoin), comme la case le ferait : une preference, puis la scene rebatie.
+ */
+function brancherLePhotomontage(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes, terrasseCourante: () => ObjetPlan | undefined): void {
+  brancherPhotomontage(cmd, {
+    magasin: ctx.magasin, objets: () => a.etat.objects, terrasseChoisie: () => a.etat.terrasseSelectedKey, ouvrirVue3d: () => { cmd.executer('vue.3d'); },
+    basculerTousLesObjets: (actif) => { reglerVue3d({ tousLesObjets: actif }); signaler3d(); if (vue3d.scene) ctx.buildThreeScene(terrasseCourante() || null); },
+    redimensionner3d: () => { if (vue3d.scene) ctx.resizeThreeScene(); }
+  });
+}
+
 /** Le pas des boutons « Tourner la vue » et des fleches du clavier, en degres. */
 export const PAS_TOURNER_VUE_DEG = 15;
 
@@ -255,6 +271,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
   }, PERMISSION_ECRITURE);
 
   brancherPresentation(a, ctx, cmd, terrasseCourante);
+  brancherLePhotomontage(a, ctx, cmd, terrasseCourante);
 
   // ---- Plein page, pour les deux vues ----------------------------------------------------------
   cam('terrasse3dFullPageBtn', '3d.pleinePage', 'Plein écran', () => ctx.setVue3dPleinePage(!ctx.vue3dPleinePage()));
