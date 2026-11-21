@@ -5,6 +5,43 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.38.0] — 2026-11-21
+
+Version **mineure** au sens de `MD/RELEASE.md`, et il faut le dire sans détour : au banc d'apprentissage, le parcours
+**« Entraîner dans Colab »**, publié en 5.37.0, est **retiré** et remplacé par un parcours équivalent, **« Entraîner sur mon
+Mac »** (#748) — un script `.sh` téléchargé avec sa clé au lieu d'un carnet, les routes `entrainement-jeu`, `entrainement-modele`
+et `entrainement-etat` à la place de `colab-jeu` et `colab-modele`, sans alias. C'est une demande du propriétaire, seul usager du
+banc. **Un carnet déjà téléchargé ne marche plus** (il faut créer une clé neuve) ; **un modèle déjà déposé reste utilisable**. Le
+zip de « Ou à la main » ne porte plus `entrainer.ipynb`. §2.1 range un retrait de fonction parmi les changements majeurs : celui-ci
+est qualifié de mineur parce qu'il ne porte que sur le banc, outil à part dont le seul usager a demandé le remplacement, qu'un
+parcours équivalent prend la place de l'ancien, et que **rien ne change dans Plan lui-même** : aucune quantité, aucun export,
+aucune fonction de Plan. **Le script n'a été essayé ni sur un Mac ni avec `mps`** : joué par bash contre le serveur dans les tests
+et la fumée du banc, et lancé pour de vrai sur une machine Linux sans carte graphique (`cpu`), il reste à vérifier au premier
+lancement réel sur le Mac. Avant le changement de numéro, le code de `main` (33af0171) régénère les témoins de la 5.37.0 au bit
+près ; les neuf témoins qui portent le numéro ne changent qu'à lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf
+sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `liste-achat.csv`,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de
+fichier nouveau. `deploy/` et `regles/` ne changent pas depuis la 5.37.0 ; `banc/` change (#748). Requêtes vérifiées sur main
+(33af0171) avec les dix demandes de l'assistant : run 44958069009 de « Vérifier l'API Claude » (plafond 0,10 $), 9 requêtes sur 9
+acceptées, dix listes justes sur dix, 0,033 $ ; prompts et schémas inchangés.
+
+**À faire en production, dans cet ordre, avant de déposer cette livraison** (cette version ne demande rien de plus à la
+plateforme ; ce qui suit reste des versions précédentes, si ce n'est pas déjà fait) :
+
+- appliquer bertrandra/backprod#255 (migration `Version20261109090000`) puis `setup.php` : le schéma 16 de la 5.19.0 doit être
+  accepté par la plateforme ;
+- appliquer la migration de la plateforme `Version20261116090000` (liens de partage, backprod #256, ADR-073) : sans elle, « Partager
+  par un lien… » et l'ouverture d'un lien partagé échouent ;
+- publier une version d'offre qui accorde la fonction `project_sharing` avant que quiconque puisse partager (sans elle, la commande
+  reste effacée : c'est voulu) ;
+- déposer le `.htaccess` de la livraison (`deploy/htaccess.template` : `Referrer-Policy: no-referrer` et `X-Robots-Tag: noindex`
+  sur une adresse avec `?product=`) ;
+- banc : **déposer le nouveau `api.php`** (les routes de l'entraînement ont changé de nom : avec l'ancien, « Entraîner sur mon
+  Mac » échoue) ; l'extension `zip` de PHP reste demandée (comme pour l'export) ; **il n'y a plus à laisser passer des requêtes
+  venues de Colab** : c'est le Mac de la personne qui appelle le serveur, en https (`banc/LISEZMOI.md`, « La clé
+  d'entraînement ») ; rappel : le `api.php` du banc demande à l'hébergement le cURL sortant en HTTPS (depuis la 5.30.0) ; la durée
+  d'une clé se règle par `jetonHeures` dans `banc-config.php` (facultatif, 24 h par défaut, 72 au plus).
+
 ### Modifié
 
 - **Banc d'apprentissage : l'entraînement se fait désormais sur le Mac ; le carnet Colab est retiré** (demande du propriétaire,
