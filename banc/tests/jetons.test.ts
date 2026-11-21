@@ -296,7 +296,10 @@ describe.skipIf(!php)('les jetons d’entraînement : l’aller-retour du script
     const jouer = (c: Cree, env: Record<string, string> = {}) => {
       const f = path.join(dossier, c.fichier);
       fs.writeFileSync(f, c.script.replace('BANC_MORCEAU=4194304', 'BANC_MORCEAU=6000'));
-      const r = spawnSync('bash', [f], { env: { ...process.env, HOME: dossier, NO_PROXY: '127.0.0.1', no_proxy: '127.0.0.1', BANC_ESSAI_MODELE: bon, ...env }, encoding: 'utf8' });
+      // Sur une machine qui a rustup (celle de la CI), pip demande sa version a rustc pour se presenter, et rustup cree alors son
+      // dossier dans le dossier personnel qu'on lui montre : il garde le vrai, pour que le faux ne recoive que ce que le script ecrit.
+      const outils = { RUSTUP_HOME: process.env.RUSTUP_HOME ?? path.join(os.homedir(), '.rustup'), CARGO_HOME: process.env.CARGO_HOME ?? path.join(os.homedir(), '.cargo') };
+      const r = spawnSync('bash', [f], { env: { ...process.env, ...outils, HOME: dossier, NO_PROXY: '127.0.0.1', no_proxy: '127.0.0.1', BANC_ESSAI_MODELE: bon, ...env }, encoding: 'utf8' });
       const tout = r.stdout + r.stderr;
       // La cle ne s'affiche jamais en entier, quoi qu'il arrive : ni elle, ni son secret.
       expect(tout).not.toContain(c.jeton);

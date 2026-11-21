@@ -32,7 +32,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { crc32, deflateSync, gunzipSync, gzipSync } from 'node:zlib';
 import { reseau } from './fumee-reseau.mjs';
@@ -119,13 +119,17 @@ function fauxOnnx() {
  * deposer un faux modele au lieu d'installer et d'entrainer ; tout le reste est le vrai chemin (Python trouve, environnement cree,
  * cle verifiee, jeu lu, depot). Rend ce qu'il a dit, son code de sortie, et ce qu'il a laisse dans le dossier personnel.
  */
+// Sur une machine qui a rustup (celle de la CI), pip demande sa version a rustc pour se presenter, et rustup cree alors son dossier
+// dans le dossier personnel qu'on lui montre : il garde le vrai, pour que le faux ne recoive que ce que le script y ecrit.
+const OUTILS_DU_VRAI_DOSSIER = { RUSTUP_HOME: process.env.RUSTUP_HOME ?? join(homedir(), '.rustup'), CARGO_HOME: process.env.CARGO_HOME ?? join(homedir(), '.cargo') };
+
 function lancerLeScript({ nom, script }) {
   const maison = mkdtempSync(join(tmpdir(), 'fumee-banc-mac-'));
   const telechargements = mkdtempSync(join(tmpdir(), 'fumee-banc-dl-'));
   writeFileSync(join(telechargements, nom), script, { mode: 0o600 });
   writeFileSync(join(telechargements, 'faux.onnx'), fauxOnnx());
   return new Promise((ok) => {
-    const p = spawn('bash', [join(telechargements, nom)], { env: { ...process.env, HOME: maison, NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost', BANC_ESSAI_MODELE: join(telechargements, 'faux.onnx') }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const p = spawn('bash', [join(telechargements, nom)], { env: { ...process.env, ...OUTILS_DU_VRAI_DOSSIER, HOME: maison, NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost', BANC_ESSAI_MODELE: join(telechargements, 'faux.onnx') }, stdio: ['ignore', 'pipe', 'pipe'] });
     let sortie = '', erreur = '';
     p.stdout.on('data', (d) => { sortie += d; });
     p.stderr.on('data', (d) => { erreur += d; });
