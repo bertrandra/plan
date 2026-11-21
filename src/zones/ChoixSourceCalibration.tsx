@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { etapeFacade, type ElementAction, type IdEtape, type ValeurElement } from '../model/etapeFacade.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import { LIBELLES_SOURCE, valeurEnClair } from './composants/ActionsEtape.js';
+import { motEcran } from '../ui/texteFacade.js';
 
 export const COMMANDE_CHOISIR_SOURCE = 'facade.choisirSource';
 export const COMMANDE_FORCER_CLAUDE = 'facade.forcerClaude';
@@ -45,7 +46,7 @@ function BoutonDeCommande({ commandes, id, donnees, presse, desactive, raison, a
 function ChampsManuels({ cle, valeur, changer, commandes, occupe, poser }: { cle: string; valeur: ValeurElement; changer: (v: ValeurElement) => void; commandes: Commandes; occupe: boolean; poser: (cle: string, v: ValeurElement) => void }) {
   return <div className="choixManuel" role="group" aria-label="Votre valeur">
     {Object.entries(valeur).map(([k, v]) => <label key={k} className="calChamp">{CHAMPS[k] ?? k}
-      {LISTES[k] ? <select value={String(v)} onChange={(e) => changer({ ...valeur, [k]: e.target.value })}>{LISTES[k]?.map((m) => <option key={m} value={m}>{m}</option>)}</select>
+      {LISTES[k] ? <select value={String(v)} onChange={(e) => changer({ ...valeur, [k]: e.target.value })}>{LISTES[k]?.map((m) => <option key={m} value={m}>{motEcran(m)}</option>)}</select>
         : typeof v === 'number' ? <input type="number" step="0.01" value={v} onChange={(e) => { const n = parseFloat(e.target.value); if (Number.isFinite(n)) changer({ ...valeur, [k]: n }); }} />
           : <input type="text" value={String(v ?? '')} onChange={(e) => changer({ ...valeur, [k]: e.target.value })} />}
     </label>)}
@@ -70,7 +71,7 @@ export function ChoixElement({ x, commandes, occupe, poser }: PropsChoix) {
   if (!x.cle || !x.famille) return null;
   const cle = x.cle, calcul = depart(x.valeurs?.calcul), claude = depart(x.valeurs?.claude), deja = depart(x.valeurs?.manuel);
   const sans = !x.consommePar?.length;
-  return <div className="choixSource" role="group" aria-label={'La source de cet élément (' + x.type + ')'}>
+  return <div className="choixSource" role="group" aria-label={'La source de cet élément (' + motEcran(x.type) + ')'}>
     {(['calcul', 'claude'] as const).map((s) => <BoutonDeCommande key={s} commandes={commandes} id={COMMANDE_CHOISIR_SOURCE} donnees={{ cle, source: s }} presse={x.sourceLue === s} desactive={occupe || s === 'claude' && !claude}
       {...(s === 'claude' && !claude ? { raison: 'Claude n’a pas lu cet élément : le calcul est gardé.' } : {})}>{LIBELLES_SOURCE[s]}</BoutonDeCommande>)}
     <button type="button" className={x.sourceLue === 'manuel' ? 'small' : 'secondary small'} aria-pressed={x.sourceLue === 'manuel' || !!manuel} aria-expanded={!!manuel} disabled={occupe}

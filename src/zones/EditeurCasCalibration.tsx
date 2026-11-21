@@ -48,6 +48,7 @@ import {
   issueDeLaVerite, veriteSurLesPhotos, VERITE_SANS_ASSEMBLAGE, type PhotoImportee, type SuiteDesPhotos, type VeriteEnAttente, type VeriteSurLesPhotos,
 } from '../facade/photosDuCas.js';
 import { Icone } from './icones.js';
+import { etiquetteEcran, texteEcran } from '../ui/texteFacade.js';
 
 /** Ce que l'editeur demande au navigateur : decoder une photo, montrer une elevation ; et l'ecran, ses commandes. */
 export interface OutilsPhotos {
@@ -474,7 +475,7 @@ function PanneauClaude({ c, peutAppeler, occupe, rejouer, appeler, escalade }: {
 function TitreDuCas({ nom, id, etalon }: { nom: string; id: string | null; etalon: Props['etalon'] }) {
   return <>
     <h2 className="calTitre2">{etalon ? 'Étalon de synthèse : ' + nom : id ? 'Cas : ' + nom : 'Nouveau cas'}</h2>
-    {etalon && <p className="calNote calEtalonNote">{etalon.description} Difficultés : {etalon.difficultes.join(', ')}. Une scène du banc des façades, dessinée dans votre navigateur : la vérité (dimensions, ouvertures, gabarit) est celle du banc ; la chaîne cherche le mur comme dans l’audit. Rien ne s’enregistre.</p>}
+    {etalon && <p className="calNote calEtalonNote">{texteEcran(etalon.description)} Difficultés : {etalon.difficultes.map(etiquetteEcran).join(', ')}. Une scène du banc des façades, dessinée dans votre navigateur : la vérité (dimensions, ouvertures, gabarit) est celle du banc ; la chaîne cherche le mur comme dans l’audit. Rien ne s’enregistre.</p>}
   </>;
 }
 

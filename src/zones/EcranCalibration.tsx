@@ -23,6 +23,7 @@ import type { ResumeCasCalibration } from '../io/depotDemos.js';
 import type { ResumeEtalon } from '../facade/banc/etalons.js';
 import type { P2 } from '../facade/vision/homographie.js';
 import { ETAPES_FACADE } from '../model/etapeFacade.js';
+import { etiquetteEcran, texteEcran } from '../ui/texteFacade.js';
 
 export interface DepsCalibration extends OutilsPhotos {
   lireCalibration: () => Promise<DocumentCalibration | null>;
@@ -92,7 +93,7 @@ function ListeEtalons({ deps, ouvrir }: { deps: DepsCalibration; ouvrir: (e: Res
           ? <p className="calNote" role="status">Construction du projet de « {projet.enCours} » : le bâtiment, puis la façade mesurée comme dans l’audit…</p>
           : <p className="calProjetEtalon" role="status">Projet de démonstration enregistré dans vos démos (projet de synthèse, sans lieu : ni orthophoto, ni LiDAR) : <a href={'?demofile=' + encodeURIComponent(projet.id)} data-controle="calibration.ouvrirProjetEtalon">ouvrir « {projet.nom} »</a></p>)}
         {etalons && <div className="calDefile"><table className="attrTable calTable calTableEtalons"><thead><tr><th scope="col">Étalon</th><th scope="col" className="calColDifficile">Ce qu’il a de difficile</th><th scope="col">Ce qu’il éprouve</th><th scope="col">Photos</th><th scope="col">Ouvertures</th><th scope="col"><span className="texteMasque">Ouvrir</span></th></tr></thead>
-          <tbody>{etalons.map((e) => <tr key={e.id}><th scope="row" title={e.description}>{e.nom}</th><td className="calColDifficile">{e.difficultes.join(', ')}</td><td>{couverture(e)}</td><td>{e.photos}</td><td>{e.nbOuvertures}</td><td><button type="button" className="secondary small" data-controle="calibration.ouvrirEtalon" aria-label={'Ouvrir l’étalon ' + e.nom} onClick={() => ouvrir(e)}>Ouvrir</button>
+          <tbody>{etalons.map((e) => <tr key={e.id}><th scope="row" title={texteEcran(e.description)}>{e.nom}</th><td className="calColDifficile">{e.difficultes.map(etiquetteEcran).join(', ')}</td><td>{couverture(e)}</td><td>{e.photos}</td><td>{e.nbOuvertures}</td><td><button type="button" className="secondary small" data-controle="calibration.ouvrirEtalon" aria-label={'Ouvrir l’étalon ' + e.nom} onClick={() => ouvrir(e)}>Ouvrir</button>
             {e.projet && deps.creerProjetEtalon && <button type="button" className="secondary small" data-controle="calibration.creerProjetEtalon" aria-label={'Créer le projet de démonstration de l’étalon ' + e.nom} disabled={!!projet && 'enCours' in projet} onClick={() => { void creer(e); }}>Créer le projet de démonstration</button>}</td></tr>)}</tbody></table></div>}
       </details>
     </section>

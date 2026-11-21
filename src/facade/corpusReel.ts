@@ -142,10 +142,10 @@ const point = (p: unknown): p is PtBrut => !!p && fini((p as PtBrut).x) && fini(
 
 /** Relit la vraie forme du toit d'un cas ; leve sur un corps mal decrit (une verite fausse ne se devine pas). */
 function lireToitVrai(brut: unknown): ToitVraiCorps[] {
-  if (!Array.isArray(brut)) throw new Error('Cas reel : toitVrai doit etre une liste de corps.');
+  if (!Array.isArray(brut)) throw new Error('Cas réel : toitVrai doit être une liste de corps.');
   return brut.map((c: Partial<ToitVraiCorps>) => {
-    if (typeof c?.nom !== 'string' || !point(c.mur?.gauche) || !point(c.mur?.droite) || !FORMES_VRAIES.includes(c.forme as FormeToitSimple)) throw new Error('Cas reel : un corps du toit vrai veut un nom, son mur (gauche, droite) et une forme connue.');
-    if (c.pignons && !c.pignons.every((g) => (g.pan === 0 || g.pan === 1) && fini(g.debut) && fini(g.fin) && fini(g.faitage) && g.fin > g.debut)) throw new Error('Cas reel : un pignon du toit vrai veut son pan, son debut, sa fin et son faitage.');
+    if (typeof c?.nom !== 'string' || !point(c.mur?.gauche) || !point(c.mur?.droite) || !FORMES_VRAIES.includes(c.forme as FormeToitSimple)) throw new Error('Cas réel : un corps du toit vrai veut un nom, son mur (gauche, droite) et une forme connue.');
+    if (c.pignons && !c.pignons.every((g) => (g.pan === 0 || g.pan === 1) && fini(g.debut) && fini(g.fin) && fini(g.faitage) && g.fin > g.debut)) throw new Error('Cas réel : un pignon du toit vrai veut son pan, son début, sa fin et son faîtage.');
     return c as ToitVraiCorps;
   });
 }
@@ -154,23 +154,23 @@ function lireToitVrai(brut: unknown): ToitVraiCorps[] {
 function lireToitDuCas(brut: unknown): NonNullable<CasReel['toit']> {
   const t = brut as Partial<NonNullable<CasReel['toit']>> | null;
   const corpsLisible = (c: Partial<CorpsToit>) => Array.isArray(c?.pts) && c.pts.length === 4 && c.pts.every(point) && fini(c.posFaitage) && fini(c.faitage) && Array.isArray(c.egouts) && c.egouts.length === 2 && c.egouts.every(fini) && Array.isArray(c.pignons);
-  if (!t || !point(t.mur?.gauche) || !point(t.mur?.droite) || !Array.isArray(t.corps) || !t.corps.every(corpsLisible)) throw new Error('Cas reel : toit veut le mur de la facade (gauche, droite) et des corps du toit (pts, posFaitage, faitage, egouts, pignons).');
+  if (!t || !point(t.mur?.gauche) || !point(t.mur?.droite) || !Array.isArray(t.corps) || !t.corps.every(corpsLisible)) throw new Error('Cas réel : toit veut le mur de la façade (gauche, droite) et des corps du toit (pts, posFaitage, faitage, egouts, pignons).');
   return { mur: { gauche: { ...t.mur.gauche }, droite: { ...t.mur.droite } }, corps: t.corps.map((c) => JSON.parse(JSON.stringify(c)) as CorpsToit) };
 }
 
 /** Relit le mur vrai d'un cas ; leve s'il ne forme pas un mur. */
 function lireCalageVrai(brut: unknown): CalageVrai {
   const c = brut as Partial<CalageVrai> | null;
-  if (!c || !fini(c.x0) || !fini(c.x1) || !(c.x1 > c.x0) || !fini(c.versionChaine) || (c.egout !== undefined && !fini(c.egout)) || (c.sol !== undefined && !fini(c.sol))) throw new Error('Cas reel : calageVrai veut x0 < x1 et la version de la chaine.');
+  if (!c || !fini(c.x0) || !fini(c.x1) || !(c.x1 > c.x0) || !fini(c.versionChaine) || (c.egout !== undefined && !fini(c.egout)) || (c.sol !== undefined && !fini(c.sol))) throw new Error('Cas réel : calageVrai veut x0 < x1 et la version de la chaîne.');
   return { x0: c.x0, x1: c.x1, ...(c.egout !== undefined ? { egout: c.egout } : {}), ...(c.sol !== undefined ? { sol: c.sol } : {}), versionChaine: c.versionChaine };
 }
 
 export function lireCasReel(donnees: unknown): CasReel {
   const c = donnees as Partial<CasReel> | null;
-  if (!c || c.format !== FORMAT_CAS_REEL || c.version !== 1) throw new Error('Ce n’est pas un cas de facade reelle.');
-  if (typeof c.nom !== 'string' || !(c.largeurM && c.largeurM > 0) || !(c.hauteurM && c.hauteurM > 0)) throw new Error('Cas reel incomplet : nom, largeur, hauteur.');
-  if (!Array.isArray(c.photos) || !c.photos.length || c.photos.some((p) => !p.fichier || !Array.isArray(p.coins) || p.coins.length !== 4)) throw new Error('Cas reel incomplet : chaque photo veut un fichier et quatre coins.');
-  if (!Array.isArray(c.ouvertures)) throw new Error('Cas reel incomplet : ouvertures.');
+  if (!c || c.format !== FORMAT_CAS_REEL || c.version !== 1) throw new Error('Ce n’est pas un cas de façade réelle.');
+  if (typeof c.nom !== 'string' || !(c.largeurM && c.largeurM > 0) || !(c.hauteurM && c.hauteurM > 0)) throw new Error('Cas réel incomplet : nom, largeur, hauteur.');
+  if (!Array.isArray(c.photos) || !c.photos.length || c.photos.some((p) => !p.fichier || !Array.isArray(p.coins) || p.coins.length !== 4)) throw new Error('Cas réel incomplet : chaque photo veut un fichier et quatre coins.');
+  if (!Array.isArray(c.ouvertures)) throw new Error('Cas réel incomplet : ouvertures.');
   const gabarit = lireGabarit(c.gabarit);
   const reste = { ...(c as CasReel) };
   delete reste.gabarit; delete reste.calageVrai; delete reste.toitVrai; delete reste.ia; delete reste.toit; delete reste.facade; delete reste.contour;

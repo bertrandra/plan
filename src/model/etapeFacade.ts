@@ -284,7 +284,7 @@ export function numerosDuSegment(s: Pick<SegmentFacade, 'etapes'>): string {
 /** Le contrat d'une etape. */
 export function etapeFacade(id: IdEtape): EtapeFacade {
   const e = ETAPES_FACADE.find((x) => x.id === id);
-  if (!e) throw new RangeError('Etape de facade inconnue : ' + id);
+  if (!e) throw new RangeError('Étape de façade inconnue : ' + id);
   return e;
 }
 

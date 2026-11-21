@@ -4280,6 +4280,70 @@ const POINTS = {
     if (deborde) echecs.push('débordement');
     return { ok: !echecs.length, mesure: lus.join(' ; ') + (echecs.length ? ' — ' + echecs.join(' ; ') : '') };
   },
+  188: async (page, f) => {
+    // Les textes de la calibration et de l'audit des facades (le reste du lot 4) : la chaine rend des identifiants (`fenetre`,
+    // `porte-fenetre`, `trapeze`) et des textes qu'elle enregistre, le corpus du banc des etiquettes et une description sans accents ;
+    // l'ecran les ecrit en francais correct (ui/texteFacade.ts) sans changer la donnee. Admin › Calibrer la detection, routes `admin/…`
+    // simulees : la liste des etalons (etiquettes, infobulle de l'etalon 21), puis le cas de l'etalon 02 et sa reponse enregistree
+    // SYNTHETIQUE (pas Claude) en mode IA, ses etapes ouvertes une a une, et « Ajouter une ouverture » a l'E12. On mesure : aucun
+    // identifiant sans accent ni apostrophe droite dans le texte, les infobulles et les aria-label des etapes ; les listes montrent
+    // « fenêtre » et gardent la valeur `fenetre` ; rien ne deborde ; aucun appel a Claude.
+    const run = JSON.parse(readFileSync('tests/fixtures/facades-ia/02-synthetique.json', 'utf8'));
+    const cas = { ...casEtalon('02-enduit-uni-face'), nom: 'Synthèse 02 · enduit', source: 'fumee', ia: [run] };
+    let appels = 0;
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/claude/messages')) { appels++; return route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }); }
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [{ id: 'cas-02', nom: cas.nom, statut: 'brouillon', photos: 1, ouvertures: cas.ouvertures.length, updatedAt: '2026-11-07T10:00:00Z' }] });
+      if (u.pathname.endsWith('/admin/calibration-cas/cas-02')) return json(cas);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise [data-etape="prises"] .calFriseEtat:not(.a-venir)'), null, { timeout: 120000 });
+    const ouvrir = (id) => etape('etape ' + id, async () => { await page.locator(`.calFrise button[data-etape="${id}"]`).click({ timeout: 5000 }); await page.locator('.calEtapeOuverte > h3').waitFor({ timeout: 5000 }); });
+    // Le texte d'une zone tel que la personne le lit ou l'entend : son texte, ses infobulles, ses aria-label, ses choix de liste.
+    const lire = (selecteur) => page.evaluate((s) => [...document.querySelectorAll(s)].flatMap((z) => [z.textContent || '',
+      ...[...z.querySelectorAll('[title], [aria-label], [alt]'), z].flatMap((e) => ['title', 'aria-label', 'alt'].map((a) => e.getAttribute(a) || ''))]).join(' \n '), selecteur);
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('liste des etalons', async () => { await page.locator('[data-controle="calibration.etalons"] > summary').click({ timeout: 20000 }); await page.locator('[data-controle="calibration.ouvrirEtalon"]').first().waitFor({ timeout: 10000 }); });
+    const etalons = await page.evaluate(() => [...document.querySelectorAll('.calTableEtalons tbody tr')].map((tr) => ({ nom: tr.querySelector('th')?.textContent || '', titre: tr.querySelector('th')?.getAttribute('title') || '', etiquettes: tr.querySelector('.calColDifficile')?.textContent || '' })));
+    const capture = process.env.FUMEE_CAPTURE_TEXTES;
+    if (capture) await page.locator('.calEtalons').screenshot({ path: capture + '-' + f.nom + '-etalons.png' }).catch(() => {});
+    const e21 = etalons.find((e) => e.nom.startsWith('21-'));
+    const e12 = etalons.find((e) => e.nom.startsWith('12-'));
+    const debords = [await deborde()];
+    await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu', finRejeu);
+    await ouvrir('lectureIa');
+    await etape('mode IA', () => page.locator('.calEtapeOuverte [data-controle="calibration.modeIa"]').click({ timeout: 5000 }));
+    await etape('fin du rejeu IA', finRejeu);
+    const textes = [];
+    for (const id of ['objectif', 'calage', 'lectureIa', 'silhouette', 'texture', 'ouvertures']) {
+      await ouvrir(id);
+      textes.push(await lire('.calEtapeOuverte'));
+    }
+    await page.waitForFunction(() => !!document.querySelector('.calEtapeOuverte [data-action="boites"] .elementAction'), null, { timeout: 30000 }).catch(() => {});
+    const boites = await lire('.calEtapeOuverte [data-action="boites"]');
+    textes.push(boites);
+    await etape('ajouter', () => page.locator('.calEtapeOuverte .choixAjouts button', { hasText: 'Ajouter une ouverture' }).click({ timeout: 5000 }));
+    if (capture) await page.locator('.calEtapeOuverte').screenshot({ path: capture + '-' + f.nom + '-e12.png' }).catch(() => {});
+    const choix = await page.locator('.calEtapeOuverte .choixAjouts .choixManuel select').first().evaluate((sel) => [...sel.options].map((o) => o.value + '=' + o.textContent));
+    debords.push(await deborde());
+    const lu = [...textes, ...etalons.map((e) => e.titre + ' \n ' + e.etiquettes)].join(' \n ');
+    // Bornes a la Unicode, et jamais dans un nom d'etalon (« 10-meuliere-garage-ton-sur-ton »), un chemin ou un nom de fichier.
+    const SANS_ACCENT = /(?<![\p{L}\d_/.-])(fenetres?|porte-fenetre|indetermine|trapeze|cheminee|meuliere|degrade|ebrasements?|tres|aretes|piege|pied-cache|visee-decentree|hauteur-estimee|faitage-debordant|vegetation|completion|ombre-debord|detectees|trouves|degres)(?![\p{L}\d_/-]|\.\p{L})/gu;
+    const fautes = [...new Set(lu.match(SANS_ACCENT) ?? [])];
+    const droites = [...new Set(lu.match(/\p{L}'\p{L}+/gu) ?? [])];
+    const ok = etalons.length === 30 && fautes.length === 0 && droites.length === 0
+      && /ses quatre ébrasements perpendiculaires au mur\. Pris très de biais \(35°\), à hauteur d’œil des fenêtres/.test(e21?.titre || '') && /ébrasements/.test(e21?.etiquettes || '') && /pied-caché/.test(e12?.etiquettes || '')
+      && /(?<!\p{L})fenêtre(?!\p{L})/u.test(boites) && JSON.stringify(choix) === '["fenetre=fenêtre","porte-fenetre=porte-fenêtre","porte=porte","garage=garage"]'
+      && appels === 0 && !debords.some(Boolean);
+    return { ok, mesure: `${etalons.length} étalons ; étalon 21 : « ${(e21?.titre || '').slice(58, 130)}… », étiquettes « ${e21?.etiquettes} » ; étalon 12 : « ${e12?.etiquettes} » ; ${lu.length} caractères lus (six étapes du cas, étalons) ; sans accent : ${fautes.length ? fautes.join(', ') : 'aucun'} ; apostrophe droite : ${droites.length ? droites.join(', ') : 'aucune'} ; boîtes de l’É12 ${/(?<!\p{L})fenêtre(?!\p{L})/u.test(boites) ? 'en « fenêtre »' : 'SANS « fenêtre »'} ; liste du type : ${choix.join(', ')} ; ${appels} appel(s) à Claude ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
   186: async (page, f) => {
     // Les raccourcis (lot 4) : une seule table (app/clavier.ts) que le clavier ecoute et que le menu Aide montre. Au clavier, sur la
     // terrasse de la demonstration : « Dupliquer » ajoute un objet, Ctrl+Z le retire, Ctrl+Y le rend, Ctrl+Z puis Ctrl+Maj+Z de meme ;
@@ -9951,7 +10015,8 @@ function pointsPour(nomClasse) {
   // 186 : les raccourcis : Ctrl+Z, Ctrl+Y et Ctrl+Maj+Z, le bouton « Rétablir », Suppr (confirme, pas dans un champ) ; la liste du menu Aide.
   // 183 : le nom de l'emetteur du devis vient du compte meme hors du cache du contexte (`token_expires_at` nul), propose et imprime.
   // 187 : les erreurs d'un fichier dites en clair : un JSON et un SVG illisibles, le PNG qui ne se rend pas, le DXF bloque.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187];
+  // 188 : les textes de la calibration (etalons, etapes d'un cas, listes) : identifiants et textes de la chaine ecrits avec leurs accents.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
