@@ -23,10 +23,13 @@ import { BoutonPhotographierFacade } from './BoutonPhotographierFacade.js';
 
 // Le panneau du mode Toit et le catalogue des toits (three/gestesToits.ts) se chargent a l'ouverture de la Vue 3D (AD-10).
 const ModeToit = lazy(() => import('./ModeToit.js').then((m) => ({ default: m.ModeToit })));
+// Le panneau du photomontage, sa lecture de l'EXIF et son calage se chargent quand on y entre (app/photomontage/etat.ts).
+const Photomontage = lazy(() => import('./Photomontage.js').then((m) => ({ default: m.Photomontage })));
 import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoint, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
 import type { DeuxVues } from '../../three/comparaison3d.js';
 import type { EtatMagasin, Magasin } from '../../app/magasin.js';
 import { sessionToit } from '../../app/toits/modeToit.js';
+import { photomontage } from '../../app/photomontage/etat.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { Inspecteur } from '../../app/inspecteur.js';
 import { sectionVoisinage3d } from '../../ui/champs/voisinage3d.js';
@@ -126,7 +129,7 @@ function EtiquettesDeuxVues({ vues }: { vues: DeuxVues }) {
 }
 
 // Les commandes dont la vue montre l'etat elle-meme (les boutons de camera suivent chacun la leur, s'ils le font).
-const COMMANDES_VUE3D = ['3d.enregistrerPointDeVue', 'audit.suivre', '3d.heureDoree', '3d.promenade', '3d.captureHd', 'terrasse.isoler', 'toit.modifier', 'facade.photographier'];
+const COMMANDES_VUE3D = ['3d.enregistrerPointDeVue', 'audit.suivre', '3d.heureDoree', '3d.promenade', '3d.captureHd', 'terrasse.isoler', 'toit.modifier', 'facade.photographier', '3d.photomontage'];
 
 /**
  * La cle de la Vue 3D (zones/composants/abonnement.ts). Montree, elle suit ce qu'elle lit du plan : les attributs des objets (la
@@ -172,6 +175,11 @@ function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: Regist
       <Bouton3d commandes={commandes} id="3d.modeZoom" domId="terrasse3dModeZoom" icone="loupe" libelle="Glisser pour zoomer" titre="Zoom (glisser vers le haut rapproche, vers le bas éloigne)" actif={affichage3d.mode === 'zoom'} />
       <div className="separateur3d"></div>
       <Bouton3d commandes={commandes} id="3d.enregistrerPng" domId="terrasse3dSavePng" icone="image" libelle="Enregistrer la vue en PNG" titre="Enregistrer la vue actuelle en PNG" />
+      {/* Refuse pendant une session du mode Toit : le bouton s'efface, la barre du mode dit ou l'on est. */}
+      {commandes.etat('3d.photomontage').utilisable && (
+        <Bouton3d commandes={commandes} id="3d.photomontage" domId="terrasse3dPhotomontage" icone="photomontage" libelle="Photomontage sur une photo"
+          titre="Photomontage : poser le projet sur une photo de votre jardin" />
+      )}
       <div className="separateur3d"></div>
       <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur des yeux (1,60 m au-dessus du platelage) : ne change que l'altitude de la caméra, pas sa position au sol" />
       {commandes.etat('terrasse.isoler').utilisable && (
@@ -187,7 +195,9 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
   useEtat3d();
   useCleVue3d(magasin, commandes, vues);
   const visible = useStore(magasin.store, (s) => s.vue) === 'vue3d';
-  const pleinePage = affichage3d.pleinePage3d;
+  // En photomontage, la scene prend le rapport de la photo, sous laquelle se range le panneau du mode : pas de plein ecran.
+  const enPhotomontage = photomontage.actif && affichage3d.vue3d === 'pret';
+  const pleinePage = affichage3d.pleinePage3d && !enPhotomontage;
   const r = vues.reglages;
   const etatPlan = magasin.store.getState().etat;
   // Le mode audit (app/audit/) : l'etat de la promenade et ses deux gestes, sous les reglages.
@@ -308,8 +318,10 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
             <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} heureLegale={vues.heureLegale()} info={affichage3d.soleilInfo} />
             <LigneDate ids={IDS_SOLEIL} soleil={vues.soleil3d} />
           </div>
-          <CommandesCamera commandes={commandes} magasin={magasin} pleinePage={pleinePage} />
+          {/* En photomontage, la camera est celle de la photo : ses commandes sont dans le panneau du mode, sous l'image. */}
+          {!enPhotomontage && <CommandesCamera commandes={commandes} magasin={magasin} pleinePage={pleinePage} />}
         </div>
+        {enPhotomontage && <Suspense fallback={null}><Photomontage magasin={magasin} commandes={commandes} redimensionner={vues.redimensionner3d} /></Suspense>}
       </div>
     </div>
   );

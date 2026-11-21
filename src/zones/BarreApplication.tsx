@@ -218,6 +218,8 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.svg" libelle="SVG" idDom="exportSvgBtn" />
         <Entree commandes={commandes} id="export.png" libelle="PNG" idDom="exportPngBtn" />
+        {/* Le projet pose sur une photo du jardin : l'entree mene au photomontage de la Vue 3D, ou son image s'enregistre. */}
+        <Entree commandes={commandes} id="export.photomontage" libelle="Photomontage sur une photo…" />
         <Entree commandes={commandes} id="export.dxf" libelle="DXF" idDom="exportDxfBtn" />
         <li className="menuReglage">
           <label title="L'échelle fixe la taille de la page : à 1/200, 1 m réel = 5 mm sur papier">Échelle du PDF 1/<EchellePdf magasin={magasin} /></label>

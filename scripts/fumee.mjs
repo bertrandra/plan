@@ -27,6 +27,7 @@ import { cpus, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ouvrirDemo, simulerPlateforme, FORMATS, BASE, CONTEXTE } from './captures.mjs';
 import { choisirModeReseau, reseau, servirThreeLocal } from './fumee-reseau.mjs';
+import { avecExif } from '../tests/fixtures/photomontage/exif.mjs';
 
 const require = createRequire(import.meta.url);
 let chromium;
@@ -4500,6 +4501,174 @@ const POINTS = {
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
       + `démonstration (pente, secteur protégé) : « ${d1.reponse} » (${d1.raisons.length} raison(s), ${d1.reserves.length} réserve(s)), en tête du dialogue et dans l’onglet PLU ; `
       + `sans relief : « ${d2.reponse} » ; sans servitude : « ${d3.reponse} » ; terrasse de ${surface.toFixed(1).replace('.', ',')} m² relevée : « ${d4.reponse} » ; verdict du recul : ${etatVerdict}, « ${(texte || '').replace(/\s+/g, ' ').slice(0, 110)}… » ; marquée sur le plan : ${marquee ? 'oui' : 'NON'}` };
+  },
+  190: async (page, f) => {
+    // Le photomontage (demande du proprietaire, 20 novembre 2026) : le projet de la Vue 3D pose sur une photo du jardin. Mode expert
+    // eteint (le mode est pour tout le monde) : l'entree du menu Exporter, le bouton de la colonne de la camera, la carte « Choisir
+    // une photo » et sa phrase sur la confidentialite ; une photo de synthese (ciel et herbe unis) porteuse d'un EXIF connu
+    // (tests/fixtures/photomontage/exif.mjs : position, direction, focale) est lue et cale la camera ; la zone de rendu prend le
+    // rapport de la photo ; seuls les ouvrages du projet se dessinent (ni ciel, ni terrain, ni arbre ; les batiments de la parcelle
+    // n'ecrivent que la profondeur : ils cachent ce que le projet a derriere eux) ; un bouton, le
+    // clavier, un glisser sur l'image et la molette ajustent le point de vue ; la maison se montre en transparence ; l'image
+    // enregistree a la taille de la photo, porte le projet, garde la photo intacte ailleurs et ne porte pas la maison ; la sortie
+    // rend la Vue 3D comme avant (camera, visibilites, sol, taille du rendu, image), sans « modifie ».
+    const echecs = [];
+    if (await modeExpert(page, false)) echecs.push('mode expert resté allumé');
+    const exporter = await entreesDuMenu(page, 'menuExporter');
+    if (!exporter?.commandes.includes('export.photomontage')) echecs.push('menu Exporter sans « Photomontage sur une photo… »');
+    const objetsAvant = JSON.stringify((await lireEtat(page)).objects);
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => !!window.__plan.scene3d(), null, { timeout: 20000 });
+    await vue3dEconome(page);
+    // Le vent ferait bouger l'image de reference (une bibliotheque d'essences chargee) : la sortie se compare a une image fixe.
+    await page.evaluate(() => { const v = document.getElementById('terrasse3dVent'); if (v?.checked) v.click(); });
+    const lireScene = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d(), k = sc.renderer.domElement, a = (v) => v.toArray().map((x) => +x.toFixed(3));
+      const sol = sc.scene.children.find((x) => x.isMesh && (x.name === 'sol-relief' || x.geometry?.type === 'PlaneGeometry') && !x.name.startsWith('photomontage'));
+      return JSON.stringify({ position: a(sc.camera.position), cible: a(sc.controls.target), champ: +sc.camera.fov.toFixed(2), aspect: +sc.camera.aspect.toFixed(3), l: k.width, h: k.height,
+        visibles: sc.scene.children.filter((x) => x.visible).length, enfants: sc.scene.children.length, gestes: sc.controls.enabled, sol: sol?.material?.type ?? null,
+        ciel: sc.scene.getObjectByName('ciel')?.visible ?? null });
+    });
+    const imageAvant = await image3dStable(page, 8000), sceneAvant = await lireScene();
+    // Entrer par le bouton de la colonne de la camera.
+    if (!(await page.evaluate(() => { const b = document.getElementById('terrasse3dPhotomontage'); b?.click(); return !!b; }))) echecs.push('bouton « Photomontage » absent de la Vue 3D');
+    await page.locator('.invitePhotomontage').waitFor({ timeout: 20000 });
+    const invite = await page.locator('.invitePhotomontage').innerText();
+    if (!/reste sur cet appareil.*ni au serveur ni à Claude/.test(invite)) echecs.push('phrase de confidentialité absente');
+    // La photo de synthese : un ciel et une herbe unis, 1 600 × 1 200, et un EXIF connu.
+    const CIEL = [111, 163, 216], HERBE = [98, 140, 70], EXIF = { lat: 48.90515, lon: 2.13262, capDeg: 40, focale35: 24 };
+    const jpeg = await page.evaluate(({ CIEL, HERBE }) => {
+      const c = document.createElement('canvas'); c.width = 1600; c.height = 1200;
+      const g = c.getContext('2d');
+      g.fillStyle = `rgb(${CIEL})`; g.fillRect(0, 0, 1600, 560);
+      g.fillStyle = `rgb(${HERBE})`; g.fillRect(0, 560, 1600, 640);
+      return c.toDataURL('image/jpeg', 0.95).split(',')[1];
+    }, { CIEL, HERBE });
+    await page.setInputFiles('#photomontageFichier', { name: 'jardin.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(avecExif(Buffer.from(jpeg, 'base64'), EXIF)) });
+    await page.waitForFunction(() => !!window.__plan.photomontage().pose, null, { timeout: 30000 });
+    await page.locator('.panneauPhotomontage').waitFor({ timeout: 10000 });
+    await image3dStable(page, 6000);
+    const pm = () => page.evaluate(() => { const p = window.__plan.photomontage(); return JSON.parse(JSON.stringify({ photo: p.photo, pose: p.pose, calage: p.calage, actif: p.actif })); });
+    const lu = await pm();
+    // Le calage : la position a 24 m au sud et 19 m a l'ouest de l'origine du cadastre, a 1,6 m du sol, le cap et la focale de l'EXIF.
+    if (lu.calage?.position !== 'gps' || lu.calage?.cap !== 'exif' || lu.calage?.focale35 !== 24) echecs.push('calage non lu : ' + JSON.stringify({ p: lu.calage?.position, c: lu.calage?.cap, f: lu.calage?.focale35 }));
+    if (Math.abs(lu.pose.x + 18.88) > 0.15 || Math.abs(lu.pose.y + 24.07) > 0.15) echecs.push(`position ${lu.pose.x.toFixed(2)}, ${lu.pose.y.toFixed(2)} au lieu de −18,88, −24,07`);
+    if (lu.pose.hauteurM !== 1.6 || lu.pose.capDeg !== 40) echecs.push(`hauteur ${lu.pose.hauteurM} m, cap ${lu.pose.capDeg}°`);
+    if (Math.abs(lu.pose.champDeg - 56.8) > 0.3) echecs.push('champ vertical ' + lu.pose.champDeg.toFixed(1) + '° pour 24 mm en 4/3 (attendu 56,8°)');
+    const texte = await page.locator('.calagePm').innerText();
+    if (!/à quelques mètres près/.test(texte) || !/boussole/.test(texte) || !/Focale lue : 24 mm/.test(texte) || /exact/i.test(texte)) echecs.push('ce qui a été lu mal dit : ' + texte.replace(/\n/g, ' | ').slice(0, 120));
+    // La zone de rendu au rapport de la photo, et la camera posee.
+    const vu = await page.evaluate(() => {
+      const h = document.getElementById('terrasse3dCanvasHost'), sc = window.__plan.scene3d(), v = window.__plan.visibilite3d(), e = window.__plan.etat();
+      const projet = (o) => !!o && !['terrain', 'batiment', 'annexe', 'arbre', 'camera', 'limite'].includes(o.fonction) && o.key !== 'parcelle' && !o.existant && !o.voisinage && !o.bdtopo && !o.cadastre;
+      // Un batiment de la parcelle ne se dessine pas, mais cache le projet qu'il a derriere lui : ses mailles n'ecrivent que la profondeur.
+      const teintes = (cle) => { let n = 0; window.__plan.pose3d(cle).racines.forEach((r) => r.traverse((m) => { if (m.isMesh && m.visible && m.material?.colorWrite !== false) n++; })); return n; };
+      const cache = (o) => !!o && ['batiment', 'annexe'].includes(o.fonction) && !o.voisinage && (!o.bdtopo || o.bdtopo.surParcellePrincipale === true) && teintes(o.key) === 0;
+      const autres = v.visibles.filter((cle) => { const o = e.objects.find((x) => x.key === cle); return !projet(o) && !cache(o); });
+      const caches = v.visibles.filter((cle) => cache(e.objects.find((x) => x.key === cle))).length;
+      const mailles = sc.scene.children.filter((x) => x.visible && !x.isLight);
+      return { rapport: h.clientWidth / h.clientHeight, aspect: sc.camera.aspect, champ: sc.camera.fov, y: sc.camera.position.y, gestes: sc.controls.enabled,
+        visibles: v.visibles.length - caches, caches, autres, horsObjets: v.horsObjetsVisibles, ciel: sc.scene.getObjectByName('ciel')?.visible ?? null,
+        sol: mailles.filter((x) => x.isMesh && (x.name === 'sol-relief' || x.geometry?.type === 'PlaneGeometry') && !x.name.startsWith('photomontage')).map((x) => x.material?.type),
+        ombres: !!document.getElementById('terrasse3dShadows')?.checked, fond: !!sc.scene.getObjectByName('photomontage-fond')?.visible,
+        colonne: !!document.getElementById('terrasse3dZoomControls'), cibles: [...document.querySelectorAll('.panneauPhotomontage .boutonPm')].map((b) => Math.min(b.offsetWidth, b.offsetHeight)) };
+    });
+    if (Math.abs(vu.rapport - 4 / 3) > 0.02 || Math.abs(vu.aspect - 4 / 3) > 0.02) echecs.push(`zone de rendu au rapport ${vu.rapport.toFixed(3)} (caméra ${vu.aspect.toFixed(3)}) au lieu de 1,333`);
+    if (Math.abs(vu.champ - lu.pose.champDeg) > 0.01 || vu.gestes) echecs.push('caméra non posée (champ ' + vu.champ.toFixed(1) + '°, orbite ' + (vu.gestes ? 'active' : 'coupée') + ')');
+    if (vu.autres.length || vu.ciel !== false || !vu.fond) echecs.push(`la scène montre autre chose que le projet : ${vu.autres.slice(0, 4).join(', ') || '—'}, ciel ${vu.ciel}, photo ${vu.fond}`);
+    if (!vu.visibles || vu.horsObjets !== 1) echecs.push(`projet absent de la scène (${vu.visibles} objet(s), ${vu.horsObjets} structure(s) de terrasse)`);
+    if (!vu.caches) echecs.push('aucun bâtiment de la parcelle ne cache le projet');
+    // Le sol : invisible, il ne recoit que l'ombre du projet ; sans ombres (case « Ombres » decochee, Économe), il n'est pas dessine.
+    if (vu.sol.join() !== (vu.ombres ? 'ShadowMaterial' : '')) echecs.push(`le sol se voit (${vu.sol.join() || 'aucun'}, ombres ${vu.ombres ? 'cochées' : 'décochées'})`);
+    if (vu.colonne) echecs.push('les commandes d’orbite restent sur l’image');
+    if (vu.cibles.length < 12 || vu.cibles.some((c) => c < 44)) echecs.push('boutons d’ajustement sous 44 px : ' + vu.cibles.join(','));
+    // L'ajustement : un bouton, le clavier, un glisser sur l'image, la molette (au bureau).
+    const imageCalee = await image3dStable(page, 4000);
+    await page.evaluate(() => document.querySelector('.panneauPhotomontage [data-geste="tournerDeg:-2"]').click());
+    await page.keyboard.press('Shift+ArrowUp');
+    await page.keyboard.press('PageUp');
+    await page.waitForTimeout(300);
+    const p1 = (await pm()).pose;
+    if (p1.capDeg !== 38) echecs.push('bouton « Tourner à gauche » : cap ' + p1.capDeg);
+    if (Math.abs(Math.hypot(p1.x - lu.pose.x, p1.y - lu.pose.y) - 0.5) > 0.01 || Math.abs(p1.hauteurM - 1.7) > 1e-6) echecs.push('clavier : avancée ' + Math.hypot(p1.x - lu.pose.x, p1.y - lu.pose.y).toFixed(2) + ' m, hauteur ' + p1.hauteurM);
+    const boite = await page.locator('#terrasse3dCanvasHost canvas').boundingBox();
+    await glisser(page, { x: boite.x + boite.width / 2, y: boite.y + boite.height * 0.7 }, 60, -30);
+    await page.waitForTimeout(300);
+    const p2 = (await pm()).pose;
+    // Le point saisi suit le doigt : glisser a droite tourne le regard a gauche, glisser vers le haut le baisse.
+    if (!(p2.capDeg < p1.capDeg - 1) || !(p2.inclinaisonDeg < p1.inclinaisonDeg - 0.5) || p2.x !== p1.x || p2.y !== p1.y) echecs.push(`glisser : cap ${p1.capDeg.toFixed(1)} → ${p2.capDeg.toFixed(1)}, inclinaison ${p1.inclinaisonDeg.toFixed(1)} → ${p2.inclinaisonDeg.toFixed(1)}`);
+    let p3 = p2;
+    if (!f.mobile) {
+      await page.mouse.move(boite.x + boite.width / 2, boite.y + boite.height / 2);
+      await page.mouse.wheel(0, -200);
+      await page.waitForTimeout(300);
+      p3 = (await pm()).pose;
+      if (!(p3.champDeg < p2.champDeg)) echecs.push('la molette ne zoome pas');
+    }
+    const imageAjustee = await image3dStable(page, 4000);
+    if (imageAjustee === imageCalee) echecs.push('l’image ne suit pas l’ajustement');
+    // La maison en transparence : un batiment de la parcelle revient, le temps du calage.
+    await page.evaluate(() => document.querySelector('[data-controle="photomontage.maison"]').click());
+    await page.waitForTimeout(600);
+    const avecMaison = await page.evaluate(() => {
+      const v = window.__plan.visibilite3d(), e = window.__plan.etat();
+      const teintes = (cle) => { let n = 0; window.__plan.pose3d(cle).racines.forEach((r) => r.traverse((m) => { if (m.isMesh && m.visible && m.material?.colorWrite !== false) n++; })); return n; };
+      return { batis: v.visibles.filter((cle) => ['batiment', 'annexe'].includes(e.objects.find((o) => o.key === cle)?.fonction) && teintes(cle) > 0).length, garder: !!document.querySelector('[data-controle="photomontage.maisonDansImage"]')?.checked };
+    });
+    if (!avecMaison.batis || avecMaison.garder) echecs.push(`maison en transparence : ${avecMaison.batis} bâtiment(s) montré(s), « la garder dans l’image » ${avecMaison.garder ? 'cochée' : 'décochée'}`);
+    if (process.env.FUMEE_CAPTURE_PHOTOMONTAGE) await page.screenshot({ path: process.env.FUMEE_CAPTURE_PHOTOMONTAGE + '-190-' + f.nom + '.png' }).catch(() => {});
+    // L'image enregistree : la taille de la photo, le projet dedans, la photo intacte ailleurs. La maison en transparence n'y est
+    // que sur un choix explicite : la meme image avec ou sans elle a l'ecran, plus de pixels une fois « la garder » cochee.
+    const enregistrer = async (nom) => {
+      const [telechargement] = await Promise.all([
+        page.waitForEvent('download', { timeout: 30000 }),
+        page.evaluate(() => document.querySelector('.panneauPhotomontage [data-commande="export.photomontage"]').click())
+      ]);
+      const fichier = await telechargement.path();
+      if (process.env.FUMEE_CAPTURE_PHOTOMONTAGE) writeFileSync(process.env.FUMEE_CAPTURE_PHOTOMONTAGE + '-190-' + f.nom + '-' + nom + '.jpg', readFileSync(fichier));
+      const mesure = await page.evaluate(async ({ b64, CIEL, HERBE }) => {
+        const bmp = await createImageBitmap(await (await fetch('data:image/jpeg;base64,' + b64)).blob());
+        const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+        const g = c.getContext('2d'); g.drawImage(bmp, 0, 0);
+        const d = g.getImageData(0, 0, c.width, c.height).data;
+        const pres = (i, k) => Math.abs(d[i] - k[0]) + Math.abs(d[i + 1] - k[1]) + Math.abs(d[i + 2] - k[2]) < 36;
+        let projet = 0;
+        for (let i = 0; i < d.length; i += 4) if (!pres(i, CIEL) && !pres(i, HERBE)) projet++;
+        return { l: c.width, h: c.height, coin: pres(0, CIEL), projet: projet / (d.length / 4) };
+      }, { b64: readFileSync(fichier).toString('base64'), CIEL, HERBE });
+      await image3dStable(page, 3000);
+      return { ...mesure, nom: telechargement.suggestedFilename() };
+    };
+    const cocher = async (controle) => { await page.evaluate((c) => document.querySelector(`[data-controle="${c}"]`).click(), controle); await page.waitForTimeout(500); };
+    const sansGarder = await enregistrer('maison-montree');
+    await cocher('photomontage.maisonDansImage');
+    const avecGarder = await enregistrer('maison-gardee');
+    await cocher('photomontage.maison');
+    const image = await enregistrer('image');
+    if (!/^photomontage_.*\.jpg$/.test(image.nom)) echecs.push('nom du fichier : ' + image.nom);
+    if (image.l !== 1600 || image.h !== 1200) echecs.push(`image de ${image.l} × ${image.h} px au lieu de 1 600 × 1 200`);
+    if (!image.coin) echecs.push('la photo n’est pas intacte hors du projet (coin haut gauche)');
+    if (image.projet < 0.02 || image.projet > 0.9) echecs.push('projet absent de l’image (' + (image.projet * 100).toFixed(1) + ' % de pixels hors photo)');
+    if (Math.abs(sansGarder.projet - image.projet) > 0.002) echecs.push(`la maison en transparence est dans l’image sans qu’on l’ait choisi (${(sansGarder.projet * 100).toFixed(2)} % contre ${(image.projet * 100).toFixed(2)} %)`);
+    if (!(avecGarder.projet > image.projet + 0.01)) echecs.push(`« La garder dans l’image » ne la garde pas (${(avecGarder.projet * 100).toFixed(2)} % contre ${(image.projet * 100).toFixed(2)} %)`);
+    await image3dStable(page, 3000);
+    const apresExport = await page.evaluate(() => { const k = window.__plan.scene3d().renderer.domElement, h = document.getElementById('terrasse3dCanvasHost'); return Math.abs(k.width / k.height - h.clientWidth / h.clientHeight) < 0.02 && k.width < 1600; });
+    if (!apresExport) echecs.push('le canevas ne revient pas à la taille de l’écran après l’image');
+    // Sortir : la Vue 3D comme avant.
+    await page.evaluate(() => document.querySelector('.panneauPhotomontage [data-commande="3d.photomontage"]').click());
+    await page.waitForFunction(() => !window.__plan.photomontage().actif && !document.querySelector('.panneauPhotomontage') && !document.documentElement.hasAttribute('data-photomontage'), null, { timeout: 10000 });
+    await page.waitForTimeout(400);
+    const imageApres = await image3dStable(page, 8000), sceneApres = await lireScene();
+    if (sceneApres !== sceneAvant) echecs.push('scène différente après la sortie : ' + sceneApres + ' ≠ ' + sceneAvant);
+    else if (imageApres !== imageAvant) echecs.push('image de la Vue 3D différente après la sortie');
+    const fin = await page.evaluate(() => ({ dirty: window.__plan.etat().dirty, colonne: !!document.getElementById('terrasse3dZoomControls') }));
+    if (fin.dirty) echecs.push('projet marqué « modifié »');
+    if (!fin.colonne) echecs.push('commandes de la caméra non revenues');
+    if (JSON.stringify((await lireEtat(page)).objects) !== objetsAvant) echecs.push('le projet a changé');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `EXIF lu (GPS à ${lu.calage?.distanceM?.toFixed(0)} m du projet, cap ${lu.pose.capDeg}°, 24 mm → ${lu.pose.champDeg.toFixed(1)}°) ; rendu ${vu.rapport.toFixed(2)} ; ${vu.visibles} ouvrage(s) du projet seuls, ${vu.caches} bâtiment(s) qui cachent sans se dessiner ; `
+      + `ajusté (cap ${p3.capDeg.toFixed(1)}°, ${p3.hauteurM.toFixed(2).replace('.', ',')} m) ; image ${image.l} × ${image.h}, projet ${(image.projet * 100).toFixed(0)} % ; sortie identique` };
   },
   191: async (page, f) => {
     // Les textes de la calibration et de l'audit des facades (le reste du lot 4) : la chaine rend des identifiants (`fenetre`,
@@ -10240,8 +10409,10 @@ function pointsPour(nomClasse) {
   //       l'ouvrage deplace refait ses verdicts ; l'export SVG ne change pas.
   // 189 : « Quelle formalité pour ce projet ? » en tete de la declaration prealable et dans l'onglet PLU ; une terrasse surelevee entre
   //       dans l'indication et dans le controle du PLU, a confirmer en mairie.
+  // 190 : le photomontage : une photo a l'EXIF connu cale la camera, seuls les ouvrages du projet restent, l'image s'enregistre a la taille
+  //       de la photo, la sortie rend la Vue 3D comme avant.
   // 191 : les textes de la calibration (etalons, etapes d'un cas, listes) : identifiants et textes de la chaine ecrits avec leurs accents.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 191];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

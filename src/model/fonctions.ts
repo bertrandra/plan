@@ -9,7 +9,7 @@
 // MD/spec-ouvrages.md) ; ce module en tire les predicats que le reste du code lit.
 
 import type { ObjetPlan } from './types.js';
-import { ouvrage, ouvrageDeclare, estOuvrage, TERRAIN, POINT_DE_VUE, EQUIPEMENT, type Forme, type Particularite } from './ouvrages/index.js';
+import { ouvrage, ouvrageDeclare, estOuvrage, TERRAIN, POINT_DE_VUE, EQUIPEMENT, LIMITE, type Forme, type Particularite } from './ouvrages/index.js';
 
 export type { Forme, Particularite };
 
@@ -114,6 +114,14 @@ export const estExistant = (o: { existant?: unknown }): boolean => o.existant ==
 
 /** Un arbre du plan : un toucher de la Vue 3D le traverse (app/ecouteurs/selection3d.ts), comme la prise de l'audit. */
 export const estArbre = (o: ObjetPlan): boolean => aParticularite(o, 'arbre');
+/**
+ * Ce que le projet ajoute au jardin : une terrasse, une pergola, un carport, une piscine, un parasol, une dalle, un chemin, du mobilier...
+ * Le photomontage (core/photomontage.ts) ne dessine que cela sur la photo, qui montre deja le reste : ni terrain, ni arbre, ni point
+ * de vue, ni batiment ou annexe (meme dessines a la main : la maison est sur la photo), ni ouvrage declare existant, ni rien de ce
+ * qui vient de l'IGN ou d'un voisin.
+ */
+export const estAjouteParLeProjet = (o: ObjetPlan): boolean =>
+  !estTerrain(o) && !estBati(o) && !estArbre(o) && !estPointDeVue(o) && !estOuvrage(o, LIMITE) && !estExistant(o) && !estChezUnVoisin(o) && !estPoseSurLeTerrain(o);
 /**
  * Ce qu'un toucher de la Vue 3D choisit (demande du proprietaire, 6 novembre 2026) : un batiment ou une annexe de la parcelle du projet,
  * une terrasse, une pergola ou un carport, une piscine. Le reste (cloture, chemin, mobilier, parcelle) ne se choisit que dans le plan ou

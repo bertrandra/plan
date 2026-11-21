@@ -13,3 +13,4 @@ export {
 export { capturerVue3d } from './capture.js';
 export { poserTraitDePres } from './traitDePres.js';
 export { demanderRendu } from './renduDemande.js';
+export { reglerPhotomontage3d, quitterPhotomontage3d, capturerPhotomontage3d } from './photomontage3d.js';

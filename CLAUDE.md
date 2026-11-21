@@ -251,6 +251,14 @@ d'y toucher.
   refaits par `synchroniserArbres` (`three/arbre3d.ts`) : tout code qui pose, retire ou masque un arbre doit
   repasser par `rafraichirArbres` (scene.ts). Les textures d'EZ-tree se lisent en `NoColorSpace`. Le témoin
   GLB se capture **sans bibliothèque** (repli : tronc et boule).
+- **Photomontage (Vue 3D)** : le projet posé sur une photo du jardin (`core/photomontage.ts`, `three/photomontage3d.ts`,
+  `app/photomontage/`, `zones/vue3d/Photomontage.tsx`). Un **état de session** : la photo et son calage ne s'enregistrent pas dans le
+  projet (pas de changement de schéma), ni Ctrl+Z ni « projet modifié », permis en lecture seule, et **la photo ne quitte pas le
+  navigateur** (ni serveur, ni Claude). Le calage lu dans l'EXIF (GPS, boussole, focale) est un point de départ, jamais annoncé
+  comme exact. La scène ne dessine que ce que le projet ajoute (`estAjouteParLeProjet`, model/fonctions.ts) ; les bâtiments de la
+  parcelle n'écrivent que la profondeur (ils cachent le projet derrière eux) et ne portent pas d'ombre. Rien n'est rebâti : le mode
+  masque et remplace, puis remet tout à la sortie (`poserFiltre3d`, three/sceneVivante.ts). C'est le seul champ fichier d'image hors
+  de l'audit et de la calibration (`tests/unit/architecture/captureAudit.test.ts`), sans `capture`.
 - **Gazon de la parcelle du projet (Vue 3D)** : montré par défaut, au-dessus de la photo aérienne
   (`three/gazon.ts`, texture dessinée). La case « Gazon (3D) » (Apparence) suit la même règle que
   « Relief » ; une texture horizontale choisie l'emporte. Seul son retrait s'écrit (`gazon3d: false`).

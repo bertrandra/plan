@@ -6,6 +6,7 @@ import { showToast } from '../../shell/dialogs.js';
 import { toucher, toucherForme } from '../../core/controleurObjets.js';
 import type { Vues3d } from '../assemblage/vues3d.js';
 import { vue3d, rendre3d, affichage3d, reglerVue3d } from '../../three/etat3d.js';
+import { photomontage } from '../photomontage/etat.js';
 import { moteur3d } from '../../three/demande3d.js';
 import { poserEspeces, type EspeceArbre } from '../../model/especesArbre.js';
 import { creerIsolement, objetAIsoler } from '../isolement.js';
@@ -111,6 +112,8 @@ export function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void 
     // Le rendu pour Claude, epure le temps d'un appel (le banc visuel : meme instance que l'application).
     // Sans moteur, aucune scene a epurer (three/demande3d.ts).
     epurerLeTemps: <T>(garder: (cle: string) => boolean, f: () => T): T => { const m = moteur3d(); return m ? m.epurerLeTemps(garder, f) : f(); },
+    // Le photomontage de la session (app/photomontage/etat.ts) : ce que la fumee lit du calage et de la camera.
+    photomontage: () => photomontage,
     // La bibliotheque d'essences en usage, posee telle quelle (la fumee du point 24 la vide : le temoin GLB est en repli).
     poserEspeces: (especes: readonly EspeceArbre[]) => poserEspeces(especes)
   } });
