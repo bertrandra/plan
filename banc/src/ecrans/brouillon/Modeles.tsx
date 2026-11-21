@@ -1,5 +1,5 @@
 // Les modeles du brouillon (etape 3) : ceux du depot facade a installer, les votres a deposer ; chacun actif ou non, son seuil, et la
-// correspondance de ses classes vers celles du banc. Un modele depose par un carnet d'entrainement (etape 6) arrive ici tout seul,
+// correspondance de ses classes vers celles du banc. Un modele depose par un script d'entrainement (etape 6) arrive ici tout seul,
 // inactif, avec ses noms deja relies et sa resolution : la carte dit d'ou il vient (date, jeu, mAP) et il ne reste qu'a l'activer.
 
 import { useEffect, useState } from 'react';
@@ -7,7 +7,7 @@ import type { Banc } from '../../App.js';
 import { api } from '../../api.js';
 import { correspondanceParDefaut } from '../../brouillon.js';
 import { choixDeCreation } from '../../classes.js';
-import { bilanParType, decimal, origineDuModele } from '../../colab.js';
+import { bilanParType, decimal, origineDuModele } from '../../entrainement.js';
 import type { Modele } from '../../types.js';
 import { Icone } from '../../ui/Icones.js';
 import { Section } from '../../ui/Page.js';
@@ -18,7 +18,7 @@ export function Modeles({ banc }: { banc: Banc }) {
     setAttente(id);
     try { await f(); await banc.relire(); } catch (e) { banc.dire((e as Error).message, 'erreur'); } finally { setAttente(null); }
   };
-  // Un carnet a pu deposer un modele pendant que la page etait ouverte : relu a l'ouverture de l'ecran et en revenant sur la page.
+  // Un script d'entrainement a pu deposer un modele pendant que la page etait ouverte : relu a l'ouverture de l'ecran et en revenant sur la page.
   const { relireModeles } = banc;
   useEffect(() => {
     void relireModeles();

@@ -143,9 +143,8 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     const pyZ = zero[Object.keys(zero).find((n) => n.endsWith('entrainer.py')) ?? ''] ?? '';
     expect([pyZ.includes("m = YOLO('yolo26n.yaml')"), pyZ.includes('pretrained=False, epochs=300'), pyZ.includes('depart.pt'), pyZ.includes('nms=False')]).toEqual([true, true, false, true]);
     expect(Object.keys(zero)[0]).toMatch(/^banc-yolo26n-zero-/);
-    const nbZ = JSON.parse(zero[Object.keys(zero).find((n) => n.endsWith('entrainer.ipynb')) ?? ''] ?? '{}') as { cells: { source: string }[] };
-    expect(nbZ.cells.map((c) => c.source).join('\n')).toContain("m = YOLO('yolo26n.yaml')");
-    expect(nbZ.cells.map((c) => c.source).join('\n')).not.toContain('files.upload()\nopen(\'depart.pt\'');
+    // Le jeu ne porte qu'un script d'entrainement : plus de carnet.
+    expect(Object.keys(zero).filter((n) => n.endsWith('.ipynb'))).toEqual([]);
     expect(JSON.parse(zero[Object.keys(zero).find((n) => n.endsWith('bilan.json')) ?? ''] ?? '{}')).toMatchObject({ architecture: 'yolo26n', depart: 'zero' });
     expect((await appel('GET', 'export', { format: 'detect', depart: 'imagenet' })).status).toBe(400);
     // RF-DETR (Apache 2.0) : le jeu COCO, train/, valid/, test/ et leurs annotations ; les categories dans l'ordre des indices du banc.
@@ -284,12 +283,9 @@ describe.skipIf(!php)('l’API du banc d’apprentissage', () => {
     expect(JSON.parse(z[cle('bilan.json')] ?? '{}')).toMatchObject({ aQualifier: 1 });
     const h = JSON.parse(z[cle('hierarchie.json')] ?? '{}') as { noms: { indice: number; nom: string; chemin: string }[] };
     expect(h.noms).toEqual([{ indice: 0, nom: 'fenetre_1v', chemin: 'fenetre/fenetre_1v' }, { indice: 1, nom: 'fenetre_2v', chemin: 'fenetre/fenetre_2v' }, { indice: 2, nom: 'balcon', chemin: 'balcon' }]);
-    const carnet = JSON.parse(z[cle('entrainer.ipynb')] ?? '{}') as { cells: { source: string }[] };
-    expect(carnet.cells.map((c) => c.source).join('\n')).toContain("YOLO('depart.pt' if os.path.exists('depart.pt') else 'yolo26n.pt')");
-    expect(carnet.cells.map((c) => c.source).join('\n')).toContain("best.export(format='onnx', imgsz=640, nms=False)");
-    // Les poids se lisent la ou l'entrainement les a mis (Ultralytics 8.4 : runs/detect/runs/banc/…), jamais a un chemin devine.
-    expect(carnet.cells.map((c) => c.source).join('\n')).toContain('best = YOLO(str(m.trainer.best))');
-    expect(carnet.cells.map((c) => c.source).join('\n')).not.toContain('runs/banc/weights');
+    expect(z[cle('entrainer.py')]).toContain("m = YOLO('depart.pt' if os.path.exists('depart.pt') else 'yolo26n.pt')");
+    expect(z[cle('entrainer.py')]).toContain("m.export(format='onnx', imgsz=640, nms=False)");
+    expect(z[cle('entrainer.py')]).toContain('python3 entrainer.py [cpu|mps|0]');
   });
 
   it('un regroupement ne s apprend pas, un detail appris vient apres les objets principaux', async () => {

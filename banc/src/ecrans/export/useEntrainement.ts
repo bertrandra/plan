@@ -1,12 +1,13 @@
-// Le controleur de « Entrainer dans Colab » (etape 6) : cree une cle d'entrainement pour l'export choisi, telecharge le carnet qui la
-// porte, tient la liste des cles vivantes et les revoque. La cle en clair ne passe que par le carnet telecharge : la page ne la garde pas.
+// Le controleur de « Entrainer sur mon Mac » (etape 6) : cree une cle d'entrainement pour l'export choisi, telecharge le script qui la
+// porte, donne la commande a coller dans le Terminal, tient la liste des cles vivantes et les revoque. La cle en clair ne passe que
+// par le script telecharge : la page ne la garde pas.
 
 import { useCallback, useEffect, useState } from 'react';
 import type { Banc } from '../../App.js';
 import { api } from '../../api.js';
 import { correspondanceParDefaut } from '../../brouillon.js';
 import { nomsYolo } from '../../classes.js';
-import { carnetValable } from '../../colab.js';
+import { commandeDuScript, scriptValable } from '../../entrainement.js';
 import type { JetonEntrainement } from '../../types.js';
 
 /** Propose un texte au telechargement, sous un nom. */
@@ -22,18 +23,19 @@ function telecharger(nom: string, contenu: string, type: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-export function useColab(banc: Banc, choix: { format: 'detect' | 'seg' | 'rfdetr' | 'natif'; variante: string; depart: 'coco' | 'zero'; verifiees: boolean }) {
+export function useEntrainement(banc: Banc, choix: { format: 'detect' | 'seg' | 'rfdetr' | 'natif'; variante: string; depart: 'coco' | 'zero'; verifiees: boolean }) {
   const [jetons, setJetons] = useState<JetonEntrainement[]>([]);
   const [heures, setHeures] = useState(24);
   const [attente, setAttente] = useState(false);
-  /** Le carnet qui vient d'etre telecharge : son nom, pour dire quoi en faire. */
-  const [carnet, setCarnet] = useState<string | null>(null);
+  /** Le script qui vient d'etre telecharge : son nom et la commande qui le lance, pour dire quoi en faire. Jamais son contenu. */
+  const [script, setScript] = useState<{ fichier: string; commande: string } | null>(null);
+  const [copiee, setCopiee] = useState(false);
   const [maintenant, setMaintenant] = useState(() => Date.now());
   const { dire } = banc;
   const relire = useCallback(async () => {
     try { const r = await api.jetons(); setJetons(r.jetons); setHeures(r.heures); setMaintenant(Date.now()); } catch (e) { dire((e as Error).message, 'erreur'); }
   }, [dire]);
-  // La liste suit ce que fait le carnet (jeu lu, modele depose) : relue a l'ouverture et quand on revient sur la page.
+  // La liste suit ce que fait le script (jeu lu, modele depose) : relue a l'ouverture et quand on revient sur la page.
   useEffect(() => {
     void relire();
     const revenir = () => { if (document.visibilityState === 'visible') void relire(); };
@@ -47,9 +49,10 @@ export function useColab(banc: Banc, choix: { format: 'detect' | 'seg' | 'rfdetr
     setAttente(true);
     try {
       const r = await api.creerJeton({ format: choix.format, base: choix.variante, depart: choix.depart, verifiees: choix.verifiees, correspondance: correspondanceParDefaut(nomsYolo(banc.classes), banc.classes) });
-      if (!carnetValable(r.carnet)) throw new Error('Le carnet rendu par le serveur est illisible.');
-      telecharger(r.fichier, r.carnet, 'application/x-ipynb+json');
-      setCarnet(r.fichier);
+      if (!scriptValable(r.script)) throw new Error('Le script rendu par le serveur est incomplet.');
+      telecharger(r.fichier, r.script, 'text/x-shellscript');
+      setScript({ fichier: r.fichier, commande: commandeDuScript(r.fichier) });
+      setCopiee(false);
       await relire();
     } catch (e) {
       dire((e as Error).message, 'erreur');
@@ -58,8 +61,13 @@ export function useColab(banc: Banc, choix: { format: 'detect' | 'seg' | 'rfdetr
     }
   };
   const revoquer = async (id: string) => {
-    try { await api.revoquerJeton(id); dire('Clé révoquée : le carnet qui la porte ne peut plus rien.'); } catch (e) { dire((e as Error).message, 'erreur'); }
+    try { await api.revoquerJeton(id); dire('Clé révoquée : le script qui la porte ne peut plus rien.'); } catch (e) { dire((e as Error).message, 'erreur'); }
     await relire();
   };
-  return { jetons, heures, attente, carnet, maintenant, entrainer, revoquer, relire };
+  /** Copie la commande ; sans presse-papiers (page non sure, refus), elle reste affichee, a selectionner a la main. */
+  const copier = async () => {
+    if (!script) return;
+    try { await navigator.clipboard.writeText(script.commande); setCopiee(true); } catch { dire('La copie est refusée par le navigateur : sélectionnez la commande à la main.', 'erreur'); }
+  };
+  return { jetons, heures, attente, script, copiee, maintenant, entrainer, revoquer, copier, relire };
 }

@@ -46,7 +46,7 @@ export interface Banc {
   modeles: Modele[];
   reglages: Reglages;
   relire: () => Promise<void>;
-  /** Relit les seuls modeles : un carnet d'entrainement a pu en deposer un pendant que la page etait ouverte. */
+  /** Relit les seuls modeles : un script d'entrainement a pu en deposer un pendant que la page etait ouverte. */
   relireModeles: () => Promise<void>;
   remplacer: (m: MetaImage) => void;
   dire: (texte: string, genre?: 'ok' | 'erreur', action?: ActionMessage) => void;
@@ -148,7 +148,7 @@ export function App() {
           {ECRANS.map((e) => {
             const n = e.attend ? attente[e.attend] : 0;
             return (
-              <button key={e.id} type="button" className={e.id === ecran && !edition ? 'etape actif' : 'etape'} aria-current={e.id === ecran && !edition ? 'page' : undefined}
+              <button key={e.id} type="button" data-etape={e.id} className={e.id === ecran && !edition ? 'etape actif' : 'etape'} aria-current={e.id === ecran && !edition ? 'page' : undefined}
                 title={`${e.numero} · ${e.nom}${n ? ` : ${n} ${e.libelleAttente}` : ''}`} onClick={() => { setEdition(null); setEcran(e.id); }}>
                 <Icone nom={e.icone} taille={18} /><span className="nom-etape">{e.nom}</span>{n > 0 && <span className="badge">{n}</span>}
               </button>

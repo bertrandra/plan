@@ -5,6 +5,41 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Banc d'apprentissage : l'entraînement se fait désormais sur le Mac ; le carnet Colab est retiré** (demande du propriétaire,
+  21 novembre 2026 : « je ne vais pas utiliser Colab mais mon Mac en local »). À l'étape 6, « Entraîner sur mon Mac » remplace
+  « Entraîner dans Colab » : le bouton fige le jeu, crée la même **clé d'entraînement** (24 h, gardée hachée, révocable, un seul
+  dépôt, modèle déposé inactif, mêmes bornes) et télécharge un **script `.sh`** déjà rempli au lieu d'un carnet `.ipynb` ; l'écran
+  donne la commande à coller dans le Terminal (`bash ~/Downloads/entrainer-banc-….sh`, bouton « Copier la commande »). Le script
+  trouve Python 3.10 ou plus récent (et dit comment l'installer s'il manque), crée un environnement Python isolé
+  (`python3 -m venv`) dans `~/banc-entrainement`, y installe le paquet d'entraînement, vérifie sa clé, lit le jeu sur le banc,
+  entraîne avec **`mps` sur Apple Silicon, `cpu` sinon** (Mac Intel ; `BANC_APPAREIL` pour l'imposer), mesure le test, exporte
+  l'ONNX et le dépose à l'étape 3. Ce qu'on entraîne ne change pas (époques, patience, taille d'image, lot, graine, poids de
+  départ, export : ceux de la 5.37.0), seulement où. Relancé, il reprend où il s'était arrêté (ni l'installation ni le jeu ne se
+  retéléchargent ; un modèle déjà entraîné est seulement déposé) ; il s'arrête en disant pourquoi et quoi faire (Python absent,
+  clé expirée ou révoquée, banc injoignable, dépôt refusé — le modèle reste alors sur le Mac, avec les noms et la résolution à
+  donner à la main) ; il n'affiche jamais la clé en entier et ne range rien hors de son dossier (`rm -rf ~/banc-entrainement`
+  efface tout). Quatre gestes : le bouton, ouvrir le Terminal, coller la commande, activer le modèle.
+  **Ce qui change pour qui déploie** : les routes du carnet sont renommées, sans alias — `colab-jeu` et `colab-modele`
+  deviennent `entrainement-jeu` et `entrainement-modele`, et `entrainement-etat` s'ajoute (ce qu'il reste à vivre à la clé, sans
+  compter une lecture) : un carnet téléchargé avec la 5.37.0 ne marche plus, il faut créer une clé neuve. Le serveur n'a plus à
+  laisser passer des requêtes venues de Colab : c'est le Mac de la personne qui l'appelle, en https ; l'extension `zip` de PHP
+  reste demandée. Un modèle déposé s'appelle `entrainement-<date>-<hasard>` (et non plus `colab-…`) ; un modèle déjà déposé
+  par un carnet garde son nom et reste utilisable, sa carte dit seulement « Déposé par le script d'entraînement ». Le zip de
+  « Ou à la main » ne porte plus de carnet `entrainer.ipynb` : son `entrainer.py` reste (lancé avec `mps` sur un Mac Apple
+  Silicon). Si l'entraînement dure plus que la clé, monter `jetonHeures` dans `banc-config.php` (72 au plus).
+  **Ce qui a été essayé** : le script entier est joué par bash contre le serveur dans les tests et la fumée du banc, sans
+  entraîner (`BANC_ESSAI_MODELE`), `bash -n` et `py_compile` compris ; et il a été lancé pour de vrai sur
+  une machine Linux sans carte graphique, raccourci à une époque (`BANC_EPOQUES=1`), sur un jeu de quatorze photos de synthèse :
+  installation, lecture du jeu, entraînement sur `cpu`, mesure du test, export ONNX et dépôt ont abouti pour RF-DETR Nano
+  (modèle int8 de 38 Mo), YOLO26n parti de COCO et YOLO26n de zéro, sans rien écrire hors du dossier de travail.
+  **Ce qui ne l'a pas été : rien n'a tourné sur un Mac, ni avec `mps`** — la recherche de Python sous macOS, l'installation de
+  PyTorch pour Mac, l'entraînement sur la puce Apple Silicon et les durées (données dans `banc/LISEZMOI.md` comme des ordres de
+  grandeur non mesurés) restent à vérifier au premier lancement réel. Code : `banc/public/api.php` (`script_jeton`),
+  `banc/src/entrainement.ts`, `banc/src/ecrans/export/Entrainement.tsx` et `useEntrainement.ts` ; `banc/LISEZMOI.md`
+  (« Entraîner sur le Mac »). Seul `banc/` change : rien de Plan (ni quantité, ni export, ni empreinte).
+
 ## [5.37.0] — 2026-11-21
 
 Version **mineure** au sens de `MD/RELEASE.md` : des fonctions s'ajoutent (§2.1 : « new feature ») sans changer un nombre ni un

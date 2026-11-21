@@ -425,17 +425,22 @@ button.lien { background: none; border: none; padding: 0; min-height: 0; color: 
 .bilan-modele ul { list-style: none; margin: .35rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .15rem .8rem; font-size: .85rem; }
 .bilan-modele li { display: flex; justify-content: space-between; gap: .5rem; }
 .bilan-modele li span { font-variant-numeric: tabular-nums; }
-.pile-export.colab .note { margin: 0; }
+.pile-export.entrainement .note { margin: 0; }
 /* Un avertissement lisible : le texte garde sa couleur (la couleur d'attention seule n'a pas 4,5:1 sur le fond), le filet le signale. */
-.avis-colab { border-left: 3px solid var(--attention); padding-left: .6rem; }
-.carnet-pret { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.avis-entrainement { border-left: 3px solid var(--attention); padding-left: .6rem; }
+.script-pret { display: flex; flex-direction: column; gap: .45rem; align-items: flex-start; max-width: 100%; }
+.script-pret .note { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+/* La commande a coller dans le Terminal : sur une ligne tant qu'elle tient, coupee sinon (elle se selectionne aussi a la main). */
+.commande-script { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; max-width: 100%; border: 1px solid var(--trait); border-radius: 12px; padding: .5rem .7rem; background: var(--surface); }
+.commande-script code { color: var(--texte); overflow-wrap: anywhere; user-select: all; }
+@media (pointer: coarse) { .commande-script button.bouton { min-height: 44px; } }
 .titre-cles { margin: 1rem 0 .5rem; }
-.cles-colab { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
-.cle-colab-ligne { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; border: 1px solid var(--trait); border-radius: 12px; padding: .6rem .85rem; background: var(--surface); }
-.cle-colab-ligne .espace { flex: 1; }
-.cle-colab-ligne.depose { border-color: color-mix(in srgb, var(--ok) 55%, var(--trait)); }
-.cle-colab-ligne .etat-cle { color: var(--texte); }
-@media (pointer: coarse) { .cle-colab-ligne button.bouton { min-height: 44px; } }
+.cles-entrainement { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.cle-ligne { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; border: 1px solid var(--trait); border-radius: 12px; padding: .6rem .85rem; background: var(--surface); }
+.cle-ligne .espace { flex: 1; }
+.cle-ligne.depose { border-color: color-mix(in srgb, var(--ok) 55%, var(--trait)); }
+.cle-ligne .etat-cle { color: var(--texte); }
+@media (pointer: coarse) { .cle-ligne button.bouton { min-height: 44px; } }
 .tete-fiche { display: flex; align-items: center; gap: .3rem; }
 .tete-fiche h3 { margin: 0; }
 .zone-depot { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .45rem; padding: 2.2rem 1rem; border: 2px dashed var(--trait); border-radius: 16px; text-align: center; color: var(--doux); cursor: pointer; transition: border-color .15s, background .15s; }

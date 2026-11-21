@@ -1,7 +1,8 @@
-// Les jetons d'entrainement (banc/public/api.php ; demande du proprietaire, 20 novembre 2026 : un aller-retour Colab avec moins de
-// gestes). L'etape 6 cree un jeton et telecharge un carnet qui le porte ; le carnet lit le jeu et depose le modele lui-meme. Chaque
-// garde-fou est essaye ici, un a un, par `php -S` : qui cree un jeton, ce qu'il ouvre et ce qu'il n'ouvre pas, comment il se refuse,
-// ce qu'un depot doit etre. Le role du carnet est tenu par ce test, avec un faux fichier ONNX fabrique sur place : ni Colab ni
+// Les jetons d'entrainement (banc/public/api.php ; demande du proprietaire, 20 novembre 2026 : moins de gestes entre l'export et le
+// depot du modele ; 21 novembre : l'entrainement se fait sur son Mac). L'etape 6 cree un jeton et telecharge un script qui le porte ;
+// le script lit le jeu et depose le modele lui-meme. Chaque garde-fou est essaye ici, un a un, par `php -S` : qui cree un jeton, ce
+// qu'il ouvre et ce qu'il n'ouvre pas, comment il se refuse, ce qu'un depot doit etre. Le script lui-meme est joue par bash contre ce
+// serveur, avec un faux fichier ONNX fabrique sur place a la place de l'entrainement (BANC_ESSAI_MODELE) : ni Mac, ni mps, ni
 // entrainement ne sont joues. Aucun vrai secret : les jetons sont crees a la volee. Saute si PHP manque.
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
@@ -10,11 +11,12 @@ import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { scriptValable } from '../src/entrainement.js';
 
 const php = spawnSync('php', ['-r', 'exit(class_exists("ZipArchive") && function_exists("imagejpeg") ? 0 : 1);']).status === 0;
-const python = spawnSync('python3', ['-c', 'import ast, json']).status === 0;
-// Le paquet `requests`, dont le carnet se sert (Colab l'a d'office) : sans lui, l'essai qui joue les cellules du carnet est saute.
-const requetes = spawnSync('python3', ['-c', 'import requests']).status === 0;
+// Ce que le script demande a la machine : bash, et un Python 3.10 ou plus recent qui sait creer un environnement isole.
+const python = spawnSync('python3', ['-c', 'import sys, venv, ensurepip; sys.exit(0 if sys.version_info[:2] >= (3, 10) else 1)']).status === 0;
+const bash = spawnSync('bash', ['-c', 'exit 0']).status === 0;
 const racine = path.resolve(__dirname, '..');
 
 let base = '';
@@ -43,9 +45,9 @@ async function appel(methode: string, r: string, params: Record<string, string> 
   if (pose && avecSession) cookie = pose.split(';')[0] ?? '';
   return rep;
 }
-/** Un appel du carnet : le jeton dans son en-tete, ni session ni X-Banc. */
-function carnet(jeton: string, methode: string, r: string, params: Record<string, string> = {}, corps?: Uint8Array | Record<string, unknown>, entetes: Record<string, string> = {}): Promise<Response> {
-  const h = new Headers({ 'X-Banc-Jeton': jeton, 'User-Agent': 'banc-colab', ...entetes });
+/** Un appel du script d'entrainement : le jeton dans son en-tete, ni session ni X-Banc. */
+function mac(jeton: string, methode: string, r: string, params: Record<string, string> = {}, corps?: Uint8Array | Record<string, unknown>, entetes: Record<string, string> = {}): Promise<Response> {
+  const h = new Headers({ 'X-Banc-Jeton': jeton, 'User-Agent': 'banc-entrainement', ...entetes });
   let body: BodyInit | undefined;
   if (corps instanceof Uint8Array) { body = new Blob([Buffer.from(corps)]); h.set('Content-Type', 'application/octet-stream'); }
   else if (corps !== undefined) { body = JSON.stringify(corps); h.set('Content-Type', 'application/json'); }
@@ -94,24 +96,26 @@ function fauxOnnx(remplissage = 9000, graphe?: Uint8Array): Uint8Array {
 }
 const sha256 = (o: Uint8Array) => createHash('sha256').update(o).digest('hex');
 
-interface Cree { jeton: string; id: string; carnet: { nbformat: number; cells: { cell_type: string; source: string }[] }; brut: string; fichier: string; public: Record<string, unknown> }
+interface Cree { jeton: string; id: string; script: string; fichier: string; public: Record<string, unknown> }
+/** Le Python que le script embarque, tel qu'il l'ecrira a cote de lui. */
+const pythonDu = (script: string): string => /<<'PYTHON_DU_BANC'\n([\s\S]*?)\nPYTHON_DU_BANC\n/.exec(script)?.[1] ?? '';
 const DEMANDE = { format: 'rfdetr', base: 'rf-detr-nano', depart: 'coco', verifiees: true, adresse: 'https://banc.example/banc/api.php', correspondance: { fenetre: 'fenetre', pignon: 'pignon' } };
 async function creer(demande: Record<string, unknown> = {}): Promise<Cree> {
   const rep = await appel('POST', 'jetons', {}, { ...DEMANDE, ...demande });
   expect(rep.status).toBe(201);
-  const r = await json(rep) as unknown as { jeton: Record<string, unknown>; fichier: string; carnet: string };
-  const jeton = /bj_[0-9a-f]{16}_[0-9a-f]{64}/.exec(r.carnet)?.[0] ?? '';
+  const r = await json(rep) as unknown as { jeton: Record<string, unknown>; fichier: string; script: string };
+  const jeton = /bj_[0-9a-f]{16}_[0-9a-f]{64}/.exec(r.script)?.[0] ?? '';
   expect(jeton).not.toBe('');
-  return { jeton, id: String(r.jeton.id), carnet: JSON.parse(r.carnet) as Cree['carnet'], brut: r.carnet, fichier: r.fichier, public: r.jeton };
+  return { jeton, id: String(r.jeton.id), script: r.script, fichier: r.fichier, public: r.jeton };
 }
-/** Le depot entier d'un modele, comme le carnet le fait : des morceaux dans l'ordre, puis la fin avec ce qu'il en dit. */
+/** Le depot entier d'un modele, comme le script le fait : des morceaux dans l'ordre, puis la fin avec ce qu'il en dit. */
 async function deposer(jeton: string, octets: Uint8Array, description: Record<string, unknown> = {}, pas = 4000): Promise<Response> {
-  for (let n = 0, d = 0; d < octets.length; n++, d += pas) expect((await carnet(jeton, 'POST', 'colab-modele', { partie: String(n) }, octets.subarray(d, d + pas))).status).toBe(200);
-  return carnet(jeton, 'POST', 'colab-modele', { fin: '1' }, { architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre', 'pignon'], taille: octets.length, sha256: sha256(octets), ...description });
+  for (let n = 0, d = 0; d < octets.length; n++, d += pas) expect((await mac(jeton, 'POST', 'entrainement-modele', { partie: String(n) }, octets.subarray(d, d + pas))).status).toBe(200);
+  return mac(jeton, 'POST', 'entrainement-modele', { fin: '1' }, { architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre', 'pignon'], taille: octets.length, sha256: sha256(octets), ...description });
 }
 const fichierJeton = (id: string, ext = 'json') => path.join(donnees, 'jetons', `${id}.${ext}`);
 
-describe.skipIf(!php)('les jetons d’entraînement : l’aller-retour du carnet, et ce qu’il refuse', () => {
+describe.skipIf(!php)('les jetons d’entraînement : l’aller-retour du script, et ce qu’il refuse', () => {
   beforeAll(async () => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'banc-jetons-'));
     donnees = path.join(tmp, 'apprentissage');
@@ -164,11 +168,11 @@ describe.skipIf(!php)('les jetons d’entraînement : l’aller-retour du carnet
     expect((await appel('POST', 'jetons', {}, DEMANDE, {})).status).toBe(403);
     // Un jeton ne cree pas de jeton.
     const { jeton } = await creer();
-    expect((await carnet(jeton, 'POST', 'jetons', {}, DEMANDE, { 'X-Banc': '1' })).status).toBe(401);
-    expect((await carnet(jeton, 'GET', 'jetons')).status).toBe(401);
+    expect((await mac(jeton, 'POST', 'jetons', {}, DEMANDE, { 'X-Banc': '1' })).status).toBe(401);
+    expect((await mac(jeton, 'GET', 'jetons')).status).toBe(401);
   });
 
-  it('le jeton est tiré au hasard, gardé haché, et ne sort que dans le carnet', async () => {
+  it('le jeton est tiré au hasard, gardé haché, et ne sort que dans le script', async () => {
     const a = await creer();
     const b = await creer();
     expect(a.jeton).toMatch(/^bj_[0-9a-f]{16}_[0-9a-f]{64}$/);
@@ -177,7 +181,7 @@ describe.skipIf(!php)('les jetons d’entraînement : l’aller-retour du carnet
     const garde = fs.readFileSync(fichierJeton(a.id), 'utf8');
     expect(garde).not.toContain(secret);
     expect((JSON.parse(garde) as { hache: string }).hache).toBe(createHash('sha256').update(secret).digest('hex'));
-    // Ni la reponse hors du carnet, ni la liste, ni aucun autre fichier des donnees ne portent le secret ou son hache.
+    // Ni la reponse hors du script, ni la liste, ni aucun autre fichier des donnees ne portent le secret ou son hache.
     expect(JSON.stringify(a.public)).not.toMatch(/hache|bj_/);
     const liste = await (await appel('GET', 'jetons')).text();
     expect(liste).toContain(a.id);
@@ -195,104 +199,173 @@ describe.skipIf(!php)('les jetons d’entraînement : l’aller-retour du carnet
     expect((await json(await appel('GET', 'jetons'))).heures).toBe(24);
   });
 
-  it('le carnet est un .ipynb valable, court, qui appelle les deux routes du jeton et prévient qu’il porte une clé', async () => {
+  it('le script est un fichier bash entier : l’adresse du banc, sa clé (jamais affichée en entier), les trois routes du jeton, les réglages d’entraînement', async () => {
     const c = await creer();
-    expect(c.fichier).toMatch(/^banc-colab-rf-detr-nano-\d{8}-\d{6}\.ipynb$/);
-    expect(c.carnet.nbformat).toBe(4);
-    expect(c.carnet.cells.length).toBeLessThanOrEqual(6);
-    for (const k of c.carnet.cells) { expect(['code', 'markdown']).toContain(k.cell_type); expect(typeof k.source).toBe('string'); }
-    const code = c.carnet.cells.filter((k) => k.cell_type === 'code').map((k) => k.source).join('\n');
-    const prose = c.carnet.cells.filter((k) => k.cell_type === 'markdown').map((k) => k.source).join('\n');
-    expect(code).toContain('BANC = "https://banc.example/banc/api.php"');
-    expect(code).toContain(`"X-Banc-Jeton": "${c.jeton}"`);
-    expect(code).toContain("requests.get(BANC, params={'r': 'colab-jeu'}, headers=CLE");
-    expect(code).toContain("params={'r': 'colab-modele', 'partie': n}");
-    expect(code).toContain("params={'r': 'colab-modele', 'fin': '1'}");
-    expect(code).toContain("'architecture': \"rf-detr-nano\", 'resolution': 384, 'classes': noms, 'bilan': bilan");
-    expect(code).toContain("from rfdetr import RFDETRNano");
-    // Plus rien a envoyer a la main ; le telechargement du modele ne reste que comme repli, si le depot echoue.
-    expect(code).not.toContain('files.upload');
-    expect(code.indexOf('files.download')).toBeGreaterThan(code.indexOf('except Exception as e:\n    print(\'Dépôt impossible'));
-    expect(prose).toContain('Apache 2.0');
-    expect(prose).toMatch(/Ce carnet contient une clé valable 24 h : ne le partagez pas\./);
-    expect(prose).toContain('Tout exécuter');
-    // Le jeton n'est ecrit qu'une fois, et jamais dans une adresse.
-    expect(c.brut.split(c.jeton)).toHaveLength(2);
-    expect(c.brut).not.toMatch(/[?&][a-z]*=bj_/);
+    expect(c.fichier).toMatch(/^entrainer-banc-rf-detr-nano-\d{8}-\d{6}\.sh$/);
+    expect(scriptValable(c.script)).toBe(true);
+    expect(c.script.startsWith('#!/bin/bash\n')).toBe(true);
+    expect(c.script.trimEnd().endsWith('# fin du script du banc')).toBe(true);
+    expect(c.script).toContain("BANC_ADRESSE='https://banc.example/banc/api.php'");
+    expect(c.script).toContain(`BANC_CLE='${c.jeton}'`);
+    expect(c.script).toContain("BANC_ARCHITECTURE='rf-detr-nano'\nBANC_RESOLUTION=384\nBANC_MORCEAU=4194304\nFAMILLE=rfdetr\n");
+    expect(c.script).toContain(`bash ~/Downloads/${c.fichier}`);
+    expect(c.script).toMatch(/CE FICHIER CONTIENT UNE CLE valable 24 h : ne le partagez pas\./);
+    expect(c.script).toContain('Apache 2.0');
+    // Le jeton n'est ecrit qu'une fois, jamais dans une adresse, et le shell ne s'en sert que deux fois : pour en afficher le debut
+    // (onze caracteres : « bj_ » et la moitie de l'identifiant public), et pour le passer au Python par l'environnement.
+    expect(c.script.split(c.jeton)).toHaveLength(2);
+    expect(c.script).not.toMatch(/[?&][a-z]*=bj_/);
+    const usages = c.script.split('\n').filter((l) => /\$\{?BANC_CLE/.test(l));
+    expect(usages).toHaveLength(2);
+    expect(usages[0]).toContain('"${BANC_CLE:0:11}"');
+    expect(usages[1]).toMatch(/^BANC_ADRESSE="\$BANC_ADRESSE" BANC_CLE="\$BANC_CLE" /);
+    // La cle passe par l'environnement du Python, jamais sur sa ligne de commande (que « ps » montre a tous).
+    expect(c.script).toContain('BANC_DOSSIER="$DOSSIER" $VEILLE "$ENV/bin/python" "$DOSSIER/entrainer_banc.py"\n');
+    expect(c.script).not.toMatch(/set -[a-z]*x/);
+    // Un environnement isole, dans le dossier de travail ; rien n'est installe dans le Python de la machine.
+    expect(c.script).toContain('DOSSIER="${BANC_DOSSIER:-$HOME/banc-entrainement}"');
+    expect(c.script).toContain('"$PY" -m venv "$ENV"');
+    expect(c.script).toContain("PAQUETS=('rfdetr[train,loggers,onnx]==1.12.*')");
+    expect(c.script).toContain('"$ENV/bin/python" -m pip install "${PAQUETS[@]}"');
+    expect(c.script).not.toMatch(/sudo|pip3? install --user|--break-system-packages/);
+
+    // Le Python embarque : il ne porte pas la cle, l'ote de l'environnement des qu'il l'a lue, et ne tourne que lance (les lecteurs
+    // de donnees de macOS relisent le fichier : sans cette garde, chacun relancerait l'entrainement).
+    const py = pythonDu(c.script);
+    expect(py).not.toContain('bj_');
+    expect(py).toContain("cle = os.environ.pop('BANC_CLE')");
+    expect(py).toContain("if __name__ == '__main__':");
+    expect(py).toContain("appeler(cle, {'r': 'entrainement-etat'})");
+    expect(py).toContain("appeler(cle, {'r': 'entrainement-jeu'})");
+    expect(py).toContain("{'r': 'entrainement-modele', 'partie': n}");
+    expect(py).toContain("{'r': 'entrainement-modele', 'fin': '1'}");
+    // mps sur Apple Silicon, cpu sinon, ou ce que BANC_APPAREIL impose.
+    expect(py).toMatch(/torch\.backends\.mps\.is_available\(\):\n\s+return 'mps'/);
+    expect(py).toMatch(/\n {4}return 'cpu', /);
+    expect(py).toContain("os.environ.get('BANC_APPAREIL', '')");
+    // Les reglages d'entrainement de la 5.37.0, a l'appareil pres.
+    expect(py).toContain('from rfdetr import RFDETRNano');
+    expect(py).toContain('m = RFDETRNano()\n');
+    expect(py).toContain("m.train(dataset_dir='.', output_dir='sortie', epochs=epoques or 100, batch_size=8, grad_accum_steps=2, early_stopping=True, early_stopping_patience=15, run_test=True, log_per_class_metrics=True, tensorboard=False, device=appareil)");
+    expect(py).toContain("best.export(output_dir='sortie', quantization='int8', calibration_data='train')");
 
     // YOLO d'Ultralytics en option : son avertissement AGPL-3.0, ses poids, son export sans NMS.
     const y = await creer({ format: 'detect', base: 'yolov10n' });
-    const codeY = y.carnet.cells.filter((k) => k.cell_type === 'code').map((k) => k.source).join('\n');
-    expect(y.carnet.cells[0]?.source).toMatch(/AGPL-3\.0.*publier le code ou d'acheter leur licence/);
-    expect(codeY).toContain("else 'yolov10n.pt')");
-    expect(codeY).toContain("MODELE = best.export(format='onnx', imgsz=640, nms=False)");
-    expect(codeY).toContain("'architecture': \"yolov10n\", 'resolution': 640");
+    const pyY = pythonDu(y.script);
+    expect(y.script).toMatch(/AGPL-3\.0.*publier le code ou d'acheter leur licence/);
+    expect(y.script).toContain("BANC_ARCHITECTURE='yolov10n'\nBANC_RESOLUTION=640\n");
+    expect(y.script).toContain("PAQUETS=('ultralytics==8.4.*' 'onnx' 'onnxslim' 'onnxruntime')");
+    expect(pyY).toContain("m = YOLO(depart if os.path.exists(depart) else 'yolov10n.pt')");
+    expect(pyY).toContain("m.train(data='data.yaml', epochs=epoques or 150, patience=30, imgsz=640, batch=16, device=appareil, project='runs', name='banc', exist_ok=True, seed=20261110, deterministic=True)");
+    expect(pyY).toContain("modele = best.export(format='onnx', imgsz=640, nms=False)");
     const z = await creer({ format: 'seg', base: 'yolo11n-seg', depart: 'zero' });
-    expect(z.carnet.cells.map((k) => k.source).join('\n')).toContain("YOLO('yolo11n-seg.yaml')");
+    expect(z.fichier).toMatch(/^entrainer-banc-yolo11n-seg-zero-\d{8}-\d{6}\.sh$/);
+    expect(pythonDu(z.script)).toContain("m = YOLO('yolo11n-seg.yaml')\n    m.train(data='data.yaml', pretrained=False, epochs=epoques or 300, patience=60, imgsz=640, batch=16, device=appareil,");
     expect(z.public).toMatchObject({ architecture: { format: 'yolov8-seg', resolution: 640, depart: 'zero' } });
+    const r0 = await creer({ base: 'rf-detr-small', depart: 'zero' });
+    expect(pythonDu(r0.script)).toContain('m = RFDETRSmall(pretrain_weights=None)\n    m.train(dataset_dir=\'.\', output_dir=\'sortie\', epochs=epoques or 300, batch_size=8, grad_accum_steps=2, early_stopping=True, early_stopping_patience=40,');
 
-    // Le Python de chaque cellule se lit (sans l'executer) : une faute de syntaxe ne se decouvrirait qu'apres une heure d'entrainement.
-    if (python) for (const k of [c, y, z]) {
-      const r = spawnSync('python3', ['-I', '-c', 'import ast, json, sys\nfor c in json.load(sys.stdin)["cells"]:\n    if c["cell_type"] == "code": ast.parse("\\n".join(l for l in c["source"].split("\\n") if not l.startswith("!")))'], { input: k.brut });
-      expect(r.stderr.toString()).toBe('');
-      expect(r.status).toBe(0);
+    // Le shell et le Python se lisent (sans rien executer) : une faute de syntaxe ne se decouvrirait qu'apres des heures d'entrainement.
+    expect(bash, 'bash manque : le script ne peut pas etre verifie').toBe(true);
+    expect(python, 'python3 (3.10 ou plus) manque : le script ne peut pas etre verifie').toBe(true);
+    for (const k of [c, y, z, r0]) {
+      const f = path.join(tmp, k.fichier);
+      fs.writeFileSync(f, k.script);
+      const b = spawnSync('bash', ['-n', f]);
+      expect(b.stderr.toString()).toBe('');
+      expect(b.status).toBe(0);
+      fs.writeFileSync(f + '.py', pythonDu(k.script));
+      const p = spawnSync('python3', ['-I', '-m', 'py_compile', f + '.py'], { env: { ...process.env, PYTHONPYCACHEPREFIX: path.join(tmp, 'pyc') } });
+      expect(p.stderr.toString()).toBe('');
+      expect(p.status).toBe(0);
+      fs.rmSync(f); fs.rmSync(f + '.py');
     }
   });
 
-  it.skipIf(!requetes)('les cellules du carnet, jouées par Python contre le serveur : elles lisent le jeu, déposent le modèle par morceaux, et se replient si le dépôt échoue', async () => {
-    const jouer = (c: Cree, suite: string) => {
-      const dossier = fs.mkdtempSync(path.join(tmp, 'carnet-'));
-      fs.writeFileSync(path.join(dossier, 'faux.onnx'), fauxOnnx(20000));
-      // Les cellules « lire le jeu » et « deposer » telles que le serveur les a ecrites ; l'entrainement et l'export, que seul Colab
-      // peut jouer, sont remplaces par leurs resultats : un fichier, des noms, un bilan (avec ce qu'un vrai bilan peut avoir de travers).
-      const script = `import json, os, sys, types
-cellules = [c['source'] for c in json.load(open(sys.argv[1])) ['cells'] if c['cell_type'] == 'code']
-lire = next(c for c in cellules if "'colab-jeu'" in c)
-deposer_ = next(c for c in cellules if 'def deposer' in c)
-telecharges = []
-colab = types.ModuleType('google.colab'); colab.files = types.SimpleNamespace(download=telecharges.append)
-sys.modules['google'] = types.ModuleType('google'); sys.modules['google.colab'] = colab
-os.chdir(sys.argv[2])
-g = {}
-exec(lire.replace('print(open', '#'), g)
-assert os.path.exists('train/_annotations.coco.json'), os.getcwd()
-g['noms'] = [l.split(': ', 1)[1].strip() for l in open('noms.txt') if ': ' in l]
-g['MODELE'] = os.path.join(sys.argv[2], 'faux.onnx')
-g['bilan'] = {'map': 0.5, 'map50': float('nan')}
-g['par_type'] = {'fenetre': 0.75, 'pignon': -1.0}
-${suite}
-exec(deposer_, g)
-print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
-`;
-      fs.writeFileSync(path.join(dossier, 'carnet.ipynb'), c.brut);
-      const r = spawnSync('python3', ['-c', script, path.join(dossier, 'carnet.ipynb'), dossier], { env: { ...process.env, NO_PROXY: '127.0.0.1', no_proxy: '127.0.0.1' } });
-      return { sortie: r.stdout.toString(), erreur: r.stderr.toString(), code: r.status };
+  it('le script, joué par bash contre le serveur (sans entraîner) : il lit le jeu, dépose le modèle par morceaux, reprend sans tout relire, et s’arrête en disant pourquoi', async () => {
+    expect(bash && python, 'bash ou python3 (3.10 ou plus, avec venv) manque : le script ne peut pas etre joue').toBe(true);
+    const dossier = fs.mkdtempSync(path.join(tmp, 'mac-'));
+    const travail = path.join(dossier, 'banc-entrainement');
+    const bon = path.join(dossier, 'faux.onnx');
+    fs.writeFileSync(bon, fauxOnnx(20000));
+    const pasUnModele = path.join(dossier, 'pas-un-modele.onnx');
+    fs.writeFileSync(pasUnModele, 'x'.repeat(9000));
+    // Le script tel que la page le telecharge, a un mot pres : des morceaux de 6 000 octets (le serveur d'essai en ecrit de 4 Mo, le
+    // faux modele pese 20 Ko), pour que le depot en compte plusieurs. L'entrainement, que seul un vrai lancement joue, est remplace
+    // par le fichier de BANC_ESSAI_MODELE ; tout le reste (Python trouve, environnement cree, cle verifiee, jeu lu, depot) est joue.
+    const jouer = (c: Cree, env: Record<string, string> = {}) => {
+      const f = path.join(dossier, c.fichier);
+      fs.writeFileSync(f, c.script.replace('BANC_MORCEAU=4194304', 'BANC_MORCEAU=6000'));
+      const r = spawnSync('bash', [f], { env: { ...process.env, HOME: dossier, NO_PROXY: '127.0.0.1', no_proxy: '127.0.0.1', BANC_ESSAI_MODELE: bon, ...env }, encoding: 'utf8' });
+      const tout = r.stdout + r.stderr;
+      // La cle ne s'affiche jamais en entier, quoi qu'il arrive : ni elle, ni son secret.
+      expect(tout).not.toContain(c.jeton);
+      expect(tout).not.toContain(c.jeton.split('_')[2]);
+      expect(tout).toContain(`Clé d’entraînement bj_${c.id.slice(0, 8)}…`);
+      return { sortie: r.stdout, erreur: r.stderr, code: r.status };
     };
-    // Des morceaux petits (post_max_size ne se regle pas par requete) : le serveur d'essai ecrit 4 Mo dans le carnet, le faux modele
-    // en fait 20 Ko ; la taille du morceau est remplacee pour que le depot en compte plusieurs.
-    const c = await creer({ adresse: base + '/api.php' });
-    const petit = { ...c, brut: c.brut.replaceAll('4194304', '6000') };
-    const r = jouer(petit, '');
-    expect(r.erreur).toBe('');
-    expect(r.code).toBe(0);
-    expect(r.sortie).toContain('Déposé dans le banc : RF-DETR Nano · Colab du');
-    expect(JSON.parse(r.sortie.trim().split('\n').pop() ?? '{}')).toEqual({ noms: ['fenetre', 'pignon'], telecharges: [] });
-    const j = JSON.parse(fs.readFileSync(fichierJeton(c.id), 'utf8')) as { envois: number; lectures: number; depose: { modele: string } };
-    expect(j).toMatchObject({ lectures: 1, envois: 4 });
-    const m = ((await json(await appel('GET', 'modeles'))) as unknown as Record<string, unknown>[]).find((x) => x.id === j.depose.modele);
-    // Le bilan arrive nettoye par le carnet : ni NaN (qui casserait le JSON), ni valeur hors de 0 a 1.
-    expect(m).toMatchObject({ actif: false, classes: ['fenetre', 'pignon'], resolution: 384, depot: { bilan: { map: 0.5, parType: { fenetre: 0.75 } } } });
-    expect((m?.depot as { bilan: Record<string, unknown> }).bilan).not.toHaveProperty('map50');
-    await appel('DELETE', 'modele', { id: j.depose.modele });
+    const garde = (c: Cree) => JSON.parse(fs.readFileSync(fichierJeton(c.id), 'utf8')) as { envois: number; lectures: number; depose: { modele: string } | null };
 
-    // Le repli : la cle revoquee apres la lecture du jeu, le depot echoue, le carnet le dit et propose le fichier avec ses noms.
+    // Premier lancement : le depot est refuse (le fichier n'est pas un modele). Le script le dit, garde le fichier et donne les noms.
+    const c = await creer({ adresse: base + '/api.php' });
+    const refuse = jouer(c, { BANC_ESSAI_MODELE: pasUnModele });
+    expect(refuse.code, refuse.sortie + refuse.erreur).toBe(3);
+    expect(refuse.sortie).toMatch(/1\/6 Python : .+ \(3\.\d+/);
+    expect(refuse.sortie).toContain('2/6 Création de l’environnement Python isolé');
+    expect(refuse.sortie).toContain('3/6 ESSAI (BANC_ESSAI_MODELE)');
+    expect(refuse.sortie).toMatch(/Clé acceptée, valable encore 2[34] h \d\d min\. Jeu : 1 photo\(s\) pour apprendre, 0 pour valider, 0 pour le test\./);
+    expect(refuse.sortie).toContain('4/6 Téléchargement du jeu…');
+    expect(refuse.erreur).toContain('ARRÊT : dépôt impossible — le banc refuse (415) : Ce fichier n’est pas un modèle ONNX.');
+    expect(refuse.erreur).toContain(`Le modèle est gardé ici : ${pasUnModele}`);
+    expect(refuse.erreur).toContain('avec la résolution 384 et ces noms :\n0: fenetre\n1: pignon');
+    expect(garde(c)).toMatchObject({ lectures: 1, envois: 1, depose: null });
+    // Tout est range dans le dossier de travail (ici ~/banc-entrainement d'un faux dossier personnel), et rien a cote.
+    const racine = String((c.public.jeu as { racine: string }).racine);
+    expect(fs.readdirSync(dossier).sort()).toEqual(['banc-entrainement', c.fichier, 'faux.onnx', 'pas-un-modele.onnx'].sort());
+    expect(fs.readdirSync(travail).sort()).toEqual([racine, 'cache', 'entrainer_banc.py', 'env-rfdetr'].sort());
+    expect(fs.existsSync(path.join(travail, racine, 'train', '_annotations.coco.json'))).toBe(true);
+    // Le Python ecrit a cote ne porte pas la cle.
+    expect(fs.readFileSync(path.join(travail, 'entrainer_banc.py'), 'utf8')).not.toContain('bj_');
+
+    // Relance : ni l'environnement ni le jeu ne sont refaits (le jeu n'est pas relu : une seule lecture comptee), le modele est depose.
+    const depose = jouer(c);
+    expect(depose.erreur).toBe('');
+    expect(depose.code).toBe(0);
+    expect(depose.sortie).toContain('2/6 Environnement Python déjà là');
+    expect(depose.sortie).toContain('4/6 Jeu déjà là');
+    expect(depose.sortie).not.toContain('Téléchargement du jeu');
+    expect(depose.sortie).toMatch(/Déposé dans le banc : RF-DETR Nano · entraîné le \d\d\/\d\d\/\d{4}\n\nTerminé\. Le modèle est à l’étape 3 du banc, inactif/);
+    const j = garde(c);
+    expect(j).toMatchObject({ lectures: 1, envois: 5 });
+    const m = ((await json(await appel('GET', 'modeles'))) as unknown as Record<string, unknown>[]).find((x) => x.id === j.depose?.modele);
+    expect(m).toMatchObject({ actif: false, classes: ['fenetre', 'pignon'], resolution: 384, depot: { par: 'entrainement', bilan: {} } });
+    await appel('DELETE', 'modele', { id: String(j.depose?.modele) });
+
+    // Encore une fois : la cle a servi, le script le dit avant de rien faire.
+    const servi = jouer(c);
+    expect(servi.code).toBe(2);
+    expect(servi.erreur).toContain('ARRÊT : cette clé a déjà déposé son modèle : il est à l’étape 3 du banc.');
+
+    // Une cle revoquee (ou echue : le serveur les dit pareil) : arret avant le telechargement, avec ce qu'il faut faire.
     const d = await creer({ adresse: base + '/api.php' });
-    const repli = jouer(d, `import urllib.request\nurllib.request.urlopen(urllib.request.Request(${JSON.stringify(base)} + '/api.php?r=jeton&id=${d.id}', method='DELETE', headers={'X-Banc': '1', 'Cookie': ${JSON.stringify(cookie)}}))`);
-    expect(repli.erreur).toBe('');
-    expect(repli.sortie).toContain('Dépôt impossible (morceau 0 : {"erreur":"Jeton refusé."})');
-    expect(repli.sortie).toContain('0: fenetre\n1: pignon');
-    expect((JSON.parse(repli.sortie.trim().split('\n').pop() ?? '{}') as { telecharges: string[] }).telecharges).toHaveLength(1);
-  }, 60000);
+    expect((await appel('DELETE', 'jeton', { id: d.id })).status).toBe(200);
+    const revoquee = jouer(d);
+    expect(revoquee.code).toBe(2);
+    expect(revoquee.erreur).toContain('ARRÊT : la clé de ce script est refusée : elle a expiré ou a été révoquée. Créez-en une autre à l’étape 6 du banc');
+    expect(revoquee.sortie).not.toContain('Téléchargement du jeu');
+
+    // Le banc injoignable (ici : personne n'ecoute a cette adresse).
+    const e = await creer({ adresse: 'http://127.0.0.1:1/api.php' });
+    const coupe = jouer(e);
+    expect(coupe.code).toBe(2);
+    expect(coupe.erreur).toMatch(/ARRÊT : le banc ne répond pas \(.+\)\. Vérifiez la connexion à Internet, puis relancez la même commande\./);
+
+    // Un Python qui ne convient pas : arret avant de rien creer.
+    const sansPython = jouer(e, { BANC_PYTHON: '/bin/false', BANC_DOSSIER: path.join(dossier, 'jamais') });
+    expect(sansPython.code).toBe(1);
+    expect(sansPython.erreur).toContain('ARRÊT : BANC_PYTHON (/bin/false) n’est pas un Python 3.10 ou plus récent.');
+    expect(fs.existsSync(path.join(dossier, 'jamais', 'env-rfdetr'))).toBe(false);
+  }, 120000);
 
   it('la taille des morceaux suit post_max_size de l’hébergement (4 Mo au plus, 64 Ko de marge)', () => {
     const morceau = (limite: string) => spawnSync('php', ['-d', 'post_max_size=' + limite, '-r', `require ${JSON.stringify(path.join(racine, 'public/api.php'))}; echo jeton_morceau();`]).stdout.toString();
@@ -304,8 +377,19 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
 
   it('le jeton lit le jeu de son export, figé à sa création, et rien d’autre', async () => {
     const c = await creer();
+    // Ou en est la cle, pour son script : ce qu'il lui reste a vivre et son jeu, sans compter une lecture ni rien dire de plus.
+    const etat = await mac(c.jeton, 'GET', 'entrainement-etat');
+    expect(etat.status).toBe(200);
+    expect(etat.headers.get('set-cookie')).toBeNull();
+    const e = await json(etat) as unknown as { reste: number; jeu: { racine: string } };
+    expect(e).toMatchObject({ architecture: 'rf-detr-nano', jeu: { images: (c.public.jeu as { images: object }).images }, depose: false });
+    expect(Object.keys(e).sort()).toEqual(['architecture', 'depose', 'expireLe', 'jeu', 'reste']);
+    expect(e.reste).toBeGreaterThan(24 * 3600 - 60);
+    expect(e.reste).toBeLessThanOrEqual(24 * 3600);
+    expect(e.jeu.racine).toMatch(/^banc-rf-detr-nano-\d{8}-\d{6}$/);
+    expect((await json(await appel('GET', 'jetons'))).jetons).toContainEqual(expect.objectContaining({ id: c.id, lectures: 0 }));
     await photoCorrigee('apres-le-jeton.jpg');
-    const rep = await carnet(c.jeton, 'GET', 'colab-jeu');
+    const rep = await mac(c.jeton, 'GET', 'entrainement-jeu');
     expect(rep.status).toBe(200);
     expect(rep.headers.get('content-type')).toBe('application/zip');
     // Aucune session n'est ouverte pour un jeton : pas de temoin pose.
@@ -324,14 +408,14 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
     const id = String(((await json(await appel('GET', 'images'))) as unknown as { id: string }[])[0]?.id);
     const ailleurs: [string, string, Record<string, string>][] = [['GET', 'images', {}], ['GET', 'fichier', { id, v: 'source' }], ['GET', 'annotation', { id }], ['GET', 'export', { format: 'rfdetr' }], ['GET', 'modeles', {}], ['GET', 'classes', {}], ['GET', 'reglages', {}],
       ['PUT', 'classes', {}], ['POST', 'images', {}], ['DELETE', 'image', { id }], ['POST', 'modeles', {}], ['PATCH', 'modele', { id: 'facade-fenetres' }], ['DELETE', 'jeton', { id: c.id }], ['POST', 'installer', { id: 'facade-fenetres' }]];
-    for (const [methode, r, params] of ailleurs) expect((await carnet(c.jeton, methode, r, params, methode === 'GET' ? undefined : {}, { 'X-Banc': '1' })).status, `${methode} ${r}`).toBe(401);
-    // Et les deux routes du jeton ne lisent rien d'autre que son jeu : un identifiant de photo ou un chemin en plus ne changent rien.
-    const encore = await carnet(c.jeton, 'GET', 'colab-jeu', { id, v: 'source', fichier: '../../banc-config.php' });
+    for (const [methode, r, params] of ailleurs) expect((await mac(c.jeton, methode, r, params, methode === 'GET' ? undefined : {}, { 'X-Banc': '1' })).status, `${methode} ${r}`).toBe(401);
+    // Et les routes du jeton ne lisent rien d'autre que son jeu : un identifiant de photo ou un chemin en plus ne changent rien.
+    const encore = await mac(c.jeton, 'GET', 'entrainement-jeu', { id, v: 'source', fichier: '../../banc-config.php' });
     expect(encore.headers.get('content-type')).toBe('application/zip');
     expect(nomsDuZip(await encore.arrayBuffer())).toEqual(noms);
     // Le jeton ne se lit que dans son en-tete : ni dans l'adresse (que les journaux gardent), ni en Authorization, ni en temoin.
     for (const [params, entetes] of [[{ jeton: c.jeton }, {}], [{ 'X-Banc-Jeton': c.jeton }, {}], [{}, { Authorization: 'Bearer ' + c.jeton }], [{}, { Cookie: 'X-Banc-Jeton=' + c.jeton }]] as [Record<string, string>, Record<string, string>][]) {
-      expect((await fetch(base + '/api.php?' + new URLSearchParams({ r: 'colab-jeu', ...params }).toString(), { headers: entetes })).status).toBe(401);
+      expect((await fetch(base + '/api.php?' + new URLSearchParams({ r: 'entrainement-jeu', ...params }).toString(), { headers: entetes })).status).toBe(401);
     }
   });
 
@@ -351,26 +435,26 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
       echu.jeton, revoque.jeton,
     ];
     const reponses = new Set<string>();
-    for (const jeton of faux) for (const [methode, r, params] of [['GET', 'colab-jeu', {}], ['POST', 'colab-modele', { partie: '0' }], ['POST', 'colab-modele', { fin: '1' }]] as [string, string, Record<string, string>][]) {
+    for (const jeton of faux) for (const [methode, r, params] of [['GET', 'entrainement-etat', {}], ['GET', 'entrainement-jeu', {}], ['POST', 'entrainement-modele', { partie: '0' }], ['POST', 'entrainement-modele', { fin: '1' }]] as [string, string, Record<string, string>][]) {
       fs.rmSync(path.join(donnees, 'essais-jetons.json'), { force: true });
-      const rep = await carnet(jeton, methode, r, params, methode === 'POST' ? fauxOnnx() : undefined);
+      const rep = await mac(jeton, methode, r, params, methode === 'POST' ? fauxOnnx() : undefined);
       reponses.add(rep.status + ' ' + await rep.text());
     }
     expect([...reponses]).toEqual(['401 {"erreur":"Jeton refusé."}']);
     // Sans en-tete du tout, pareil.
-    expect(await (await fetch(base + '/api.php?r=colab-jeu')).text()).toBe('{"erreur":"Jeton refusé."}');
-    // Le jeton echu s'est efface avec son jeu des que son carnet l'a presente ; le revoque l'etait deja.
+    expect(await (await fetch(base + '/api.php?r=entrainement-jeu')).text()).toBe('{"erreur":"Jeton refusé."}');
+    // Le jeton echu s'est efface avec son jeu des que son script l'a presente ; le revoque l'etait deja.
     for (const x of [echu, revoque]) for (const ext of ['json', 'zip', 'partie']) expect(fs.existsSync(fichierJeton(x.id, ext)), ext).toBe(false);
     // Le bon marche toujours.
-    expect((await carnet(c.jeton, 'GET', 'colab-jeu')).status).toBe(200);
+    expect((await mac(c.jeton, 'GET', 'entrainement-jeu')).status).toBe(200);
   });
 
   it('les essais manqués sont comptés par adresse : au vingtième, tout est refusé un quart d’heure, même un bon jeton', async () => {
     const c = await creer();
-    for (let k = 0; k < 20; k++) expect((await carnet('bj_' + 'c'.repeat(16) + '_' + 'd'.repeat(64), 'GET', 'colab-jeu')).status).toBe(401);
-    expect((await carnet('bj_' + 'c'.repeat(16) + '_' + 'd'.repeat(64), 'GET', 'colab-jeu')).status).toBe(429);
-    expect((await carnet(c.jeton, 'GET', 'colab-jeu')).status).toBe(429);
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '0' }, fauxOnnx())).status).toBe(429);
+    for (let k = 0; k < 20; k++) expect((await mac('bj_' + 'c'.repeat(16) + '_' + 'd'.repeat(64), 'GET', 'entrainement-jeu')).status).toBe(401);
+    expect((await mac('bj_' + 'c'.repeat(16) + '_' + 'd'.repeat(64), 'GET', 'entrainement-jeu')).status).toBe(429);
+    expect((await mac(c.jeton, 'GET', 'entrainement-jeu')).status).toBe(429);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '0' }, fauxOnnx())).status).toBe(429);
     // Le compte ne garde que des dates par adresse : jamais le jeton essaye.
     const compte = fs.readFileSync(path.join(donnees, 'essais-jetons.json'), 'utf8');
     expect(Object.keys(JSON.parse(compte) as object)).toEqual(['127.0.0.1']);
@@ -381,7 +465,7 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
     fs.rmSync(path.join(donnees, 'essais-jetons.json'), { force: true });
     const j = JSON.parse(fs.readFileSync(fichierJeton(c.id), 'utf8')) as Record<string, unknown>;
     fs.writeFileSync(fichierJeton(c.id), JSON.stringify({ ...j, lectures: 20 }));
-    expect((await carnet(c.jeton, 'GET', 'colab-jeu')).status).toBe(429);
+    expect((await mac(c.jeton, 'GET', 'entrainement-jeu')).status).toBe(429);
   });
 
   it('cinq clés vivantes au plus à la fois ; les révoquer rend la place', async () => {
@@ -399,7 +483,7 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
 
   it('le dépôt d’un modèle, de bout en bout : il arrive à l’étape 3 inactif, ses noms reliés, sa résolution et son bilan posés', async () => {
     const c = await creer();
-    expect((await carnet(c.jeton, 'GET', 'colab-jeu')).status).toBe(200);
+    expect((await mac(c.jeton, 'GET', 'entrainement-jeu')).status).toBe(200);
     const octets = fauxOnnx(20000);
     const rep = await deposer(c.jeton, octets, {
       classes: ['fenetre', 'pignon', 'inconnu_du_banc'],
@@ -409,9 +493,9 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
     });
     expect(rep.status).toBe(201);
     const recu = await json(rep);
-    expect(recu).toMatchObject({ depose: true, nom: expect.stringMatching(/^RF-DETR Nano · Colab du \d\d\/\d\d\/\d{4}$/) });
+    expect(recu).toMatchObject({ depose: true, nom: expect.stringMatching(/^RF-DETR Nano · entraîné le \d\d\/\d\d\/\d{4}$/) });
     const id = String(recu.modele);
-    expect(id).toMatch(/^colab-\d{8}-\d{6}-[0-9a-f]{6}$/);
+    expect(id).toMatch(/^entrainement-\d{8}-\d{6}-[0-9a-f]{6}$/);
 
     const modeles = (await json(await appel('GET', 'modeles'))) as unknown as Record<string, unknown>[];
     const m = modeles.find((x) => x.id === id);
@@ -420,7 +504,7 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
       classes: ['fenetre', 'pignon', 'inconnu_du_banc'],
       // Les noms vont vers les types du banc que la page a calcules a la creation du jeton ; un nom inconnu est ignore.
       correspondance: { fenetre: 'fenetre', pignon: 'pignon', inconnu_du_banc: '' },
-      depot: { par: 'colab', architecture: 'rf-detr-nano', depart: 'coco', jeu: { images: { train: 2, val: 0, test: 0 }, verifieesSeulement: true }, bilan: { map: 0.6123, map50: 0.9, parType: { fenetre: 0.7 } }, octets: octets.length, sha256: sha256(octets) },
+      depot: { par: 'entrainement', architecture: 'rf-detr-nano', depart: 'coco', jeu: { images: { train: 2, val: 0, test: 0 }, verifieesSeulement: true }, bilan: { map: 0.6123, map50: 0.9, parType: { fenetre: 0.7 } }, octets: octets.length, sha256: sha256(octets) },
     });
     expect(Object.keys((m?.depot as { bilan: object }).bilan)).toEqual(['map', 'map50', 'parType']);
     // Range hors du dossier servi, sous le nom du serveur, octet pour octet ; rien au nom de l'appelant, nulle part.
@@ -431,17 +515,17 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
     expect(fs.readFileSync(path.join(donnees, 'modeles', id + '.json'), 'utf8')).not.toMatch(/porte|bj_|hache/);
     // La page le sert a son moteur comme les autres, et l'active d'un geste.
     expect((await appel('GET', 'modele', { id })).headers.get('content-type')).toBe('application/octet-stream');
-    expect(await json(await appel('PATCH', 'modele', { id }, { actif: true }))).toMatchObject({ actif: true, depot: { par: 'colab' } });
+    expect(await json(await appel('PATCH', 'modele', { id }, { actif: true }))).toMatchObject({ actif: true, depot: { par: 'entrainement' } });
 
     // Le jeton a servi : il ne depose plus, ne lit plus, son jeu est efface ; l'ecran le montre « depose ».
-    for (const [methode, r, params] of [['POST', 'colab-modele', { partie: '0' }], ['POST', 'colab-modele', { fin: '1' }], ['GET', 'colab-jeu', {}]] as [string, string, Record<string, string>][]) {
-      const encore = await carnet(c.jeton, methode, r, params, methode === 'POST' ? octets : undefined);
+    for (const [methode, r, params] of [['POST', 'entrainement-modele', { partie: '0' }], ['POST', 'entrainement-modele', { fin: '1' }], ['GET', 'entrainement-jeu', {}]] as [string, string, Record<string, string>][]) {
+      const encore = await mac(c.jeton, methode, r, params, methode === 'POST' ? octets : undefined);
       expect(encore.status, r).toBe(409);
       expect((await json(encore)).erreur).toContain('a déjà déposé son modèle');
     }
     expect(fs.existsSync(fichierJeton(c.id, 'zip'))).toBe(false);
     expect(fs.existsSync(fichierJeton(c.id, 'partie'))).toBe(false);
-    expect(modeles.filter((x) => String(x.id).startsWith('colab-'))).toHaveLength(1);
+    expect(modeles.filter((x) => String(x.id).startsWith('entrainement-'))).toHaveLength(1);
     expect((await json(await appel('GET', 'jetons'))).jetons).toContainEqual(expect.objectContaining({ id: c.id, depose: expect.objectContaining({ modele: id }) }));
     // Une cle qui a servi ne compte plus parmi les cinq.
     for (let k = 0; k < 5; k++) await creer();
@@ -454,17 +538,17 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
     const nModeles = async () => ((await json(await appel('GET', 'modeles'))) as unknown as unknown[]).length;
     const avant = await nModeles();
     // Rien recu : pas de fin.
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { fin: '1' }, { architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre'], taille: 0, sha256: sha256(new Uint8Array()) })).status).toBe(400);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { fin: '1' }, { architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre'], taille: 0, sha256: sha256(new Uint8Array()) })).status).toBe(400);
     // Les morceaux dans l'ordre : le n° 1 avant le n° 0, ou deux fois le meme, sont refuses ; le n° 0 recommence.
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '1' }, octets)).status).toBe(409);
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '0' }, octets.subarray(0, 5000))).status).toBe(200);
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '2' }, octets.subarray(5000))).status).toBe(409);
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '1' }, octets.subarray(5000))).status).toBe(200);
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '1' }, octets.subarray(5000))).status).toBe(409);
-    for (const partie of ['-1', '1.5', 'x', '', '99999']) expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie }, octets)).status, partie).toBe(400);
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '2' }, new Uint8Array())).status).toBe(400);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '1' }, octets)).status).toBe(409);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '0' }, octets.subarray(0, 5000))).status).toBe(200);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '2' }, octets.subarray(5000))).status).toBe(409);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '1' }, octets.subarray(5000))).status).toBe(200);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '1' }, octets.subarray(5000))).status).toBe(409);
+    for (const partie of ['-1', '1.5', 'x', '', '99999']) expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie }, octets)).status, partie).toBe(400);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '2' }, new Uint8Array())).status).toBe(400);
     // La taille et l'empreinte annoncees doivent etre celles des octets recus.
-    const fin = (d: Record<string, unknown>) => carnet(c.jeton, 'POST', 'colab-modele', { fin: '1' }, { architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre', 'pignon'], taille: octets.length, sha256: sha256(octets), ...d });
+    const fin = (d: Record<string, unknown>) => mac(c.jeton, 'POST', 'entrainement-modele', { fin: '1' }, { architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre', 'pignon'], taille: octets.length, sha256: sha256(octets), ...d });
     expect((await fin({ taille: octets.length - 1 })).status).toBe(400);
     expect((await fin({ taille: String(octets.length) })).status).toBe(400);
     expect((await fin({ sha256: sha256(octets.subarray(1)) })).status).toBe(400);
@@ -491,10 +575,10 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
       ['un champ inconnu du format', coller(octets, champ(99, texte('charge'))), 1],
     ];
     for (const [quoi, o, morceauxAcceptes] of pas) {
-      const premier = await carnet(c.jeton, 'POST', 'colab-modele', { partie: '0' }, o);
+      const premier = await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '0' }, o);
       if (morceauxAcceptes === 0) { expect(premier.status, quoi).toBe(415); expect(fs.existsSync(fichierJeton(c.id, 'partie')), quoi).toBe(false); continue; }
       expect(premier.status, quoi).toBe(200);
-      const rep = await carnet(c.jeton, 'POST', 'colab-modele', { fin: '1' }, { architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre'], taille: o.length, sha256: sha256(o) });
+      const rep = await mac(c.jeton, 'POST', 'entrainement-modele', { fin: '1' }, { architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre'], taille: o.length, sha256: sha256(o) });
       expect(rep.status, quoi).toBe(415);
       expect((await json(rep)).erreur, quoi).toMatch(/^Modèle refusé : /);
       // Le fichier refuse ne reste pas sur le disque.
@@ -507,11 +591,11 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
     await appel('DELETE', 'modele', { id: String((await json(rep)).modele) });
   });
 
-  it('ce que le carnet dit du modèle est validé champ par champ', async () => {
+  it('ce que le script dit du modèle est validé champ par champ', async () => {
     const c = await creer();
     const octets = fauxOnnx();
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '0' }, octets)).status).toBe(200);
-    const fin = (d: Record<string, unknown>) => carnet(c.jeton, 'POST', 'colab-modele', { fin: '1' }, { architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre', 'pignon'], taille: octets.length, sha256: sha256(octets), ...d });
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '0' }, octets)).status).toBe(200);
+    const fin = (d: Record<string, unknown>) => mac(c.jeton, 'POST', 'entrainement-modele', { fin: '1' }, { architecture: 'rf-detr-nano', resolution: 384, classes: ['fenetre', 'pignon'], taille: octets.length, sha256: sha256(octets), ...d });
     const refuses: [string, Record<string, unknown>][] = [
       ['une autre architecture que celle de l’export', { architecture: 'rf-detr-medium' }],
       ['une architecture inconnue', { architecture: 'resnet' }],
@@ -531,7 +615,7 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
       ['201 noms', { classes: Array.from({ length: 201 }, (_, k) => 'n' + k) }],
     ];
     for (const [quoi, d] of refuses) expect((await fin(d)).status, quoi).toBe(400);
-    expect(fs.readdirSync(path.join(donnees, 'modeles')).filter((f) => f.startsWith('colab-'))).toEqual([]);
+    expect(fs.readdirSync(path.join(donnees, 'modeles')).filter((f) => f.startsWith('entrainement-'))).toEqual([]);
     // Aux bornes : 200 noms de 40 caracteres passent ; un bilan qui n'en est pas un est laisse, sans refuser le modele.
     const noms = Array.from({ length: 200 }, (_, k) => 'n' + String(k).padStart(3, '0') + 'a'.repeat(36));
     const rep = await fin({ classes: noms, bilan: { map: -0.2, map50: '0.9', parType: ['pas', 'une', 'table'] } });
@@ -547,29 +631,29 @@ print(json.dumps({'noms': g['noms'], 'telecharges': telecharges}))
     const c = await creer();
     const morceau = new Uint8Array(43 * 1048576).fill(7);
     morceau[0] = 8;
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '0' }, morceau)).status).toBe(200);
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '1' }, morceau)).status).toBe(200);
-    const rep = await carnet(c.jeton, 'POST', 'colab-modele', { partie: '2' }, morceau);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '0' }, morceau)).status).toBe(200);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '1' }, morceau)).status).toBe(200);
+    const rep = await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '2' }, morceau);
     expect(rep.status).toBe(413);
     expect((await json(rep)).erreur).toContain('128 Mo au plus');
     expect(fs.existsSync(fichierJeton(c.id, 'partie'))).toBe(false);
     // Le depot repart du debut : la suite du fichier refuse n'est plus attendue.
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '3' }, morceau.subarray(0, 100))).status).toBe(409);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '3' }, morceau.subarray(0, 100))).status).toBe(409);
     // Et le nombre d'envois d'un jeton est borne (reprises comprises).
     const j = JSON.parse(fs.readFileSync(fichierJeton(c.id), 'utf8')) as Record<string, unknown>;
     fs.writeFileSync(fichierJeton(c.id), JSON.stringify({ ...j, envois: 2000 }));
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '0' }, fauxOnnx())).status).toBe(429);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '0' }, fauxOnnx())).status).toBe(429);
   }, 60000);
 
   it('révoquer une clé pendant un dépôt l’arrête, et efface ce qui était reçu', async () => {
     const c = await creer();
     const octets = fauxOnnx();
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '0' }, octets.subarray(0, 4000))).status).toBe(200);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '0' }, octets.subarray(0, 4000))).status).toBe(200);
     expect(fs.existsSync(fichierJeton(c.id, 'partie'))).toBe(true);
     expect((await appel('DELETE', 'jeton', { id: c.id })).status).toBe(200);
     for (const ext of ['json', 'zip', 'partie', 'verrou']) expect(fs.existsSync(fichierJeton(c.id, ext)), ext).toBe(false);
-    expect((await carnet(c.jeton, 'POST', 'colab-modele', { partie: '1' }, octets.subarray(4000))).status).toBe(401);
-    expect((await carnet(c.jeton, 'GET', 'colab-jeu')).status).toBe(401);
+    expect((await mac(c.jeton, 'POST', 'entrainement-modele', { partie: '1' }, octets.subarray(4000))).status).toBe(401);
+    expect((await mac(c.jeton, 'GET', 'entrainement-jeu')).status).toBe(401);
     expect(((await json(await appel('GET', 'jetons'))).jetons as unknown[]).length).toBe(0);
   });
 });
