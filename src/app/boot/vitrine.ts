@@ -9,7 +9,7 @@ import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJ
 import { leverEtCoucher, positionSoleil } from '../../geo/soleil.js';
 import { appliquerSoleilVitrine } from '../../three/soleilVitrine.js';
 import { brancherMenuVitrine } from '../menuVitrine.js';
-import { estTerrasse, estVueUtilisable, parcelleDuProjet } from '../../model/fonctions.js';
+import { estVueUtilisable, parcelleDuProjet } from '../../model/fonctions.js';
 import type { Plan } from './plan.js';
 import type { Vues3d } from '../assemblage/vues3d.js';
 import type { Explorateur } from '../explorateur.js';
@@ -20,9 +20,10 @@ export function demarrerVitrine(p: Plan, vues: Vues3d, explorateur: Explorateur,
   // La vitrine ne montre que la Vue 3D, ombres cochees d'office (app/vitrine.ts). Rien a proposer :
   // le plan ne s'y enregistre pas.
   reglerVue3d({ ombres: true });
-  // La terrasse choisie, sinon la Vue 3D montrerait le terrain sans sa structure.
-  const terrasse = etat.objects.find(estTerrasse);
-  if (terrasse) explorateur.selectionner(terrasse.key);
+  // Une demonstration du modele 3D : aucun objet n'y est choisi, ni d'office ni au toucher (app/ecouteurs/selection3d.ts), et rien
+  // ne s'y modifie (decision du proprietaire, 22 novembre 2026). La scene se batit sur la terrasse courante, que la selection ne
+  // porte pas (core/contexteTerrasse.ts) : la structure se montre sans que la terrasse soit cernee.
+  explorateur.selectionner(null);
   commandes.executer('vue.3d');
   // Le point de vue d'abord, le zoom ensuite, depuis lui. Une fois la scene la : poser la camera
   // avant, c'est la poser sur une scene que la construction remplacera.

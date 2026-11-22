@@ -84,7 +84,9 @@ export function creerSurface(etat: EtatApp): Surface {
     rues: groupe(true, 'ruesGroup'),
     objets: groupe(false, 'objetsGroup'),
     piscines: groupe(true), parasols: groupe(true), pergolas: groupe(true), mats: groupe(true), plu: groupe(true, 'pluGroup'),
-    nord: groupe(), echelle: groupe(), cotes: groupe(), couches: groupe(), releves: groupe(true),
+    // La fleche du nord, l'echelle et les cotes se lisent, elles ne se cliquent pas : leurs etiquettes, posees par-dessus les objets,
+    // avalaient le clic ou le toucher qui visait l'objet dessous (au telephone, plus du tiers d'une terrasse sur la vue du terrain).
+    nord: groupe(true), echelle: groupe(true), cotes: groupe(true), couches: groupe(), releves: groupe(true),
     appliquerTaille() {
       stage.style.width = etat.scene.W + 'px'; stage.style.height = etat.scene.H + 'px';
       // L'explorateur et l'inspecteur, de part et d'autre du plan, ne depassent jamais sa hauteur.

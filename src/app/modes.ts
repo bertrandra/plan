@@ -50,6 +50,11 @@ export interface ContexteModes {
    * juste apres : il doit etre deja affiche et a sa taille, pas au prochain rendu de React.
    */
   rendreMaintenant: (changer: () => void) => void;
+  /**
+   * Juste avant d'entrer en Vue 3D : la selection posee d'office a l'ouverture, que la personne n'a ni choisie ni utilisee, est
+   * lachee (core/selectionAccueil.ts). Rien de choisi en entrant, rien de choisi en 3D.
+   */
+  avantVue3d?: () => void;
 }
 
 export function creerModes(ctx: ContexteModes) {
@@ -67,6 +72,7 @@ export function creerModes(ctx: ContexteModes) {
    */
   function appliquerVue(vue: Vue): void {
     if (vueCourante === 'visionneuse' && vue !== 'visionneuse') fermerVisionneuse();
+    if (vue === 'vue3d' && vueCourante !== 'vue3d') ctx.avantVue3d?.();
     vueCourante = vue;
     ctx.rendreMaintenant(() => ctx.signalerVue(vue));
     if (vue === 'visionneuse') return;

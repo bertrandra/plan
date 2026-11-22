@@ -39,6 +39,8 @@ export interface EtatApp {
 
   // Selection et modes
   selectedKey: string | null;
+  /** La selection posee d'office a l'ouverture, tant que la personne n'a rien choisi (core/selectionAccueil.ts). Jamais enregistree. */
+  selectionAccueil?: string | null;
   highlight: Surbrillance;
   panelTab: string;
   /** La terrasse courante : un contexte du plan, tenu par core/contexteTerrasse.ts. */
@@ -104,16 +106,19 @@ export function creerEtat(
   normaliser: (objs: ObjetBrut[]) => ObjetPlan[]
 ): EtatApp {
   const objects = normaliser(seed.objects || []);
+  // La terrasse est l'objet qu'on vient regarder en arrivant, quand il y en a une.
+  const accueil = objects.some((o) => o.key === 'terrasse')
+    ? 'terrasse'
+    : objects.length
+      ? au(objects, 0).key
+      : null;
   return {
     objects,
     measures: (seed.measures || []).map((m) => ({ ...m })),
 
-    // La terrasse est l'objet qu'on vient regarder en arrivant, quand il y en a une.
-    selectedKey: objects.some((o) => o.key === 'terrasse')
-      ? 'terrasse'
-      : objects.length
-        ? au(objects, 0).key
-        : null,
+    // Posee d'office, pas choisie : la Vue 3D ne la reprend pas (core/selectionAccueil.ts).
+    selectedKey: accueil,
+    selectionAccueil: accueil,
     highlight: { type: null, index: null },
     // Les cotes plutot qu'un onglet de terrasse : ceux-la recalculent le chiffrage et l'ecrivent
     // dans le projet des qu'ils s'ouvrent, ce que l'ancien mode Terrasse ne faisait qu'a la demande.

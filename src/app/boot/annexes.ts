@@ -1,5 +1,8 @@
 // Ce que le demarrage branche selon le mode (app/boot.ts) : l'audit, l'isolement de la terrasse, l'exposition pour les captures.
 
+import { parcelleDuProjet } from '../../model/fonctions.js';
+import { demanderSection, type Inspecteur } from '../inspecteur.js';
+import { confirmerSelection, lacherSelectionAccueil, suivreSelectionAccueil } from '../../core/selectionAccueil.js';
 import type { Feuille } from '../magasin.js';
 import type { Explorateur } from '../explorateur.js';
 import { showToast } from '../../shell/dialogs.js';
@@ -70,6 +73,48 @@ export function brancherIsolement(p: Plan): void {
   // La selection change par le plan, l'explorateur, le clavier : le magasin est le seul endroit ou
   // tous ces chemins se retrouvent.
   magasin.store.subscribe(() => isolement.suivreSelection());
+  // Une selection qui n'est plus celle de l'ouverture a ete choisie par la personne (core/selectionAccueil.ts).
+  magasin.store.subscribe(() => suivreSelectionAccueil(etat));
+}
+
+/**
+ * Juste avant d'entrer en Vue 3D : la selection posee d'office a l'ouverture, ni choisie ni utilisee, est lachee
+ * (core/selectionAccueil.ts). Le plan suit (poignees, inspecteur, tiroir) : elle ne doit pas y rester dessinee au retour.
+ */
+export function lacherLaSelectionDAccueil(p: Plan): void {
+  const { etat } = p;
+  if (!lacherSelectionAccueil(etat)) return;
+  etat.highlight = { type: null, index: null };
+  p.render();
+}
+
+/**
+ * « Clôture et portails » (palette, groupe Creer) : le chemin direct vers les deux sections de la parcelle du projet. La cloture et
+ * ses acces n'existent que dans l'inspecteur de cette parcelle, verrouillee et sous tous les autres objets : il fallait savoir la
+ * choisir, puis trouver la section. La commande la selectionne et ouvre la section ; elle n'ecrit rien (les boutons de la section
+ * portent le droit d'ecrire), et ne s'offre que si le projet a sa parcelle ; lancee hors du plan, elle y ramene.
+ */
+export function brancherCheminCloture(p: Plan, inspecteur: Pick<Inspecteur, 'basculerOuverture'>): void {
+  const { etat, magasin, commandes } = p;
+  commandes.declarer({
+    id: 'cloture.ouvrir', libelle: 'Clôture et portails', groupe: 'objet',
+    description: 'Sélectionne la parcelle du projet et ouvre sa section Clôture, suivie de Portails et portillons : cocher la clôture, ajouter un portail ou un portillon',
+    actif: () => !!parcelleDuProjet(etat.objects),
+    executer: () => {
+      const parcelle = parcelleDuProjet(etat.objects);
+      if (!parcelle) return;
+      // Depuis la Vue 3D (le rail de la tablette y reste) : la cloture se regle sur le plan, on y revient d'abord.
+      if (magasin.store.getState().vue !== 'plan') commandes.executer('vue.plan');
+      etat.selectedKey = parcelle.key;
+      etat.highlight = { type: null, index: null };
+      confirmerSelection(etat);
+      demanderSection('cloture');
+      const s = magasin.store.getState();
+      if (s.classe === 'compact') magasin.definirFeuille('proprietes');
+      else if (!s.inspecteurOuvert) inspecteur.basculerOuverture();
+      p.render();
+    }
+  });
 }
 
 /**

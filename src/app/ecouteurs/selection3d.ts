@@ -19,6 +19,7 @@ import { moteur3d } from '../../three/demande3d.js';
 import { sessionToit } from '../toits/modeToit.js';
 import { controleurAudit } from '../audit/courant.js';
 import { parcours } from '../parcours.js';
+import { enVitrine } from '../acces.js';
 import { promenadeActive } from '../../three/presentation.js';
 import type { Atelier } from '../atelier.js';
 import type { Magasin } from '../magasin.js';
@@ -89,7 +90,8 @@ export function ecouterLesTouchers(doc: Document | null, auToucher: (e: PointerE
 
 export function brancherSelection3d(a: Atelier, magasin: Magasin, doc: Document | null = typeof document === 'undefined' ? null : document): void {
   ecouterLesTouchers(doc, (e) => {
-    if (magasin.store.getState().vue !== 'vue3d' || toucherPrisAilleurs()) return;
+    // La vitrine (`?mode=demo`) montre le modele : un toucher y tourne la scene, il n'y choisit rien (app/boot/vitrine.ts).
+    if (enVitrine() || magasin.store.getState().vue !== 'vue3d' || toucherPrisAilleurs()) return;
     const toile = vue3d.scene?.renderer.domElement;
     if (!toile) return;
     const r = toile.getBoundingClientRect();

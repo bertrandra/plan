@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { sectionsCloture, reinitialiserChoixCloture } from '../../../src/ui/champs/cloture.js';
+import { sectionsCloture, reinitialiserChoixCloture, ACTIVE_LA_CLOTURE } from '../../../src/ui/champs/cloture.js';
 import { champsVisibles, type Champ, type ChampBouton, type ChampCase, type ChampChoix, type ChampNombre, type ChampAlerte, type ContexteChamps } from '../../../src/ui/champs/types.js';
 import { clotureDe } from '../../../src/model/cloture.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
@@ -45,12 +45,35 @@ describe('section Cloture', () => {
   it('ne montre que la case tant que la cloture est inactive, puis les cotes et le reglage par defaut', () => {
     const c = contexte();
     expect(cles(c, 'cloture')).toEqual(['active']);
-    expect(cles(c, 'portails')).toEqual([]);
+    // Les deux boutons d'ajout sont proposes cloture cochee ou non : la section ne disparait plus, vide, tant que la case est decochee.
+    expect(cles(c, 'portails')).toEqual(['ajouterPortail', 'ajouterPortillon']);
     champ<ChampCase>(c, 'cloture', 'active').ecrire(c, true);
     expect(c.obj.cloture?.active).toBe(true);
     expect(c.obj.clotureActive).toBe(true);
     expect(cles(c, 'cloture')).toEqual(['active', 'hauteurMaxRue', 'hauteurMaxSeparative', 'cote0', 'cote1', 'cote2', 'cote3', 'enCours', 'type', 'hauteur', 'couleur', 'texture', 'lames', 'occultante', 'soubassement']);
     expect(cles(c, 'portails')).toEqual(['ajouterPortail', 'ajouterPortillon']);
+  });
+
+  it('ajouter un portail sans cloture cochee l’active, et le bouton le dit avant', () => {
+    const c = contexte();
+    expect(clotureDe(c.obj).active).toBe(false);
+    const ajouter = champ<ChampBouton>(c, 'portails', 'ajouterPortail');
+    expect(ajouter.explication).toContain(ACTIVE_LA_CLOTURE);
+    expect(ajouter.aide).toContain('active la clôture');
+    expect(champ<ChampBouton>(c, 'portails', 'ajouterPortillon').aide).toContain('active la clôture');
+    ajouter.executer(c);
+    expect(c.obj.cloture?.active).toBe(true);
+    expect(c.obj.clotureActive).toBe(true);
+    expect(clotureDe(c.obj).portails.map(a => a.nature)).toEqual(['portail']);
+    // Une fois active, le bouton ne le redit plus, et les champs de l'acces sont la.
+    expect(champ<ChampBouton>(c, 'portails', 'ajouterPortail').explication).not.toContain(ACTIVE_LA_CLOTURE);
+    expect(cles(c, 'portails')).toEqual(expect.arrayContaining(['acces0', 'placer', 'largeur']));
+    // Le portillon aussi, sur une parcelle neuve.
+    reinitialiserChoixCloture();
+    const d = contexte();
+    champ<ChampBouton>(d, 'portails', 'ajouterPortillon').executer(d);
+    expect(d.obj.cloture?.active).toBe(true);
+    expect(clotureDe(d.obj).portails.map(a => a.nature)).toEqual(['portillon']);
   });
 
   it('les champs suivent le type du reglage en cours', () => {

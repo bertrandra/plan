@@ -11,6 +11,11 @@
 // seule (app/acces.ts). Ce qu'elle montre est le plan de demonstration embarque dans le fichier,
 // deja public. Elle ne donne acces a aucune donnee qu'une personne aurait saisie.
 //
+// **Ce qu'on n'y fait pas.** C'est une demonstration du modele 3D : aucun objet ne s'y choisit, ni d'office a l'ouverture ni au
+// toucher (app/ecouteurs/selection3d.ts), et rien ne s'y modifie : le registre efface ce qui ecrit le projet ou demande une
+// selection, mode Toit, photomontage et isolement compris (`retireEnVitrine`, app/acces.ts). Tourner, zoomer, l'heure et le clic
+// droit restent (decision du proprietaire, 22 novembre 2026).
+//
 // **Ce qu'elle regle autrement.** Les ombres sont cochees d'office : c'est une vitrine, et la
 // scene sans ombre y parait plate. Dans l'atelier elles restent a la demande — elles coutent cher
 // et changent a chaque heure (three/etat3d.ts).

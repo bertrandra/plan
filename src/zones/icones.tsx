@@ -9,7 +9,7 @@
 // Pas de bibliotheque : une trentaine de traces, c'est moins que le code pour en charger une.
 
 export type NomIcone =
-  | 'annuler' | 'retablir' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'terrasse' | 'parasol' | 'pergola' | 'carport' | 'piscine' | 'piscineRonde' | 'pointDeVue'
+  | 'annuler' | 'retablir' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'terrasse' | 'parasol' | 'pergola' | 'carport' | 'piscine' | 'piscineRonde' | 'pointDeVue' | 'cloture'
   | 'dupliquer' | 'supprimer' | 'reculer' | 'positionInitiale' | 'cote' | 'aligner'
   | 'grille' | 'ajuster' | 'recadrer' | 'tournerDroite' | 'tournerCorps' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
@@ -36,6 +36,7 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   piscine: <><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M6 13c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0 2-1 3 0" /></>,
   piscineRonde: <><circle cx="12" cy="12" r="8.5" /><path d="M6.5 13c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0 1.5-.8 2-.5" /></>,
   pointDeVue: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>,
+  cloture: <><path d="M3 20V8l2-2.5L7 8v12M10 20V8l2-2.5L14 8v12M17 20V8l2-2.5L21 8v12" /><path d="M3 11.5h18M3 16.5h18" /></>,
   dupliquer: <><rect x="8.5" y="8.5" width="12" height="12" rx="2" /><path d="M15.5 8.5V5.5a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2h3" /></>,
   supprimer: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
   // Un corps coupe en deux, et deux corps reunis en un.

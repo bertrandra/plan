@@ -20,6 +20,7 @@ import type { Magasin } from '../app/magasin.js';
 import { useCle, cleEtatEtObjets, cleCommandes } from './composants/abonnement.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Inspecteur as ServiceInspecteur } from '../app/inspecteur.js';
+import { prendreSectionDemandee } from '../app/inspecteur.js';
 import type { Tiroir } from '../app/tiroir.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { ListeChamps, Tactile, aLaFrancaise } from './composants/Champs.js';
@@ -139,7 +140,10 @@ const SECTIONS_GEOMETRIE = new Set(['cotes', 'coins']);
 // « Façades et toit » decrit la construction d'un batiment, comme les sections d'une terrasse. Le
 // metrage, les prix et l'optimisation d'un ouvrage sont des resultats : ils sont au tiroir (Z6).
 const SECTIONS_CONSTRUCTION = new Set(['implantation', 'fondation', 'appuis', 'structure', 'lames', 'finitions', 'parametres', 'releve', 'pergola',
-  'piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine', 'noteCalcul', 'cloture', 'portails']);
+  'piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine', 'noteCalcul']);
+// « Cloture » et « Portails et portillons » restent dans la famille Objet, celle que la feuille montre en arrivant sur la parcelle :
+// rangees sous Construction, il fallait deviner un onglet que rien n'annonce sur un terrain, et le chemin s'etait perdu. La parcelle
+// n'est pas un ouvrage dont on regle la structure ; au doigt comme au bureau, ses sections se suivent dans le meme ordre.
 
 export function familleDe(idSection: string): Famille {
   if (SECTIONS_GEOMETRIE.has(idSection)) return 'geometrie';
@@ -188,6 +192,18 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
     const premiere = sections.find(d => d.dataset.repliee === undefined);
     if (premiere) premiere.open = true;
   }, [cle]);
+  // Une commande a demande une section (« Clôture et portails ») : elle s'ouvre, les autres se replient, et au doigt sa famille
+  // devient celle qu'on montre. Prise seulement quand la section est montee : repliee ou sans objet, la demande attend.
+  useLayoutEffect(() => {
+    const sections = [...(panneau.current?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection') ?? [])];
+    if (!sections.length) return;
+    const id = prendreSectionDemandee();
+    const voulue = id ? sections.find(d => d.dataset.section === id) : undefined;
+    if (!voulue) return;
+    sections.forEach(d => { d.open = d === voulue; });
+    choisirFamille(familleDe(id ?? ''));
+    voulue.scrollIntoView?.({ block: 'nearest' });
+  });
   // Sur telephone, l'inspecteur est une feuille : il n'a pas de repli, la feuille se ferme.
   const ouvert = compact || ouvertStore;
   const obj = inspecteur.objet();

@@ -5,6 +5,7 @@
 // l'historique si le champ le demande, le marquage « modifie », puis les effets declares. C'est le
 // seul endroit ou une ecriture de l'inspecteur touche le reste du programme.
 
+import { confirmerSelection } from '../core/selectionAccueil.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { cibleAlignement } from '../interaction/outilAlignement.js';
 import { toucher } from '../core/controleurObjets.js';
@@ -63,6 +64,14 @@ export interface Inspecteur {
   /** Replie ou deplie la zone : le conteneur (index.html) porte la classe, le plan reprend la largeur. */
   basculerOuverture(): void;
 }
+
+/**
+ * La section qu'une commande demande d'ouvrir (« Clôture et portails » de la palette, app/boot/annexes.ts) : la zone la prend a son
+ * prochain rendu, l'ouvre et replie les autres (zones/Inspecteur.tsx). Une demande, une ouverture.
+ */
+let sectionDemandee: string | null = null;
+export function demanderSection(id: string): void { sectionDemandee = id; }
+export function prendreSectionDemandee(): string | null { const id = sectionDemandee; sectionDemandee = null; return id; }
 
 /** Le temps pendant lequel des ecritures d'un meme champ forment un seul geste a annuler. */
 const REGROUPEMENT_MS = 1500;
@@ -137,6 +146,8 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       // L'ecriture nomme son objet (core/controleurObjets.ts) : un reglage d'affichage (`sale: false`) ne passe pas par
       // l'historique, et sans cela ni le plan ni l'inspecteur (zones/composants/abonnement.ts) ne le verraient changer.
       toucher(c.obj);
+      // Ecrire dans l'objet choisi a l'ouverture, c'est s'en servir : la Vue 3D gardera cette selection (core/selectionAccueil.ts).
+      confirmerSelection(etat);
       if (empiler) empiler();
       if (champAnnulable(champ)) dernier = { cle: cleDe(champ, c), t: Date.now() };
       if (champ.sale !== false || (champ.enregistre && !etat.lectureSeule)) ctx.markDirty(...nommes);
@@ -149,6 +160,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       // Un bouton qui ecrit le projet est grise en lecture seule ; il est refuse ici aussi.
       if (champ.type !== 'bouton' || (etat.lectureSeule && ecritLeProjet(champ))) return;
       champ.executer(c);
+      confirmerSelection(etat);
       toucher(c.obj);
       magasin.notifier();
     },

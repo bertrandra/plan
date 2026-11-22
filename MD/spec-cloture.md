@@ -200,8 +200,11 @@ face verticale à l'ombre du soleil de l'étude paraît grise, comme la clôture
 
 ## 3. Inspecteur (Z5)
 
-Deux sections sur la parcelle du projet, rangées dans la famille **Construction** au doigt
-(`familleDe`), et visibles sur elle seule : une parcelle voisine n'a ni clôture ni accès.
+Deux sections sur la parcelle du projet, rangées dans la famille **Objet** au doigt
+(`familleDe` ; Construction jusqu'à la 5.38.0 : sur un terrain, rien n'annonçait cet onglet et le chemin se perdait), et
+visibles sur elle seule : une parcelle voisine n'a ni clôture ni accès. L'outil **« Clôture, portail »** de la palette
+(`cloture.ouvrir`, groupe Créer ; rail sur tablette, feuille Outils au téléphone) y mène : il sélectionne la parcelle du
+projet et ouvre l'inspecteur sur la section Clôture. Il n'écrit rien.
 
 ### 3.1 Section « Clôture » (`cloture`)
 
@@ -227,7 +230,7 @@ Deux sections sur la parcelle du projet, rangées dans la famille **Construction
 
 | Champ | Type | Note |
 |---|---|---|
-| Ajouter un portail, Ajouter un portillon | bouton | sur le côté « sur rue » s'il y en a un, sinon le plus long, au milieu |
+| Ajouter un portail, Ajouter un portillon | bouton | sur le côté « sur rue » s'il y en a un, sinon le plus long, au milieu ; proposés clôture cochée ou non : s'en servir coche « Clôture autour de la parcelle », et le bouton le dit avant |
 | Un accès par ligne : résumé (« Portail 3,50 m · côté 2 · à 4,20 m ») | ligne | **Régler**, **Supprimer** |
 | Accès en cours | choix | choix d'affichage |
 | Placer sur le plan… | bouton | un pointage (`purpose: 'acces'`, `interaction/pointeur.ts`) : le clic sur un côté de la parcelle pose l'accès en cours centré sur le point cliqué, sans sortir du côté ; Échap annule |

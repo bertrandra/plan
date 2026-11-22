@@ -11,6 +11,7 @@ import { serializeObjects, serializeMeasures, type MesureSerialisee } from './se
 import { showToast } from '../shell/dialogs.js';
 import { vue3d } from '../three/etat3d.js';
 import { soleilDuProjet } from '../core/soleil.js';
+import { poserSelectionAccueil } from '../core/selectionAccueil.js';
 import { idMesure } from '../model/cles.js';
 import { referencesDeCote, type ObjetCotable } from '../model/mesures.js';
 import type { EtatApp } from '../core/state.js';
@@ -102,7 +103,8 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
     }
   }
   const parcelle = etat.objects.find(o=>o.key === 'parcelle');
-  if(parcelle) etat.selectedKey = parcelle.key;
+  // Posee d'office, comme a l'ouverture : la Vue 3D ne la reprend pas (core/selectionAccueil.ts).
+  if(parcelle){ etat.selectedKey = parcelle.key; poserSelectionAccueil(etat); }
   ctx.rebuildSelector();
   ctx.render();
   // Le cadrage par defaut suit le terrain importe : une propriete de 2 400 m2 et une terrasse de
