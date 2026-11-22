@@ -770,6 +770,16 @@
   .champsEnLigne input[type=text]{ width:90px; flex:1; }
   .champsEnLigne .champNombre input{ width:78px; }
   .champ-ligne .commande{ overflow:hidden; }
+  /* Une liste aux options longues (une lame du commerce) passe sous son libelle, sur toute la largeur : coupee a droite du
+     libelle, elle ne se lisait pas (audit de l'inspecteur, lot A5). */
+  .champ:has(> .commande > select.long){ grid-template-columns:1fr; }
+  /* Une case dans une ligne (« Figé », sur un coin) porte son libelle a cote d'elle. */
+  .caseEnLigne{ display:inline-flex; align-items:center; gap:5px; cursor:pointer; }
+  .texteCase{ font-family:var(--sans); font-size:0.74rem; color:var(--ink-soft); white-space:nowrap; }
+  .interrupteur.avecTexte{ width:auto; gap:8px; }
+  .interrupteur.avecTexte .texteCase{ font-size:14px; color:var(--ink); }
+  .gestesPlan{ width:100%; margin-top:6px; }
+  .gestesPlan .hint{ margin:0 0 4px; }
   /* Un pli de champs dans une section (ui/champs, `repli`) : ce qui sert rarement, ferme a l'ouverture. */
   .plichamps > summary{
     cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px; min-height:28px; padding:2px 4px;
@@ -1478,6 +1488,7 @@
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ:not(.pleineLargeur).champ-choix:has(.segmente) > .commande > :first-child{ justify-self:start; text-align:left; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(.segmente) .note{ text-align:left; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(select) .commande > select{ max-width:62vw; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(select.long) .commande > select{ max-width:100%; width:100%; justify-self:stretch; text-align:left; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .note:empty{ display:none; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=text]:not(.pas input),
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=date]{ min-height:44px; font-size:15px; border-radius:var(--r-champ); width:100%; }

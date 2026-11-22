@@ -258,7 +258,10 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
     options: (cx) => (aDesSommets(cx.obj) ? cx.obj.segmentNames || [] : []).map((sn, i) => ({ valeur: String(i), libelle: nomDuCote(sn, i) })),
     lire: (cx) => String(cx.construction().segmentReference || 0), ecrire: (cx, v) => { cx.construction().segmentReference = parseInt(v, 10) || 0; }
   }),
-  sensPose: nombre('sensPose', 'Sens de pose', { pas: 1, unite: '° / côté de référence', defaut: 0, aide: '0 = parallèle au côté de référence',
+  // L'unite est un degre, et rien d'autre : ce que l'angle mesure se lit dans la note, sous le champ.
+  sensPose: nombre('sensPose', 'Sens de pose', { pas: 1, unite: '°', defaut: 0,
+    aide: 'Angle des lames par rapport au côté de référence : à 0°, elles lui sont parallèles ; à 90°, perpendiculaires',
+    note: l => (l.c.sensPose || 0) === 0 ? 'lames parallèles au côté de référence' : 'angle mesuré depuis le côté de référence',
     lire: l => l.c.sensPose || 0 }),
   // L'essence et l'epaisseur pilotent l'ecartement admissible des appuis sous les lames, donc toute
   // la vue. Changer d'essence remet le coefficient de raideur a la valeur de cette essence : une
@@ -283,7 +286,7 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
     aide: 'Épaisseur d’une lame : plus elle est mince, plus les pièces qui la portent doivent être rapprochées' }),
   // ---- Finitions du tour : laquelle est verticale, laquelle est a plat, tout de suite ----------
   avecLameRive: reglage({
-    type: 'case', cle: 'avecLameRive', libelle: 'Lame de rive — habillage VERTICAL',
+    type: 'case', cle: 'avecLameRive', libelle: 'Lame de rive (habillage vertical)',
     aide: 'Habillage de finition qui fait le tour de la terrasse, accroché sous le niveau des lames pour cacher la structure',
     note: () => 'planche sur chant qui fait le tour, suspendue sous les lames, cache la structure',
     lire: (cx) => !!cx.construction().avecLameRive, ecrire: (cx, v) => { cx.construction().avecLameRive = v; }
@@ -304,7 +307,7 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
   hauteurLameRive: nombre('hauteurLameRive', 'Hauteur lame de rive', { pas: 10, min: 50, unite: 'mm', defaut: 200, actif: l => !!l.c.avecLameRive,
     aide: 'Hauteur de l\'habillage, mesurée depuis le dessus des lames vers le bas' }),
   avecLamePlat: reglage({
-    type: 'case', cle: 'avecLamePlat', libelle: 'Planche plate — bordure HORIZONTALE',
+    type: 'case', cle: 'avecLamePlat', libelle: 'Planche plate (bordure horizontale)',
     aide: 'Planche plate qui fait le tour de la terrasse, posée à plat au même niveau que les lames, comme un cadre de finition',
     note: (cx) => 'cadre posé à plat au niveau des lames, sur tout le tour' + (cx.construction().avecLamePlat ? ' — le champ de lames se rétrécit d\'autant' : ''),
     lire: (cx) => !!cx.construction().avecLamePlat, ecrire: (cx, v) => { cx.construction().avecLamePlat = v; }

@@ -229,9 +229,13 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
       {/* « Réinitialiser la position » est un outil de la palette (rail, feuille Outils) : un geste n'existe qu'a un endroit. */}
       <BoutonPied commandes={commandes} id="projet.reinitialiser" libelle="Réinitialiser tout" />
       <RefusPied commandes={commandes} ids={['projet.reinitialiser']} tactile={tactile} />
-      <p className="hint">{tactile
+      {/* Le rappel des gestes du plan, replie : plus de 400 caracteres sous chaque objet, qu'on ne lit qu'une fois (lot A5). */}
+      <details className="plichamps gestesPlan" data-pli="gestes">
+        <summary>Gestes sur le plan</summary>
+        <p className="hint">{tactile
         ? 'Glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer. Double toucher sur un côté = ajouter un point ; sur un coin = figer ou dégeler. Pincer = zoom. Trois doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'
         : 'Glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>
+      </details>
     </div>
   );
   const ouverteParDefaut = premiereOuverte(sections, c);
@@ -246,7 +250,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   // champ, et un brouillon en cours survit (point 39 de la liste de fumee). Seuls l'entete et les
   // pastilles de saut changent.
   const entete = compact
-    ? <EnteteFeuille magasin={magasin} titre={obj.name} sousTitre={aLaFrancaise(inspecteur.titre(c))}
+    ? <EnteteFeuille magasin={magasin} titre={obj.name} sousTitre={aLaFrancaise(inspecteur.sousTitre ? inspecteur.sousTitre(c) : inspecteur.titre(c))}
         actions={<button type="button" className="boutonIcone" id="attrTitle" data-controle="inspecteur.replierSections" aria-label="Replier la section ouverte, ou ouvrir la première" title="Replier la section ouverte, ou ouvrir la première" onClick={basculerSections}><Icone nom="chevronBas" /></button>} />
     : <div className="inspecteurEntete">
         <span className="inspecteurTitre" id="attrTitle" data-controle="inspecteur.replierSections" role="button" tabIndex={0} title="Replier la section ouverte, ou ouvrir la première"

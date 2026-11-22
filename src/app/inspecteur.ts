@@ -17,7 +17,7 @@ import { brancherDialogueDevis, preferencesDevis } from './devis.js';
 import type { ServiceDossier } from './declaration/serviceDossier.js';
 import { champAnnulable, ecritLeProjet } from './administration/ecritures.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
-import { titreObjet } from '../ui/champs/objet.js';
+import { sousTitreObjet, titreObjet } from '../ui/champs/objet.js';
 import { retoucheADemander } from '../model/retouche.js';
 import { avecAccordDeRetouche } from '../interaction/retoucheTerrain.js';
 import { sectionsInspecteur } from '../ui/champs/sections.js';
@@ -56,6 +56,8 @@ export interface Inspecteur {
   parcelle(): ObjetPlan | undefined;
   contexte(obj: ObjetPlan): ContexteChamps;
   titre(c: ContexteChamps): string;
+  /** Sous le nom de l'objet, quand il est deja le titre (la feuille Proprietes du telephone) : ce qu'il est, sa surface. */
+  sousTitre?(c: ContexteChamps): string;
   sections(c: ContexteChamps): Section[];
   /** Applique une ecriture et ce qui doit la suivre ; `false` quand le champ l'a refusee. */
   appliquer(champ: Champ, c: ContexteChamps, ecrire: () => void | boolean): boolean;
@@ -117,6 +119,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
     parcelle: ctx.trouverParcelle,
     contexte,
     titre: titreObjet,
+    sousTitre: sousTitreObjet,
     sections: sectionsInspecteur,
     appliquer(champ, c, ecrire) {
       // La lecture seule refuse ce qui ecrit le projet, comme le registre grise ses commandes.

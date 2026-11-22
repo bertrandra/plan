@@ -44,6 +44,19 @@ describe('les explications des reglages du mode simple', () => {
     expect([...sans].sort()).toEqual([]);
   });
 
+  it('aucun libelle ne crie en majuscules, aucune unite ne porte une phrase', () => {
+    // « Lame de rive — habillage VERTICAL », « ° / côté de référence » (lot A5).
+    const cries: string[] = [];
+    for (const obj of objets) {
+      const c = contexte(obj);
+      for (const s of sectionsInspecteur(c)) for (const ch of champsVisibles(s, c)) {
+        if (/[A-ZÀ-Ý]{4,}/.test(ch.libelle)) cries.push(s.id + '/' + ch.cle + ' : ' + ch.libelle);
+        if (ch.type === 'nombre' && (ch.unite ?? '').length > 6) cries.push(s.id + '/' + ch.cle + ' : unité « ' + ch.unite + ' »');
+      }
+    }
+    expect(cries).toEqual([]);
+  });
+
   it('une aide est une phrase, pas un mot', () => {
     const courtes: string[] = [];
     for (const obj of objets) {

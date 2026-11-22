@@ -1,6 +1,6 @@
 import { poserEspeces } from '../../../src/model/especesArbre.js';
 import { describe, it, expect } from 'vitest';
-import { sectionsObjet, titreObjet } from '../../../src/ui/champs/objet.js';
+import { sectionsObjet, sousTitreObjet, titreObjet } from '../../../src/ui/champs/objet.js';
 import { champsVisibles, type ChampChoix, type ContexteChamps } from '../../../src/ui/champs/types.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
@@ -126,5 +126,18 @@ describe('le titre de l inspecteur', () => {
     expect(titreObjet(contexte('batiment', 'polygon'))).not.toMatch(/polygon/);
     expect(titreObjet(contexte('', 'circle'))).toMatch(/^circle — O/);
     expect(cles(contexte('batiment', 'polygon'), 'objet')).not.toContain('type');
+  });
+
+  it('ne repete pas la fonction quand le nom la dit deja', () => {
+    // « Terrasse — Terrasse  (35,01 m²) » se lisait deux fois (audit de l'inspecteur, lot A5).
+    const carre = { pts: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }] } as Partial<ObjetPlan>;
+    expect(titreObjet(contexte('terrasse', 'polygon', { ...carre, name: 'Terrasse' }))).toBe('Terrasse  (4,00 m²)');
+    expect(titreObjet(contexte('parasol', 'circle', { name: 'Parasol 1' }))).toMatch(/^Parasol 1 {2}\(/);
+    expect(titreObjet(contexte('terrasse', 'polygon', { ...carre, name: 'Sud' }))).toBe('Terrasse — Sud  (4,00 m²)');
+  });
+
+  it('sous le nom, au telephone, dit la fonction et la surface sans redire le nom', () => {
+    const carre = { pts: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }] } as Partial<ObjetPlan>;
+    expect(sousTitreObjet(contexte('batiment', 'polygon', { ...carre, name: 'Maison' }))).toBe('Bâtiment  (4,00 m²)');
   });
 });

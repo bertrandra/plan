@@ -52,9 +52,24 @@ const contourParcelle = (c: ContexteChamps): PtBrut[] | null =>
  * se montre plus qu'a defaut de fonction connue.
  */
 export function titreObjet(c: ContexteChamps): string {
+  const quoi = natureObjet(c), nom = c.obj.name;
+  // Un nom qui commence deja par la fonction (« Terrasse », « Parasol 1 ») la dit : « Terrasse — Terrasse » se repetait.
+  const repete = nom.trim().toLowerCase().startsWith(quoi.trim().toLowerCase());
+  return (repete ? nom : quoi + ' — ' + nom) + surfaceEntreParentheses(c);
+}
+
+/**
+ * Le sous-titre de la feuille Proprietes, au telephone : le nom est deja le titre de la feuille, il ne reste a dire que ce
+ * que l'objet est, et sa surface.
+ */
+export function sousTitreObjet(c: ContexteChamps): string {
+  return natureObjet(c) + surfaceEntreParentheses(c);
+}
+
+const natureObjet = (c: ContexteChamps): string => (c.obj.fonction && LIBELLE_FONCTION[c.obj.fonction]) || c.libelleType(c.obj);
+function surfaceEntreParentheses(c: ContexteChamps): string {
   const s = surfaceMontree(c);
-  const quoi = (c.obj.fonction && LIBELLE_FONCTION[c.obj.fonction]) || c.libelleType(c.obj);
-  return quoi + ' — ' + c.obj.name + (s !== null ? '  (' + s.toFixed(2).replace('.', ',') + ' m²)' : '');
+  return s !== null ? '  (' + s.toFixed(2).replace('.', ',') + ' m²)' : '';
 }
 
 /** Un champ texture : la vignette, le nom, choisir, retirer. */

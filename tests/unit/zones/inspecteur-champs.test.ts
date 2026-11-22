@@ -28,6 +28,7 @@ function champs(): Champ[] {
     { type: 'nombre', cle: 'nombre', libelle: 'Nombre', unite: 'cm', pas: 5, lire: () => 40, ecrire: rien },
     { type: 'case', cle: 'case', libelle: 'Case', lire: () => true, ecrire: rien },
     { type: 'choix', cle: 'choixCourt', libelle: 'Choix court', options: () => [{ valeur: 'a', libelle: 'A' }, { valeur: 'b', libelle: 'B' }], lire: () => 'a', ecrire: rien },
+    { type: 'choix', cle: 'choixOptionsLongues', libelle: 'Lame', options: () => ['a', 'b', 'c', 'd'].map(v => ({ valeur: v, libelle: v + ' — une lame du commerce de 145 × 27 mm' })), lire: () => 'a', ecrire: rien },
     { type: 'choix', cle: 'choixLong', libelle: 'Choix long', options: () => ['a', 'b', 'c', 'd', 'e'].map(v => ({ valeur: v, libelle: v.toUpperCase() })), lire: () => 'c', ecrire: rien },
     { type: 'couleur', cle: 'couleur', libelle: 'Couleur', lire: () => '#336699', ecrire: rien },
     { type: 'date', cle: 'date', libelle: 'Date', lire: () => '2026-06-21', ecrire: rien },
@@ -41,6 +42,7 @@ function champs(): Champ[] {
     { type: 'ligne', cle: 'ligne', libelle: 'Côté 1', champs: [
       { type: 'texte', cle: 'nom', libelle: 'Nom', lire: () => 'AB', ecrire: rien },
       { type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', lire: () => 3.2, ecrire: rien },
+      { type: 'case', cle: 'fige', libelle: 'Figé', lire: () => false, ecrire: rien },
       { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', agit: 'projet', executer: rien }
     ] },
     { type: 'texte', cle: 'invisible', libelle: 'Invisible', visible: () => false, lire: () => '', ecrire: rien }
@@ -52,7 +54,7 @@ const SECTIONS: Section[] = [
   { id: 'repliee', titre: 'Repliée', repliee: true, champs: [{ type: 'lecture', cle: 'dansRepliee', libelle: 'Dans une section repliée', valeur: () => 'x' }] }
 ];
 
-const CLES_ATTENDUES = ['texte', 'nombre', 'case', 'choixCourt', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'carte', 'ligne', 'dansRepliee'];
+const CLES_ATTENDUES = ['texte', 'nombre', 'case', 'choixCourt', 'choixOptionsLongues', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'carte', 'ligne', 'dansRepliee'];
 
 function monter(classe: string, appliquer: ServiceInspecteur['appliquer'] = () => true): { racine: Root; hote: HTMLElement } {
   const obj = { key: 'o1', name: 'Terrasse', type: 'polygon', fonction: 'terrasse', pts: [] } as unknown as ObjetPlan;
@@ -98,6 +100,28 @@ describe('la carte des champs de l inspecteur', () => {
       expect(ligne.textContent).toContain('Supprimer');
       // Le nombre garde une saisie directe, quelle que soit sa forme (champ ou pas a pas).
       expect(ligne.querySelector('input[type="number"], input[inputmode="decimal"]')).not.toBeNull();
+    });
+  }
+});
+
+describe('les libelles qui se lisent', () => {
+  for (const classe of CLASSES) {
+    it('ecrit « Figé » a cote de sa case dans une ligne, en ' + classe, () => {
+      // Sur un coin, la case n'avait aucun libelle visible : un interrupteur seul (audit de l'inspecteur, lot A5).
+      const m = monter(classe);
+      const ligne = m.hote.querySelector('[data-cle="ligne"]')!;
+      expect(ligne.querySelector('.texteCase')?.textContent).toBe('Figé');
+      expect(ligne.querySelector('.texteCase')?.closest('label')?.querySelector('input[type="checkbox"]')).not.toBeNull();
+      // Hors d'une ligne, le libelle du champ suffit : pas de texte en double.
+      expect(m.hote.querySelector('[data-cle="case"] .texteCase')).toBeNull();
+      act(() => m.racine.unmount()); m.hote.remove();
+    });
+
+    it('marque une liste aux options longues, pour qu elle passe sous son libelle, en ' + classe, () => {
+      const m = monter(classe);
+      expect(m.hote.querySelector('[data-cle="choixOptionsLongues"] select')?.classList.contains('long')).toBe(true);
+      expect(m.hote.querySelector('[data-cle="choixLong"] select')?.classList.contains('long')).toBe(false);
+      act(() => m.racine.unmount()); m.hote.remove();
     });
   }
 });

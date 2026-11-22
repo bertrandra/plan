@@ -36,6 +36,8 @@ const formater = (v: number, decimales: number | undefined) => Number.isFinite(v
 export const aLaFrancaise = (texte: string) => texte.replace(/(\d)\.(\d)/g, '$1,$2');
 /** Lit une saisie a la francaise : la virgule vaut le point. */
 const lireNombre = (texte: string) => parseFloat(texte.replace(',', '.'));
+/** Au-dela, le libelle d'une option ne tient plus a cote de celui du champ. */
+const OPTION_LONGUE = 26;
 /** Le delai avant qu'un appui maintenu sur − ou + se repete, puis la cadence. */
 const REPETITION_MS = 400, CADENCE_MS = 90;
 
@@ -145,7 +147,7 @@ function Bouton({ champ, c, inspecteur }: PropsChamp<ChampBouton>) {
 
 
 /** La commande d'un champ, selon son type. */
-function Commande({ champ, c, inspecteur }: PropsChamp) {
+function Commande({ champ, c, inspecteur, inline }: PropsChamp) {
   const tactile = useContext(Tactile);
   const actif = champActif(champ, c);
   const ecrire = <V,>(fn: (v: V) => void | boolean) => (v: V) => { inspecteur.appliquer(champ, c, () => fn(v)); };
@@ -157,10 +159,19 @@ function Commande({ champ, c, inspecteur }: PropsChamp) {
       return <Nombre champ={champ} c={c} inspecteur={inspecteur} />;
     case 'case':
       if (tactile) {
-        return <label className="interrupteur">
+        return <label className={inline ? 'interrupteur avecTexte' : 'interrupteur'}>
           <input type="checkbox" role="switch" checked={champ.lire(c)} disabled={!actif} title={champ.aide} aria-label={champ.libelle}
             onChange={(e) => ecrire<boolean>((v) => champ.ecrire(c, v))(e.target.checked)} />
           <span className="piste" aria-hidden="true" />
+          {/* Dans une ligne (un coin), aucun libelle ne precede la case : elle dit elle-meme ce qu'elle regle (lot A5). */}
+          {inline && <span className="texteCase">{champ.libelle}</span>}
+        </label>;
+      }
+      if (inline) {
+        return <label className="caseEnLigne" title={champ.aide}>
+          <input type="checkbox" checked={champ.lire(c)} disabled={!actif} aria-label={champ.libelle}
+            onChange={(e) => ecrire<boolean>((v) => champ.ecrire(c, v))(e.target.checked)} />
+          <span className="texteCase">{champ.libelle}</span>
         </label>;
       }
       return <input type="checkbox" checked={champ.lire(c)} disabled={!actif} title={champ.aide} aria-label={champ.libelle}
@@ -179,7 +190,8 @@ function Commande({ champ, c, inspecteur }: PropsChamp) {
           ))}
         </span>;
       }
-      return <select value={champ.lire(c)} disabled={!actif} title={champ.aide} aria-label={champ.libelle} onChange={(e) => ecrire<string>((v) => champ.ecrire(c, v))(e.target.value)}>
+      // Des options longues (une lame du commerce) : la liste passe sous son libelle, sur toute la largeur, pour se lire en entier.
+      return <select className={options.some(o => o.libelle.length > OPTION_LONGUE) ? 'long' : undefined} value={champ.lire(c)} disabled={!actif} title={champ.aide} aria-label={champ.libelle} onChange={(e) => ecrire<string>((v) => champ.ecrire(c, v))(e.target.value)}>
         {optionsParGroupe(options).map((g) => g.titre === null
           ? g.options.map(o => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)
           : <optgroup key={g.titre} label={g.titre}>{g.options.map(o => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)}</optgroup>)}
