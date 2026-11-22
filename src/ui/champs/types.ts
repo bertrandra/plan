@@ -137,8 +137,15 @@ export interface ChampNombre extends ChampBase {
   pas?: number;
   unite?: string;
   decimales?: number;
+  /**
+   * Les bornes ne guident que le pas a pas : une saisie au clavier peut en sortir (ui/champs/bornes.ts). Pour une borne dont on
+   * n'est pas sur qu'elle couvre tous les usages reels (le rayon d'un petit equipement, un cote de quelques centimetres).
+   */
+  bornesIndicatives?: boolean;
+  /** Pourquoi le champ refuse une valeur qui tient pourtant dans ses bornes, en une phrase montree sous lui. */
+  raisonRefus?: string;
   lire: (c: ContexteChamps) => number;
-  /** `false` refuse la valeur : le champ revient a ce qu'il lit. */
+  /** `false` refuse la valeur : le champ revient a ce qu'il lit, et dit pourquoi (ui/champs/bornes.ts). */
   ecrire: (c: ContexteChamps, v: number) => void | boolean;
 }
 

@@ -755,6 +755,11 @@
   .champ input[type=color]{ width:40px; height:32px; padding:0; border:1px solid var(--rule); cursor:pointer; }
   .champNombre{ display:inline-flex; align-items:center; gap:4px; }
   .champNombre .unite{ font-size:0.7rem; color:var(--ink-soft); }
+  /* Une saisie refusee laisse sa raison sous le champ (« Entre 20 et 150 cm ») au lieu de revenir en silence (lot A3). Le mot
+     accompagne la couleur, qui ne porte jamais seule l'information. */
+  .refusChamp{ display:block; margin-top:2px; font-family:var(--sans); font-size:0.68rem; line-height:1.25; color:var(--danger); }
+  .champsEnLigne .refusChamp{ flex-basis:100%; }
+  .champ input[aria-invalid="true"]{ border-color:var(--danger); }
   .champCurseur{ display:flex; align-items:center; gap:8px; }
   .champCurseur input{ flex:1; }
   .champCurseur .valeurCurseur{ min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
@@ -1490,6 +1495,8 @@
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(select) .commande > select{ max-width:62vw; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(select.long) .commande > select{ max-width:100%; width:100%; justify-self:stretch; text-align:left; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .note:empty{ display:none; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .refusChamp{ grid-column:1 / -1; font-size:12px; text-align:left; margin-top:-2px; }
+  html:not([data-classe="large"]) .pas:has(input[aria-invalid="true"]){ border-color:var(--danger); }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=text]:not(.pas input),
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=date]{ min-height:44px; font-size:15px; border-radius:var(--r-champ); width:100%; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ select{

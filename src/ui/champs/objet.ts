@@ -168,6 +168,8 @@ const sectionObjet: Section = {
     },
     {
       type: 'nombre', cle: 'r', libelle: 'Rayon', unite: 'm', pas: 0.01, min: 0.1, decimales: 2, historique: true, retouche: true, effets: ['rendu'],
+      // Un regard, un robinet, un luminaire font moins de 10 cm de rayon : la borne guide le pas, pas la saisie (ui/champs/bornes.ts).
+      bornesIndicatives: true, raisonRefus: 'Rayon refusé : le cercle sortirait de la parcelle, ou il est trop petit (5 cm au moins).',
       aide: 'Rayon du cercle dessiné sur le plan, du centre au bord',
       visible: (c) => c.obj.type === 'circle',
       lire: (c) => enCercle(c.obj).r,
@@ -331,6 +333,12 @@ const sectionPointDeVue: Section = {
   ]
 };
 
+/** La section, ses nombres aux bornes indicatives (ceux des lignes compris). */
+function bornesIndicatives(s: Section): Section {
+  const souple = (ch: Champ): Champ => ch.type === 'nombre' ? { ...ch, bornesIndicatives: true } : ch.type === 'ligne' ? { ...ch, champs: ch.champs.map(souple) } : ch;
+  return { ...s, champs: s.champs.map(souple) };
+}
+
 /** Un nom de coin ou de cote : un texte sans historique, redessine a chaque frappe. */
 const nomDe = (cle: string, libelle: string, lire: (c: ContexteChamps) => string, ecrire: (c: ContexteChamps, v: string) => void): ChampTexte =>
   ({ type: 'texte', cle, libelle, effets: ['rendu'], lire, ecrire });
@@ -357,6 +365,8 @@ function sectionCotes(c: ContexteChamps): Section {
     const aFige = !!gelsDe(obj)[i], bFige = !!gelsDe(obj)[j];
     const longueur: ChampNombre = {
       type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', pas: 0.01, min: 0.05, decimales: 2, retouche: true,
+      // Un decroche de quelques centimetres existe (un contour du cadastre, une encoche) : la borne guide le pas, pas la saisie.
+      bornesIndicatives: true, raisonRefus: 'Longueur refusée : elle déformerait un coin figé, ou ferait sortir l’objet de la parcelle.',
       actif: () => !(aFige && bFige),
       aide: aFige && bFige ? 'Les deux coins de ce côté sont figés' : (aFige || bFige ? 'Un coin est figé : l\'autre extrémité du côté sera déplacée pour atteindre cette longueur' : 'Longueur du côté'),
       lire: (cc) => { const p = enPoints(cc.obj).pts; return dist(au(p, i), au(p, j % p.length)); },
@@ -432,7 +442,9 @@ const batimentImporteVerrouille = (o: ObjetPlan): boolean => estBatiment(o) && !
 export function sectionsObjet(c: ContexteChamps): Section[] {
   const o = c.obj;
   const sections: Section[] = [sectionObjet];
-  if (estTerrain(o)) sections.push(sectionParcelle, ...sectionsCloture(c));
+  // Les bornes de la cloture et des portails restent indicatives (ui/champs/bornes.ts) : ces sections sont reprises par ailleurs, et
+  // une haie de plus de 6 m existe ; les faire respecter au clavier se decidera avec elles.
+  if (estTerrain(o)) sections.push(sectionParcelle, ...sectionsCloture(c).map(bornesIndicatives));
   // Le relief suit la cloture : lui aussi n'appartient qu'a la parcelle du projet.
   const relief = sectionRelief(c);
   if (relief) sections.push(relief);

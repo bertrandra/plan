@@ -21,9 +21,15 @@ import type { ObjetPlan } from '../../../src/model/types.js';
 
 const rien = () => undefined;
 
+/** Ce que lit le nombre borne : un test le change pour jouer un projet qui porte une valeur hors bornes. */
+let entraxe = 40;
+/** Les valeurs que le nombre borne a recues, et celle qu'il refuse de lui-meme. */
+const ecrites: number[] = [];
+
 /** Un champ de chaque type, et une ligne qui en porte trois. */
 function champs(): Champ[] {
   return [
+    { type: 'nombre', cle: 'borne', libelle: 'Entraxe', unite: 'cm', pas: 5, min: 20, max: 150, lire: () => entraxe, ecrire: (_c, v) => { if (v === 99) return false; ecrites.push(v); entraxe = v; } },
     { type: 'texte', cle: 'texte', libelle: 'Texte', lire: () => 'abc', ecrire: rien },
     { type: 'nombre', cle: 'nombre', libelle: 'Nombre', unite: 'cm', pas: 5, lire: () => 40, ecrire: rien },
     { type: 'case', cle: 'case', libelle: 'Case', lire: () => true, ecrire: rien },
@@ -54,7 +60,7 @@ const SECTIONS: Section[] = [
   { id: 'repliee', titre: 'Repliée', repliee: true, champs: [{ type: 'lecture', cle: 'dansRepliee', libelle: 'Dans une section repliée', valeur: () => 'x' }] }
 ];
 
-const CLES_ATTENDUES = ['texte', 'nombre', 'case', 'choixCourt', 'choixOptionsLongues', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'carte', 'ligne', 'dansRepliee'];
+const CLES_ATTENDUES = ['borne', 'texte', 'nombre', 'case', 'choixCourt', 'choixOptionsLongues', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'carte', 'ligne', 'dansRepliee'];
 
 function monter(classe: string, appliquer: ServiceInspecteur['appliquer'] = () => true): { racine: Root; hote: HTMLElement } {
   const obj = { key: 'o1', name: 'Terrasse', type: 'polygon', fonction: 'terrasse', pts: [] } as unknown as ObjetPlan;
@@ -142,6 +148,88 @@ describe('la saisie d un nombre', () => {
       act(() => { champ.blur(); });
       expect(ecritures).toBe(1);
       act(() => m.racine.unmount()); m.hote.remove();
+    });
+  }
+});
+
+describe('une valeur refusee dit pourquoi', () => {
+  // Audit de l'inspecteur, lot A3 : au clavier, 3 et −10 passaient pour un minimum de 20, et un refus revenait sans un mot.
+  const poser = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  const taper = (champ: HTMLInputElement, texte: string) => {
+    act(() => { champ.focus(); });
+    act(() => { poser.call(champ, texte); champ.dispatchEvent(new Event('input', { bubbles: true })); });
+    act(() => { champ.blur(); });
+  };
+  const ouvrir = (classe: string) => {
+    let appels = 0;
+    const m = monter(classe, (_ch, _c, ecrire) => { appels++; return ecrire() !== false; });
+    const ligne = m.hote.querySelector<HTMLElement>('[data-cle="borne"]')!;
+    return { m, ligne, champ: ligne.querySelector<HTMLInputElement>('input')!, appels: () => appels, message: () => ligne.querySelector('.refusChamp')?.textContent ?? null, fermer: () => { act(() => m.racine.unmount()); m.hote.remove(); } };
+  };
+  beforeEach(() => { entraxe = 40; ecrites.length = 0; });
+
+  for (const classe of CLASSES) {
+    it('refuse au clavier une valeur hors des bornes declarees, et l ecrit sous le champ, en ' + classe, () => {
+      const x = ouvrir(classe);
+      for (const saisie of ['3', '-10', '151']) {
+        taper(x.champ, saisie);
+        expect(x.message()).toBe('Entre 20 et 150 cm');
+        expect(x.champ.getAttribute('aria-invalid')).toBe('true');
+        expect(x.ligne.querySelector('.refusChamp')?.id).toBe(x.champ.getAttribute('aria-describedby'));
+      }
+      expect(x.appels()).toBe(0);
+      expect(ecrites).toEqual([]);
+      expect(entraxe).toBe(40);
+      // Une valeur admise s'ecrit, et le message s'en va.
+      taper(x.champ, '55');
+      expect(ecrites).toEqual([55]);
+      expect(x.message()).toBeNull();
+      expect(x.champ.hasAttribute('aria-invalid')).toBe(false);
+      x.fermer();
+    });
+
+    it('dit qu une valeur dans les bornes est refusee par le champ, en ' + classe, () => {
+      const x = ouvrir(classe);
+      taper(x.champ, '99');
+      expect(x.appels()).toBe(1);
+      expect(x.message()).toMatch(/n’est pas possible ici/);
+      expect(entraxe).toBe(40);
+      // Reprendre la saisie efface le message.
+      act(() => { x.champ.focus(); });
+      act(() => { poser.call(x.champ, '6'); x.champ.dispatchEvent(new Event('input', { bubbles: true })); });
+      expect(x.message()).toBeNull();
+      x.fermer();
+    });
+
+    it('montre telle quelle la valeur hors bornes d un projet, sans l ecrire ni la signaler, en ' + classe, () => {
+      entraxe = 3;
+      const x = ouvrir(classe);
+      expect(x.champ.value).toBe('3');
+      expect(x.message()).toBeNull();
+      act(() => { x.champ.focus(); });
+      act(() => { x.champ.blur(); });
+      expect(x.appels()).toBe(0);
+      expect(entraxe).toBe(3);
+      x.fermer();
+    });
+  }
+
+  for (const classe of CLASSES.filter(k => k !== 'large')) {
+    it('grise « − » au minimum et « + » au maximum, en ' + classe, () => {
+      entraxe = 20;
+      let x = ouvrir(classe);
+      const boutons = () => [...x.ligne.querySelectorAll<HTMLButtonElement>('button.pasBouton')];
+      expect(boutons().map(b => b.disabled)).toEqual([true, false]);
+      expect(boutons()[0]!.title).toBe('Entre 20 et 150 cm');
+      x.fermer();
+      entraxe = 150;
+      x = ouvrir(classe);
+      expect(boutons().map(b => b.disabled)).toEqual([false, true]);
+      x.fermer();
+      entraxe = 40;
+      x = ouvrir(classe);
+      expect(boutons().map(b => b.disabled)).toEqual([false, false]);
+      x.fermer();
     });
   }
 });
