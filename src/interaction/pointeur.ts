@@ -16,6 +16,7 @@
 //   double-tap objet ne se declenchait jamais au doigt. On l'accepte donc quel que soit l'element
 //   touche, a condition que le tap precedent ait vise le meme objet, au meme endroit.
 
+import { confirmerSelection } from '../core/selectionAccueil.js';
 import { parcelleDuProjet, estPoseSurLeTerrain } from '../model/fonctions.js';
 import { toucherForme } from '../core/controleurObjets.js';
 import { apresDeformation } from '../core/deformation.js';
@@ -429,6 +430,9 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
       return;
     }
     const w = worldFromEvent(e);
+    // Un geste sur l'objet deja choisi (le glisser, tirer un sommet) : la personne se sert de la selection posee a l'ouverture, elle
+    // est a elle et la Vue 3D la gardera (core/selectionAccueil.ts).
+    if(ds.key && ds.key === etat.selectedKey) confirmerSelection(etat);
     if(doubleTapObjet(p, e, ds)){ e.preventDefault(); return; }
     const issue: Issue =
       ds.role === 'obj' ? surObjet(p, e, ds, w)

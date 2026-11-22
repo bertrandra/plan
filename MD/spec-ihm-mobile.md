@@ -682,6 +682,7 @@ visionneuse ; **Rail** rail d'outils ; **Pal** palette ; **M:x** menu x ; **Suri
 | `objet.ajouter.cercle` | Cercle | FO | Rail | Pal |
 | `objet.ajouter.parasol` | Parasol | FO | Rail | Pal |
 | `objet.ajouter.pointDeVue` | Point de vue | FO | Rail | Pal |
+| `cloture.ouvrir` | Clôture, portail (mène à la section de la parcelle du projet) | FO | Rail | Pal |
 | `objet.dupliquer` | Dupliquer | FO ; FS | Rail | Pal |
 | `objet.supprimer` | Supprimer | FO ; FS | Rail | Pal |
 | `objet.reculer` | Reculer d'un plan | FO | Rail | Pal |

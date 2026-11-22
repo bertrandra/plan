@@ -130,7 +130,7 @@ modifie depuis l'inspecteur de la parcelle.
 |---|---|---|---|
 | Sélection | Sélectionner / déplacer (outil par défaut) | implicite dans `interaction/pointeur.ts` | `etat.selectedKey`, `appliquerGlisser` |
 | Sélection | Annuler | `undoBtn`, Ctrl+Z | `historique.annuler` |
-| Créer | Terrasse · Pergola · Carport · Piscine · Piscine ronde · Parasol · Point de vue — les ouvrages d'abord | `add*Btn` | `atelier.addNewObject/…` |
+| Créer | Terrasse · Pergola · Carport · Piscine · Piscine ronde · Parasol · Point de vue · Clôture, portail (mène à la section de la parcelle du projet, Z5) — les ouvrages d'abord | `add*Btn` | `atelier.addNewObject/…` |
 | Formes | Chemin · Polygone · Rectangle · Cercle — les formes purement géométriques, à qualifier ensuite, après les ouvrages | `add*Btn` | `atelier.addNewObject/…` |
 | Éditer | Dupliquer · Supprimer · Reculer d'un plan | `dupObjBtn`, `delObjBtn`, `backObjBtn` | `duplicateSelectedObject`, `deleteSelectedObject`, `sendObjectBackward` |
 | Mesurer | Cote (référence puis coins) | onglet Mesure, `startPick` | `interaction/outilMesure.ts` |

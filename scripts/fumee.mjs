@@ -1570,11 +1570,13 @@ const POINTS = {
     const actif = await page.evaluate(() => !!document.querySelector('.bandeauMode'));
     await page.locator('.bandeauMode button').click(); await page.waitForTimeout(150);
     const fini = await page.evaluate(() => !document.querySelector('.bandeauMode'));
-    const a = (await lireEtat(page)).scene.origine;
     // Un glisser sur le FOND du plan deplace la vue (interaction/pointeur.ts : un element sans `data-role`) ; sur un objet, il le vise.
     // Le depart se cherche sur le fond, la ou il est a l'ecran : la demonstration s'ouvre cadree sur sa terrasse (16 novembre 2026), et
     // la parcelle couvre le bord gauche du plan, ou ce point partait quand elle s'ouvrait sur tout le terrain.
-    const de = await page.evaluate(() => {
+    // Depuis le 22 novembre 2026 les etiquettes des cotes, le nord et l'echelle laissent passer le pointeur (ils ne sont plus un « fond »
+    // d'ou glisser : le point partait, sans le dire, d'une etiquette de cote posee sur la terrasse). Cadree sur la terrasse, la vue du
+    // telephone ne montre aucun fond : on cadre d'abord tout le terrain, dont les marges en ont.
+    const chercherFond = () => page.evaluate(() => {
       const r = document.getElementById('stage').getBoundingClientRect();
       for (let j = 1; j < 20; j++) for (let i = 1; i < 20; i++) {
         const x = r.x + (r.width * i) / 24, y = r.y + (r.height * j) / 20;
@@ -1583,6 +1585,13 @@ const POINTS = {
       }
       return null;
     });
+    let de = await chercherFond();
+    if (!de) {
+      await page.evaluate(() => { window.__plan.selectionnerCle(null); window.__plan.executer('vue.ajuster'); });
+      await page.waitForTimeout(300);
+      de = await chercherFond();
+    }
+    const a = (await lireEtat(page)).scene.origine;
     if (!de) return { ok: false, mesure: `bandeau ${actif ? 'affiché' : 'ABSENT'} ; aucun fond libre du plan à l’écran pour glisser` };
     await glisser(page, de, 40, 0);
     const b = (await lireEtat(page)).scene.origine;
@@ -4733,6 +4742,218 @@ const POINTS = {
       && /(?<!\p{L})fenêtre(?!\p{L})/u.test(boites) && JSON.stringify(choix) === '["fenetre=fenêtre","porte-fenetre=porte-fenêtre","porte=porte","garage=garage"]'
       && appels === 0 && !debords.some(Boolean);
     return { ok, mesure: `${etalons.length} étalons ; étalon 21 : « ${(e21?.titre || '').slice(58, 130)}… », étiquettes « ${e21?.etiquettes} » ; étalon 12 : « ${e12?.etiquettes} » ; ${lu.length} caractères lus (six étapes du cas, étalons) ; sans accent : ${fautes.length ? fautes.join(', ') : 'aucun'} ; apostrophe droite : ${droites.length ? droites.join(', ') : 'aucune'} ; boîtes de l’É12 ${/(?<!\p{L})fenêtre(?!\p{L})/u.test(boites) ? 'en « fenêtre »' : 'SANS « fenêtre »'} ; liste du type : ${choix.join(', ')} ; ${appels} appel(s) à Claude ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  192: async (page, f) => {
+    // La selection et les chemins perdus (demandes du proprietaire, 22 novembre 2026).
+    // 1. Entrer en Vue 3D sans avoir rien choisi : la terrasse, posee d'office a l'ouverture, n'y est plus selectionnee ; le retour au
+    //    plan n'invente rien ; les reglages de la terrasse courante restent proposes. Un objet choisi par la personne, lui, est garde.
+    // 2. Un vrai clic (un toucher au doigt) sur chaque sorte d'objet du plan donne le meme inspecteur que sa ligne de l'explorateur.
+    // 3. Les etiquettes des cotes, la fleche du nord et l'echelle ne prennent plus le clic : sous une etiquette, l'objet se choisit.
+    // 4. « Clôture, portail » de la palette mene a la section Clôture de la parcelle du projet ; clôture decochee, « Portails et
+    //    portillons » propose encore ses deux boutons, et « Ajouter un portail » active la clôture.
+    // 5. La vitrine (`?mode=demo`) : rien de choisi a l'ouverture, un toucher sur la scene ne choisit rien, aucune commande qui
+    //    modifie ou demande une selection ; tourner la scene reste libre.
+    const echecs = [];
+    const lire = () => page.evaluate(() => ({ sel: window.__plan.etat().selectedKey, vue: window.__plan.magasin().vue }));
+    const toucherA = async (q, x, y) => { if (f.mobile) await q.touchscreen.tap(x, y); else await q.mouse.click(x, y); await q.waitForTimeout(350); };
+
+    // ---- 1. La Vue 3D sans selection ------------------------------------------------------------
+    const ouverture = await lire();
+    if (ouverture.sel !== 'terrasse') echecs.push('ouverture : sélection ' + ouverture.sel + ' (attendu : la terrasse, posée d’office)');
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 60000 });
+    await vue3dEconome(page);
+    await page.waitForTimeout(600);
+    const en3d = await lire();
+    if (en3d.sel !== null) echecs.push('entrée en Vue 3D sans rien choisir : ' + en3d.sel + ' sélectionné');
+    // Les reglages de la terrasse courante (filaire, platelage translucide, sol en coupe) restent la : au doigt dans la feuille des
+    // reglages, au bureau dans le tiroir.
+    if (f.mobile) await feuille(page, 'reglages3d'); else await page.evaluate(() => document.querySelector('#zoneReglages3d summary, #zoneReglages3d .reglages3dTitre, #zoneReglages3d button')?.click());
+    await page.waitForTimeout(300);
+    const filaire = await page.evaluate(() => !!document.querySelector('#vue3dPanel [data-commande="vue3d.filaire"], #vue3dPanel [data-controle="vue3d.filaire"]'));
+    if (!filaire) echecs.push('Vue 3D sans sélection : le réglage « Filaire » de la terrasse courante a disparu');
+    if (f.mobile) await feuille(page, null);
+    await page.evaluate(() => window.__plan.executer('vue.plan'));
+    await page.waitForTimeout(500);
+    const retour = await lire();
+    if (retour.sel !== null) echecs.push('retour au plan : ' + retour.sel + ' sélectionné (rien ne l’était en 3D)');
+
+    // ---- 2. Clic reel = explorateur ---------------------------------------------------------------
+    const sections = async () => {
+      await inspecteur(page);
+      return page.evaluate(() => [...document.querySelectorAll('.inspecteurPanneau details.inspecteurSection')].map((d) => d.dataset.section + ':' + d.querySelectorAll(':scope > .champs > *').length).join(' '));
+    };
+    const replier = () => page.evaluate(() => {
+      window.__plan.ouvrirFeuille(null);
+      const m = window.__plan.magasin();
+      if (m.classe === 'moyen' && m.inspecteurOuvert) document.querySelector('.inspecteurPli')?.click();
+      if (m.classe === 'moyen' && m.explorateurOuvert) document.querySelector('.explorateurPli')?.click();
+    });
+    // Un point de l'ecran ou l'element du dessus est le corps de l'objet, du centre vers les bords.
+    const pointSur = (cle) => page.evaluate((cle) => {
+      const el = document.querySelector('#stage svg [data-role="obj"][data-key="' + cle + '"]');
+      if (!el) return null;
+      const s = document.getElementById('stage').getBoundingClientRect(), b = el.getBoundingClientRect();
+      const l = Math.max(b.left, s.left + 2), t = Math.max(b.top, s.top + 2), d = Math.min(b.right, s.right - 2), bas = Math.min(b.bottom, s.bottom - 2);
+      const N = 24, ordre = [];
+      for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) ordre.push([i, j]);
+      ordre.sort((a, c) => (Math.abs(a[0] - N / 2) + Math.abs(a[1] - N / 2)) - (Math.abs(c[0] - N / 2) + Math.abs(c[1] - N / 2)));
+      for (const [i, j] of ordre) {
+        const x = l + (d - l) * i / N, y = t + (bas - t) * j / N, e = document.elementFromPoint(x, y);
+        if (e === el) return { x, y };
+      }
+      return null;
+    }, cle);
+    const sortes = await page.evaluate(() => {
+      const vus = new Set(), out = [];
+      for (const o of window.__plan.etat().objects) {
+        const k = o.key === 'parcelle' ? 'parcelle du projet' : (o.fonction || 'autre') + (o.voisinage ? ' (voisin)' : '');
+        if (vus.has(k)) continue;
+        vus.add(k); out.push({ cle: o.key, sorte: k });
+      }
+      return out;
+    });
+    let egaux = 0;
+    for (const o of sortes) {
+      await page.evaluate((k) => { window.__plan.ouvrirFeuille(null); window.__plan.selectionnerCle(k); window.__plan.executer('vue.ajuster'); }, o.cle);
+      await page.waitForTimeout(200);
+      const parExplorateur = await sections();
+      await page.evaluate(() => window.__plan.selectionnerCle(null));
+      await replier();
+      await page.waitForTimeout(650); // hors de la fenetre du double clic du toucher precedent
+      const pt = await pointSur(o.cle);
+      if (!pt) { echecs.push(o.sorte + ' : aucun point libre où cliquer'); continue; }
+      await toucherA(page, pt.x, pt.y);
+      const pris = (await lire()).sel;
+      if (pris !== o.cle) { echecs.push(o.sorte + ' : le clic a pris ' + pris); continue; }
+      const parClic = await sections();
+      if (!parExplorateur || parClic !== parExplorateur) echecs.push(o.sorte + ' : inspecteur du clic « ' + parClic + ' », de l’explorateur « ' + parExplorateur + ' »');
+      else egaux++;
+    }
+    if (sortes.length < 12) echecs.push('seulement ' + sortes.length + ' sortes d’objets dans la démonstration');
+
+    // ---- 3. Les etiquettes ne prennent plus le clic -------------------------------------------------
+    await page.evaluate(() => { window.__plan.selectionnerCle(null); window.__plan.executer('vue.ajuster'); });
+    await replier();
+    await page.waitForTimeout(700);
+    const sous = await page.evaluate(() => {
+      const stage = document.getElementById('stage');
+      const textes = [...stage.querySelectorAll('svg text')].filter((t) => /^[→⊥] /.test(t.textContent || ''));
+      const s = stage.getBoundingClientRect();
+      let prenant = 0, cible = null;
+      for (const t of textes) {
+        const b = t.getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2;
+        if (x < s.left + 4 || x > s.right - 4 || y < s.top + 4 || y > s.bottom - 4) continue;
+        const e = document.elementFromPoint(x, y);
+        if (e === t) prenant++;
+        const k = e && e.closest('#stage') && e.dataset && e.dataset.role === 'obj' ? e.dataset.key : null;
+        if (k && !cible) cible = { x, y, cle: k };
+      }
+      return { cotes: textes.length, prenant, cible };
+    });
+    if (!sous.cotes) echecs.push('aucune étiquette de cote sur le plan de démonstration');
+    if (sous.prenant) echecs.push(sous.prenant + ' étiquette(s) de cote prennent encore le clic');
+    let sousEtiquette = 'aucune étiquette au-dessus d’un objet dans ce cadrage';
+    if (sous.cible) {
+      await toucherA(page, sous.cible.x, sous.cible.y);
+      const pris = (await lire()).sel;
+      if (pris !== sous.cible.cle) echecs.push('clic sur une étiquette de cote : ' + pris + ' sélectionné, attendu ' + sous.cible.cle + ' (l’objet dessous)');
+      sousEtiquette = 'clic sur une étiquette → ' + pris;
+    }
+
+    // ---- 4. Le chemin de la cloture et des portails --------------------------------------------------
+    await page.evaluate(() => { window.__plan.ouvrirFeuille(null); window.__plan.selectionnerCle(null); });
+    await page.waitForTimeout(200);
+    // L'outil de la palette (rail sur tablette, feuille Outils au telephone) : present et utilisable ; on passe par sa commande.
+    if (f.nom === 'compact') await feuille(page, 'outils');
+    const outil = await page.evaluate(() => { const b = document.querySelector('[data-commande="cloture.ouvrir"]'); return b ? { grise: b.disabled, visible: b.getBoundingClientRect().width > 0 } : null; });
+    if (!outil || outil.grise || !outil.visible) echecs.push('outil « Clôture, portail » : ' + JSON.stringify(outil));
+    if (f.nom === 'compact') await feuille(page, null);
+    await page.evaluate(() => window.__plan.executer('cloture.ouvrir'));
+    await page.waitForTimeout(450);
+    const chemin = await page.evaluate(() => {
+      const m = window.__plan.magasin();
+      const sec = (id) => document.querySelector('.inspecteurPanneau details[data-section="' + id + '"]');
+      const vu = (d) => !!d && d.getBoundingClientRect().height > 0;
+      const c = sec('cloture'), p = sec('portails');
+      return { sel: window.__plan.etat().selectedKey, panneau: m.classe === 'compact' ? m.feuille === 'proprietes' : m.inspecteurOuvert,
+        clotureOuverte: !!c && c.open && vu(c), portailsVus: vu(p), familles: [c?.dataset.famille, p?.dataset.famille].join('/') };
+    });
+    if (chemin.sel !== 'parcelle' || !chemin.panneau || !chemin.clotureOuverte || !chemin.portailsVus || chemin.familles !== 'objet/objet') echecs.push('« Clôture, portail » : ' + JSON.stringify(chemin));
+    // La cloture de la demonstration est cochee : on la decoche, comme la personne, par sa case.
+    // Au doigt la case est un interrupteur : c'est sa piste qu'on touche.
+    const pisteCloture = page.locator('.inspecteurPanneau details[data-section="cloture"] [data-cle="active"] .piste').first();
+    const caseCloture = (await pisteCloture.count()) ? pisteCloture : page.locator('.inspecteurPanneau details[data-section="cloture"] [data-cle="active"] input').first();
+    // (Un ancien fichier ne porte que `clotureActive` : la structure `cloture` ne se pose qu'a la premiere ecriture.)
+    const lireCloture = () => page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.key === 'parcelle'), c = o?.cloture; return { active: c ? !!c.active : !!o?.clotureActive, portails: c?.portails?.length ?? 0 }; });
+    if ((await lireCloture()).active) { await caseCloture.click(); await page.waitForTimeout(300); }
+    const avantAjout = await lireCloture();
+    if (avantAjout.active) echecs.push('la case « Clôture autour de la parcelle » ne s’est pas décochée');
+    await ouvrirSection(page, 'portails');
+    const boutons = await page.evaluate(() => {
+      const p = document.querySelector('.inspecteurPanneau details[data-section="portails"]');
+      return { cles: p ? [...p.querySelectorAll(':scope > .champs > [data-cle]')].map((e) => e.dataset.cle) : null, texte: (p?.querySelector('[data-cle="ajouterPortail"]')?.textContent || '').replace(/\s+/g, ' ') };
+    });
+    if (!boutons.cles || boutons.cles.join(',') !== 'ajouterPortail,ajouterPortillon') echecs.push('clôture décochée, section Portails : ' + JSON.stringify(boutons.cles));
+    if (!/active la clôture/.test(boutons.texte)) echecs.push('« Ajouter un portail » ne dit pas qu’il active la clôture : « ' + boutons.texte + ' »');
+    await page.locator('.inspecteurPanneau details[data-section="portails"] [data-cle="ajouterPortail"] button').first().click();
+    await page.waitForTimeout(400);
+    const apresAjout = await lireCloture();
+    if (!apresAjout.active || apresAjout.portails !== avantAjout.portails + 1) echecs.push('portail ajouté sans clôture cochée : ' + JSON.stringify(avantAjout) + ' → ' + JSON.stringify(apresAjout));
+
+    // ---- Un objet choisi par la personne reste choisi en Vue 3D ----------------------------------------
+    await page.evaluate(() => { window.__plan.ouvrirFeuille(null); window.__plan.selectionnerCle('maison'); window.__plan.executer('vue.ajuster'); window.__plan.selectionnerCle(null); });
+    await replier();
+    await page.waitForTimeout(700);
+    const surMaison = await pointSur('maison');
+    if (surMaison) await toucherA(page, surMaison.x, surMaison.y);
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 60000 });
+    await page.waitForTimeout(500);
+    const gardee = (await lire()).sel;
+    if (gardee !== 'maison') echecs.push('maison choisie au clic puis Vue 3D : sélection ' + gardee);
+    await page.evaluate(() => window.__plan.executer('vue.plan'));
+
+    // ---- 5. La vitrine ------------------------------------------------------------------------------
+    const p = await page.context().newPage();
+    let vitrine = '';
+    try {
+      await servirThreeLocal(p);
+      await p.addInitScript(() => { try { localStorage.setItem('plan.qualite3d', 'econome'); } catch { /* stockage absent */ } });
+      await p.goto(BASE + '/?mode=demo&file=5&heureauto=y&duree=10&rotation=n');
+      await p.waitForFunction(() => window.__plan && window.__plan.etat().objects.length > 0, null, { timeout: 30000 });
+      await p.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 60000 });
+      await p.waitForTimeout(1500);
+      const etatVitrine = () => p.evaluate(() => ({ sel: window.__plan.etat().selectedKey, lecture: !!window.__plan.etat().lectureSeule, objets: JSON.stringify(window.__plan.etat().objects).length }));
+      const v0 = await etatVitrine();
+      if (v0.sel !== null) echecs.push('vitrine : ' + v0.sel + ' sélectionné à l’ouverture');
+      if (!v0.lecture) echecs.push('vitrine : pas en lecture seule');
+      const boite = await p.locator('#terrasse3dCanvasHost').boundingBox();
+      const prises = new Set();
+      for (const [fx, fy] of [[0.5, 0.5], [0.35, 0.45], [0.65, 0.55], [0.5, 0.7], [0.3, 0.7], [0.7, 0.35]]) {
+        await toucherA(p, boite.x + boite.width * fx, boite.y + boite.height * fy);
+        prises.add(String((await etatVitrine()).sel));
+      }
+      if ([...prises].join() !== 'null') echecs.push('vitrine : un toucher sur la scène a sélectionné ' + [...prises].filter((x) => x !== 'null').join(', '));
+      const commandes = await p.evaluate(() => [...document.querySelectorAll('button, input, select, a')].filter((e) => e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility === 'visible').map((e) => e.id || e.dataset.commande || e.dataset.controle || ''));
+      const interdites = commandes.filter((c) => /ModifierToit|Photomontage|Photographier|Isoler|SavePng|EyeLevel|toit\.|objet\.|projet\./.test(c));
+      if (interdites.length) echecs.push('vitrine : commandes visibles ' + interdites.join(', '));
+      if (!commandes.includes('terrasse3dZoomIn')) echecs.push('vitrine : le zoom a disparu (' + commandes.join(', ') + ')');
+      // Suppr et Ctrl+Z ne changent rien ; tourner la scene reste libre.
+      await p.keyboard.press('Delete'); await p.keyboard.press('Control+z');
+      const camera = () => p.evaluate(() => { const c = window.__plan.scene3d()?.camera.position; return c ? [c.x, c.y, c.z] : null; });
+      const c0 = await camera();
+      await p.locator('#terrasse3dTournerGauche').click();
+      await p.waitForTimeout(500);
+      const c1 = await camera();
+      if (!c0 || !c1 || Math.hypot(c1[0] - c0[0], c1[1] - c0[1], c1[2] - c0[2]) < 0.01) echecs.push('vitrine : « Tourner » ne tourne plus la scène');
+      const v1 = await etatVitrine();
+      if (v1.objets !== v0.objets || v1.sel !== null) echecs.push('vitrine : le plan a changé après les touchers, Suppr et Ctrl+Z');
+      vitrine = `vitrine : rien de choisi, ${commandes.length} commandes (navigation seule), la scène tourne`;
+    } finally { await p.close(); }
+
+    return { ok: !echecs.length, mesure: echecs.length ? echecs.join(' ; ')
+      : `Vue 3D sans sélection : aucune, retour au plan : aucune ; ${egaux}/${sortes.length} sortes d’objets, clic réel = explorateur ; ${sous.cotes} étiquettes de cote inertes, ${sousEtiquette} ; « Clôture, portail » ouvre la section, portail ajouté clôture décochée (${avantAjout.portails} → ${apresAjout.portails}, clôture activée) ; maison choisie gardée en 3D ; ${vitrine}` };
   },
   186: async (page, f) => {
     // Les raccourcis (lot 4) : une seule table (app/clavier.ts) que le clavier ecoute et que le menu Aide montre. Au clavier, sur la
@@ -10412,7 +10633,9 @@ function pointsPour(nomClasse) {
   // 190 : le photomontage : une photo a l'EXIF connu cale la camera, seuls les ouvrages du projet restent, l'image s'enregistre a la taille
   //       de la photo, la sortie rend la Vue 3D comme avant.
   // 191 : les textes de la calibration (etalons, etapes d'un cas, listes) : identifiants et textes de la chaine ecrits avec leurs accents.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191];
+  // 192 : la selection et les chemins perdus : rien de choisi en entrant en Vue 3D, clic reel = explorateur, etiquettes inertes,
+  //       « Clôture, portail » et le portail ajoute cloture decochee, la vitrine sans selection ni modification.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

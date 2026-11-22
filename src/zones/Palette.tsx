@@ -33,7 +33,9 @@ const GROUPES: Groupe[] = [
     { id: 'objet.ajouter.piscine', icone: 'piscine', libelle: 'Piscine' },
     { id: 'objet.ajouter.piscineRonde', icone: 'piscineRonde', libelle: 'Piscine ronde' },
     { id: 'objet.ajouter.parasol', icone: 'parasol', libelle: 'Parasol' },
-    { id: 'objet.ajouter.pointDeVue', icone: 'pointDeVue', libelle: 'Point de vue' }
+    { id: 'objet.ajouter.pointDeVue', icone: 'pointDeVue', libelle: 'Point de vue' },
+    // La cloture et ses acces se reglent dans l'inspecteur de la parcelle du projet : l'outil y mene (app/boot/annexes.ts).
+    { id: 'cloture.ouvrir', icone: 'cloture', libelle: 'Clôture, portail' }
   ] },
   { titre: 'Formes', outils: [
     { id: 'objet.ajouter.chemin', icone: 'chemin', libelle: 'Chemin' },
