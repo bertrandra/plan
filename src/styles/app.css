@@ -741,7 +741,19 @@
   .carteToitLegende .cleCorps{ border-top:2px dashed var(--ok); }
   .carteToitLegende .cleFaitage{ border-top:3px solid var(--ink); }
   .carteToitLegende .clePignon{ border-top:3px solid var(--accent); }
-  .champ .libelle{ color:var(--ink-soft); font-size:0.74rem; line-height:1.2; }
+  .champ .libelle{ color:var(--ink-soft); font-size:0.74rem; line-height:1.2; display:flex; align-items:center; gap:2px; min-width:0; }
+  .champ .libelle .texteLibelle{ min-width:0; }
+  /* Le « i » d'un champ (lot A2) : il ecrit l'aide sous le champ, la ou l'infobulle ne s'affiche pas. Discret au bureau, une
+     cible de 44 px au doigt ; ouvert, il prend l'accent et un fond, la couleur ne disant rien seule (aria-expanded). */
+  .aideBouton{
+    flex:none; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; padding:0; margin:0;
+    border:none; border-radius:999px; background:transparent; color:var(--ink-soft); cursor:pointer; opacity:0.75;
+  }
+  .aideBouton:hover, .aideBouton:focus-visible{ opacity:1; color:var(--ink); background:var(--accent-light); }
+  .aideBouton[aria-expanded="true"]{ opacity:1; color:var(--on-accent-light); background:var(--accent-light); }
+  .champ .aideChamp{ color:var(--ink); border-left:2px solid var(--accent); padding-left:6px; margin-top:4px; }
+  html:not([data-classe="large"]) .aideBouton{ width:44px; height:44px; margin:-8px 0; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .aideChamp{ font-size:13px; line-height:1.35; margin-top:0; padding-left:8px; }
   .champ .commande{ min-width:0; }
   .champ .note{ font-size:0.68rem; color:var(--ink-soft); margin-top:2px; line-height:1.25; }
   .champ input[type=text], .champ input[type=number], .champ input[type=date], .champ select{

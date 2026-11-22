@@ -259,19 +259,36 @@ function Commande({ champ, c, inspecteur, inline }: PropsChamp) {
 
 export function LigneChamp({ champ, c, inspecteur }: PropsChamp) {
   const tactile = useContext(Tactile);
+  const [aideOuverte, ouvrirAide] = useState(false);
+  const idAide = useId();
   // Au doigt, l'infobulle ne s'affiche pas : l'aide d'un champ grise s'ecrit sous lui (§8).
   const grise = !!champ.actif && !champ.actif(c);
-  const brute = [champ.note ? champ.note(c) : '', tactile && grise && champ.aide ? champ.aide : ''].filter(Boolean).join(' — ');
+  const aideDejaEcrite = tactile && grise && !!champ.aide;
+  // Le « i » (audit de l'inspecteur, lot A2) : l'infobulle n'existe pas au doigt, et 78 aides ecrites ne s'y lisaient jamais. Un
+  // toucher ecrit l'aide sous le champ, un second la referme ; au bureau l'infobulle reste, et le « i » marche aussi. Une ligne
+  // composee (un cote, un coin) n'en porte pas : ses commandes ont chacune la leur.
+  const avecAide = !!champ.aide && !aideDejaEcrite && champ.type !== 'ligne';
+  const brute = [champ.note ? champ.note(c) : '', aideDejaEcrite && champ.aide ? champ.aide : ''].filter(Boolean).join(' — ');
   const note = tactile ? aLaFrancaise(brute) : brute;
   const pleineLargeur = champ.type === 'alerte' || champ.type === 'carte' || (champ.type === 'bouton' && !champ.libelle);
   const classes = ['champ', 'champ-' + champ.type, champ.surbrillance && champ.surbrillance(c) ? 'highlightRow' : ''].filter(Boolean).join(' ');
   if (pleineLargeur) return <div className={classes + ' pleineLargeur'} data-cle={champ.cle}><Commande champ={champ} c={c} inspecteur={inspecteur} /></div>;
   return (
     <div className={classes} data-cle={champ.cle}>
-      <label className="libelle" title={champ.aide}>{champ.libelle}</label>
+      {/* Le « i » vit dans le libelle sans que le libelle le declenche : seul un toucher sur lui ouvre l'aide. */}
+      <label className="libelle" title={champ.aide} onClick={(e) => { if (!(e.target as Element).closest('button')) e.preventDefault(); }}>
+        <span className="texteLibelle">{champ.libelle}</span>
+        {avecAide && (
+          <button type="button" className="aideBouton" aria-expanded={aideOuverte} aria-controls={idAide} aria-label={'Explication : ' + champ.libelle}
+            onClick={() => ouvrirAide(!aideOuverte)} onKeyDown={(e) => { if (e.key === 'Escape' && aideOuverte) { e.stopPropagation(); ouvrirAide(false); } }}>
+            <Icone nom="info" taille={16} />
+          </button>
+        )}
+      </label>
       <div className="commande">
         <Commande champ={champ} c={c} inspecteur={inspecteur} />
         {note && <div className="note">{note}</div>}
+        {avecAide && aideOuverte && <div className="note aideChamp" id={idAide}>{champ.aide}</div>}
       </div>
     </div>
   );

@@ -30,7 +30,8 @@ const ecrites: number[] = [];
 function champs(): Champ[] {
   return [
     { type: 'nombre', cle: 'borne', libelle: 'Entraxe', unite: 'cm', pas: 5, min: 20, max: 150, lire: () => entraxe, ecrire: (_c, v) => { if (v === 99) return false; ecrites.push(v); entraxe = v; } },
-    { type: 'texte', cle: 'texte', libelle: 'Texte', lire: () => 'abc', ecrire: rien },
+    { type: 'texte', cle: 'texte', libelle: 'Texte', aide: 'Ce que ce texte règle, en une phrase.', lire: () => 'abc', ecrire: rien },
+    { type: 'case', cle: 'grisee', libelle: 'Grisée', aide: 'Pourquoi cette case est grisée.', actif: () => false, lire: () => false, ecrire: rien },
     { type: 'nombre', cle: 'nombre', libelle: 'Nombre', unite: 'cm', pas: 5, lire: () => 40, ecrire: rien },
     { type: 'case', cle: 'case', libelle: 'Case', lire: () => true, ecrire: rien },
     { type: 'choix', cle: 'choixCourt', libelle: 'Choix court', options: () => [{ valeur: 'a', libelle: 'A' }, { valeur: 'b', libelle: 'B' }], lire: () => 'a', ecrire: rien },
@@ -60,7 +61,7 @@ const SECTIONS: Section[] = [
   { id: 'repliee', titre: 'Repliée', repliee: true, champs: [{ type: 'lecture', cle: 'dansRepliee', libelle: 'Dans une section repliée', valeur: () => 'x' }] }
 ];
 
-const CLES_ATTENDUES = ['borne', 'texte', 'nombre', 'case', 'choixCourt', 'choixOptionsLongues', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'carte', 'ligne', 'dansRepliee'];
+const CLES_ATTENDUES = ['borne', 'texte', 'grisee', 'nombre', 'case', 'choixCourt', 'choixOptionsLongues', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'carte', 'ligne', 'dansRepliee'];
 
 function monter(classe: string, appliquer: ServiceInspecteur['appliquer'] = () => true): { racine: Root; hote: HTMLElement } {
   const obj = { key: 'o1', name: 'Terrasse', type: 'polygon', fonction: 'terrasse', pts: [] } as unknown as ObjetPlan;
@@ -150,6 +151,64 @@ describe('la saisie d un nombre', () => {
       act(() => m.racine.unmount()); m.hote.remove();
     });
   }
+});
+
+describe('l explication d un champ, au doigt comme a la souris', () => {
+  // Audit de l'inspecteur, lot A2 : l'aide n'etait qu'une infobulle, qui ne s'affiche jamais au doigt.
+  for (const classe of CLASSES) {
+    it('un « i » pres du libelle ecrit l aide sous le champ, un second toucher la referme, en ' + classe, () => {
+      const m = monter(classe);
+      const ligne = m.hote.querySelector<HTMLElement>('[data-cle="texte"]')!;
+      const i = ligne.querySelector<HTMLButtonElement>('label.libelle button.aideBouton')!;
+      expect(i.getAttribute('aria-expanded')).toBe('false');
+      expect(i.getAttribute('aria-label')).toBe('Explication : Texte');
+      expect(ligne.querySelector('.aideChamp')).toBeNull();
+      act(() => i.click());
+      expect(i.getAttribute('aria-expanded')).toBe('true');
+      const aide = ligne.querySelector<HTMLElement>('.aideChamp')!;
+      expect(aide.textContent).toBe('Ce que ce texte règle, en une phrase.');
+      expect(aide.id).toBe(i.getAttribute('aria-controls'));
+      act(() => i.click());
+      expect(i.getAttribute('aria-expanded')).toBe('false');
+      expect(ligne.querySelector('.aideChamp')).toBeNull();
+      // L'infobulle du bureau reste.
+      expect(ligne.querySelector('label.libelle')?.getAttribute('title')).toBe('Ce que ce texte règle, en une phrase.');
+      act(() => m.racine.unmount()); m.hote.remove();
+    });
+
+    it('Echap referme l aide, et toucher le libelle ne l ouvre pas, en ' + classe, () => {
+      const m = monter(classe);
+      const ligne = m.hote.querySelector<HTMLElement>('[data-cle="texte"]')!;
+      const i = ligne.querySelector<HTMLButtonElement>('button.aideBouton')!;
+      act(() => ligne.querySelector<HTMLElement>('.texteLibelle')!.click());
+      expect(ligne.querySelector('.aideChamp')).toBeNull();
+      act(() => i.click());
+      expect(ligne.querySelector('.aideChamp')).not.toBeNull();
+      act(() => { i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
+      expect(ligne.querySelector('.aideChamp')).toBeNull();
+      act(() => m.racine.unmount()); m.hote.remove();
+    });
+
+    it('pas de « i » sans aide, ni sur une ligne composee, en ' + classe, () => {
+      const m = monter(classe);
+      expect(m.hote.querySelector('[data-cle="nombre"] button.aideBouton')).toBeNull();
+      expect(m.hote.querySelector('[data-cle="ligne"] button.aideBouton')).toBeNull();
+      act(() => m.racine.unmount()); m.hote.remove();
+    });
+  }
+
+  it('au doigt, l aide d un champ grise reste ecrite sous lui, sans « i » en double', () => {
+    for (const classe of CLASSES) {
+      const m = monter(classe);
+      const ligne = m.hote.querySelector<HTMLElement>('[data-cle="grisee"]')!;
+      if (classe === 'large') expect(ligne.querySelector('button.aideBouton')).not.toBeNull();
+      else {
+        expect(ligne.querySelector('button.aideBouton')).toBeNull();
+        expect(ligne.querySelector('.note')?.textContent).toBe('Pourquoi cette case est grisée.');
+      }
+      act(() => m.racine.unmount()); m.hote.remove();
+    }
+  });
 });
 
 describe('une valeur refusee dit pourquoi', () => {
