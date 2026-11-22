@@ -293,6 +293,72 @@ describe('une valeur refusee dit pourquoi', () => {
   }
 });
 
+describe('les fleches d un nombre appliquent tout de suite', () => {
+  // Audit de l'inspecteur, lot A7 : au bureau, les fleches changeaient le chiffre affiche, et le plan attendait Entree.
+  const poser = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  const ouvrir = (classe: string) => {
+    const descripteurs: Champ[] = [];
+    const m = monter(classe, (ch, _c, ecrire) => { descripteurs.push(ch); return ecrire() !== false; });
+    const champ = m.hote.querySelector<HTMLInputElement>('[data-cle="borne"] input')!;
+    const fleche = (key: 'ArrowUp' | 'ArrowDown') => act(() => { champ.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })); });
+    return { m, champ, descripteurs, fleche, fermer: () => { act(() => m.racine.unmount()); m.hote.remove(); } };
+  };
+  beforeEach(() => { entraxe = 40; ecrites.length = 0; });
+
+  for (const classe of CLASSES) {
+    it('chaque fleche du clavier ecrit son pas, et la serie ne compte qu une annulation, en ' + classe, () => {
+      const x = ouvrir(classe);
+      act(() => { x.champ.focus(); });
+      x.fleche('ArrowUp'); x.fleche('ArrowUp'); x.fleche('ArrowDown');
+      expect(ecrites).toEqual([45, 50, 45]);
+      expect(entraxe).toBe(45);
+      // Le premier pas porte l'historique du champ ; les suivants de la serie le retirent (un seul instantane).
+      expect(x.descripteurs.map(d => d.historique)).toEqual([undefined, false, false]);
+      // Quitter le champ n'ecrit rien de plus : il n'y a pas de brouillon.
+      act(() => { x.champ.blur(); });
+      expect(ecrites).toEqual([45, 50, 45]);
+      x.fermer();
+    });
+
+    it('la fleche s arrete a la borne, en ' + classe, () => {
+      entraxe = 150;
+      const x = ouvrir(classe);
+      x.fleche('ArrowUp');
+      expect(ecrites).toEqual([]);
+      x.fleche('ArrowDown');
+      expect(ecrites).toEqual([145]);
+      x.fermer();
+    });
+
+    it('la fleche part de la saisie en cours, en ' + classe, () => {
+      const x = ouvrir(classe);
+      act(() => { x.champ.focus(); });
+      act(() => { poser.call(x.champ, '60'); x.champ.dispatchEvent(new Event('input', { bubbles: true })); });
+      expect(ecrites).toEqual([]);
+      x.fleche('ArrowUp');
+      expect(ecrites).toEqual([65]);
+      x.fermer();
+    });
+  }
+
+  it('au bureau, les fleches du champ (bouton de la souris enfonce) ecrivent a chaque pas, une frappe attend la validation', () => {
+    const x = ouvrir('large');
+    const changer = (texte: string) => act(() => { poser.call(x.champ, texte); x.champ.dispatchEvent(new Event('input', { bubbles: true })); });
+    act(() => { x.champ.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); });
+    changer('45'); changer('50');
+    expect(ecrites).toEqual([45, 50]);
+    expect(x.descripteurs.map(d => d.historique)).toEqual([undefined, false]);
+    act(() => { window.dispatchEvent(new MouseEvent('mouseup')); });
+    // Le bouton relache, une frappe est un brouillon : rien ne s'ecrit avant de quitter le champ.
+    act(() => { x.champ.focus(); });
+    changer('70');
+    expect(ecrites).toEqual([45, 50]);
+    act(() => { x.champ.blur(); });
+    expect(ecrites).toEqual([45, 50, 70]);
+    x.fermer();
+  });
+});
+
 describe('les familles de sections', () => {
   it('rangent chaque section dans Objet, Geometrie ou Construction', async () => {
     const { familleDe } = await import('../../../src/zones/Inspecteur.js');

@@ -41,6 +41,11 @@ const lireNombre = (texte: string) => parseFloat(texte.replace(',', '.'));
 const OPTION_LONGUE = 26;
 /** Le delai avant qu'un appui maintenu sur − ou + se repete, puis la cadence. */
 const REPETITION_MS = 400, CADENCE_MS = 90;
+/**
+ * Le temps pendant lequel des pas aux fleches forment une seule serie : un seul instantane d'annulation pour elle, comme un appui
+ * maintenu sur « + ». Le meme delai que le regroupement des ecritures d'un champ (app/inspecteur.ts, REGROUPEMENT_MS).
+ */
+const SERIE_MS = 1500;
 
 /** Un nombre : brouillon local pendant la saisie, ecrit a la validation ; refuse, il revient a ce qu'il lit et dit pourquoi. */
 function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
@@ -49,6 +54,8 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
   // Le refus appartient a l'objet sur lequel il a ete prononce : le composant sert au suivant, le message non.
   const [refus, setRefus] = useState<{ objet: string; texte: string } | null>(null);
   const minuteur = useRef<number | null>(null);
+  const dernierPas = useRef(0);
+  const sourisTenue = useRef(false);
   const idRefus = useId();
   const lu = champ.lire(c);
   const valeur = formater(lu, champ.decimales);
@@ -87,12 +94,46 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
     setBrouillon(null);
     ecrire(v, premier ? champ : { ...champ, historique: false });
   }
+  /**
+   * Un pas d'une serie aux fleches (du clavier, ou du champ au bureau) : il s'ecrit tout de suite, le plan suit a chaque pas
+   * (audit de l'inspecteur, lot A7 : le chiffre changeait, le plan attendait Entree). Le premier pas porte l'historique du champ,
+   * les suivants de la serie n'en ajoutent pas : Ctrl+Z defait la serie d'un coup, par le mecanisme du pas a pas tactile.
+   */
+  function ecrirePasDeSerie(v: number): void {
+    const maintenant = Date.now();
+    const suite = maintenant - dernierPas.current < SERIE_MS;
+    dernierPas.current = maintenant;
+    setBrouillon(null);
+    ecrire(v, suite ? { ...champ, historique: false } : champ);
+  }
+  /** Fleche haut ou bas : un pas depuis ce qui est affiche (une saisie en cours, sinon la valeur), jusqu'a la borne. */
+  function pasAuClavier(sens: 1 | -1): void {
+    const saisi = brouillon === null ? NaN : lireNombre(brouillon);
+    const v = valeurApresPas(champ, isNaN(saisi) ? champ.lire(c) : saisi, sens);
+    if (v !== null) ecrirePasDeSerie(v);
+  }
   const touches = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Une touche n'est jamais un pas de la souris : un bouton relache hors de la fenetre ne laisse pas le champ ecrire a chaque frappe.
+    sourisTenue.current = false;
     // Entree quitte le champ, et c'est la sortie qui valide : valider ici puis a la sortie ecrivait
     // deux fois, avec deux instantanes d'annulation — un Ctrl+Z semblait alors ne rien faire.
     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
     if (e.key === 'Escape') { setBrouillon(null); setRefus(null); e.preventDefault(); }
-    if (tactile && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); pas(e.key === 'ArrowUp' ? 1 : -1, true); }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); pasAuClavier(e.key === 'ArrowUp' ? 1 : -1); }
+  };
+  /**
+   * Les fleches du champ, a la souris : le navigateur change la valeur pendant que le bouton est enfonce, ce qu'aucune frappe ne
+   * fait. C'est a cela qu'on reconnait un pas (rien d'autre ne le distingue d'une frappe d'un navigateur a l'autre) : il s'ecrit
+   * tout de suite, une frappe reste un brouillon jusqu'a Entree.
+   */
+  const tenirSouris = (e: React.MouseEvent<HTMLInputElement>) => {
+    if (e.button !== 0) return;
+    sourisTenue.current = true;
+    window.addEventListener('mouseup', () => { sourisTenue.current = false; }, { once: true });
+  };
+  const changer = (texte: string) => {
+    const v = lireNombre(texte);
+    if (sourisTenue.current && !isNaN(v)) ecrirePasDeSerie(v); else saisir(texte);
   };
   const sousLeChamp = message && <span className="refusChamp" id={idRefus} role="status">{tactile ? aLaFrancaise(message) : message}</span>;
   const decrit = message ? { 'aria-invalid': true, 'aria-describedby': idRefus } : {};
@@ -101,7 +142,7 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
       <>
         <span className="champNombre">
           <input type="number" value={brouillon ?? valeur} step={champ.pas} min={champ.min} max={champ.max} disabled={!actif} title={champ.aide}
-            aria-label={champ.libelle} {...decrit} onChange={(e) => saisir(e.target.value)} onBlur={valider} onKeyDown={touches} />
+            aria-label={champ.libelle} {...decrit} onChange={(e) => changer(e.target.value)} onBlur={valider} onKeyDown={touches} onMouseDown={tenirSouris} />
           {champ.unite && <span className="unite">{champ.unite}</span>}
         </span>
         {sousLeChamp}
