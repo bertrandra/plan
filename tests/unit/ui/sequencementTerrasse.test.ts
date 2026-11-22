@@ -62,12 +62,15 @@ describe('les etapes d\'une terrasse', () => {
     expect(champsVisibles(sectionsConstruction(simple).find(x => x.id === 'parametres')!, simple)).toEqual([]);
   });
 
-  it('viennent avant la geometrie dans l\'inspecteur, comme celles d\'une piscine', () => {
+  it('viennent apres « Objet », avant l\'apparence et la geometrie, comme celles d\'une piscine', () => {
     const obj = terrasse(constructionTerrasseNeuve());
     const etat = { objects: [obj], selectedKey: 't', lectureSeule: false } as unknown as EtatApp;
     const inspecteur = creerInspecteur(etat, {} as unknown as ContexteInspecteur, creerMagasin(etat), creerRegistre());
     const ids = inspecteur.sections(contexte(obj)).map(s => s.id);
-    expect(ids.indexOf('implantation')).toBeGreaterThan(ids.indexOf('apparence'));
+    // Le meme ordre pour tous les objets (lot A6) : l'objet, ce qui lui est propre, son apparence, sa geometrie.
+    expect(ids[0]).toBe('objet');
+    expect(ids.indexOf('implantation')).toBe(1);
+    expect(ids.indexOf('parametres')).toBeLessThan(ids.indexOf('apparence'));
     expect(ids.indexOf('parametres')).toBeLessThan(ids.indexOf('cotes'));
     expect(ids.slice(-2)).toEqual(['cotes', 'coins']);
   });

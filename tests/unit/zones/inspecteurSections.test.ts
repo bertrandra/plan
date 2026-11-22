@@ -20,11 +20,12 @@ const rien = () => undefined;
 const champ = (cle: string) => ({ type: 'texte', cle, libelle: cle, lire: () => '', ecrire: rien });
 const section = (id: string, repliee = false): Section => ({ id, titre: id, ...(repliee ? { repliee } : {}), champs: [champ(id + '.a')] } as unknown as Section);
 
-function monter(sectionsDe: (o: ObjetPlan) => Section[]) {
+function monter(sectionsDe: (o: ObjetPlan) => Section[], classe = 'large') {
   const a = { key: 'a', name: 'A', type: 'polygon', fonction: 'autre', pts: [] } as unknown as ObjetPlan;
   const b = { key: 'b', name: 'B', type: 'polygon', fonction: 'autre', pts: [] } as unknown as ObjetPlan;
   const etat = { objects: [a, b], selectedKey: 'a' } as unknown as EtatApp;
   const magasin = creerMagasin(etat);
+  (magasin as unknown as { definirClasse?: (c: string) => void }).definirClasse?.(classe);
   let courant = a;
   const service = {
     objet: () => courant, contexte: (o: ObjetPlan) => ({ etat, obj: o, commandeUtilisable: () => true }) as unknown as ContexteChamps,
@@ -79,6 +80,58 @@ describe('les sections de l inspecteur', () => {
     m.basculer('lames', true);
     m.selectionner('b');
     expect(m.ouvertes()).toEqual(['objet']);
+  });
+
+  // Audit de l'inspecteur, 22 novembre 2026, lot A6 : on arrivait toujours sur « Objet », l'etat civil de l'objet, et 15 % des
+  // reglages se voyaient sans rien deplier. La section propre a l'objet (`principale`) s'ouvre a la selection.
+  const propre = (id: string): Section => ({ ...section(id), principale: true });
+
+  it('ouvre la section propre a l objet a la selection, plutot que « Objet »', () => {
+    m = monter(() => [section('objet'), section('implantation'), propre('lames'), section('apparence'), section('cotes', true)]);
+    expect(m.ouvertes()).toEqual(['lames']);
+  });
+
+  it('passe de la section propre d un objet a celle du suivant, et revient a « Objet » pour un objet qui n en a pas', () => {
+    m = monter((o) => o.key === 'a' ? [section('objet'), propre('lames'), section('apparence')] : [section('objet'), propre('parasol'), section('apparence')]);
+    expect(m.ouvertes()).toEqual(['lames']);
+    m.selectionner('b');
+    expect(m.ouvertes()).toEqual(['parasol']);
+    m.selectionner('a');
+    expect(m.ouvertes()).toEqual(['lames']);
+  });
+
+  it('d un objet sans section propre a un objet qui en a une, quitte « Objet » que personne n a choisie', () => {
+    m = monter((o) => o.key === 'a' ? [section('objet'), section('apparence')] : [section('objet'), propre('lames'), section('apparence')]);
+    expect(m.ouvertes()).toEqual(['objet']);
+    m.selectionner('b');
+    expect(m.ouvertes()).toEqual(['lames']);
+    m.selectionner('a');
+    expect(m.ouvertes()).toEqual(['objet']);
+  });
+
+  it('garde la section que la personne a ouverte elle-meme, tant que l objet suivant la porte', () => {
+    m = monter((o) => o.key === 'a' ? [section('objet'), propre('lames'), section('apparence')] : [section('objet'), propre('parasol'), section('apparence')]);
+    m.basculer('apparence', true);
+    m.selectionner('b');
+    expect(m.ouvertes()).toEqual(['apparence']);
+  });
+
+  it('au doigt, arrive sur l onglet qui porte la section propre', () => {
+    for (const classe of ['compact', 'moyen']) {
+      const x = monter((o) => o.key === 'a' ? [section('objet'), propre('lames'), section('apparence'), section('cotes', true)] : [section('objet'), section('apparence'), section('cotes', true)], classe);
+      const panneau = () => x.hote.querySelector<HTMLElement>('.inspecteurPanneau')!;
+      const onglet = () => x.hote.querySelector('.famillesSections button[aria-selected="true"]')?.getAttribute('data-famille');
+      expect(x.ouvertes()).toEqual(['lames']);
+      expect(panneau().dataset.familleActive).toBe('construction');
+      expect(onglet()).toBe('construction');
+      // Un objet sans construction : on revient a l'onglet Objet, sa section ouverte.
+      x.selectionner('b');
+      expect(x.ouvertes()).toEqual(['objet']);
+      expect(panneau().dataset.familleActive).toBe('objet');
+      x.selectionner('a');
+      expect(panneau().dataset.familleActive).toBe('construction');
+      act(() => x.racine.unmount()); x.hote.remove();
+    }
   });
 
 });

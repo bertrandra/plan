@@ -52,9 +52,24 @@ const contourParcelle = (c: ContexteChamps): PtBrut[] | null =>
  * se montre plus qu'a defaut de fonction connue.
  */
 export function titreObjet(c: ContexteChamps): string {
+  const quoi = natureObjet(c), nom = c.obj.name;
+  // Un nom qui commence deja par la fonction (« Terrasse », « Parasol 1 ») la dit : « Terrasse — Terrasse » se repetait.
+  const repete = nom.trim().toLowerCase().startsWith(quoi.trim().toLowerCase());
+  return (repete ? nom : quoi + ' — ' + nom) + surfaceEntreParentheses(c);
+}
+
+/**
+ * Le sous-titre de la feuille Proprietes, au telephone : le nom est deja le titre de la feuille, il ne reste a dire que ce
+ * que l'objet est, et sa surface.
+ */
+export function sousTitreObjet(c: ContexteChamps): string {
+  return natureObjet(c) + surfaceEntreParentheses(c);
+}
+
+const natureObjet = (c: ContexteChamps): string => (c.obj.fonction && LIBELLE_FONCTION[c.obj.fonction]) || c.libelleType(c.obj);
+function surfaceEntreParentheses(c: ContexteChamps): string {
   const s = surfaceMontree(c);
-  const quoi = (c.obj.fonction && LIBELLE_FONCTION[c.obj.fonction]) || c.libelleType(c.obj);
-  return quoi + ' — ' + c.obj.name + (s !== null ? '  (' + s.toFixed(2).replace('.', ',') + ' m²)' : '');
+  return s !== null ? '  (' + s.toFixed(2).replace('.', ',') + ' m²)' : '';
 }
 
 /** Un champ texture : la vignette, le nom, choisir, retirer. */
@@ -75,9 +90,10 @@ function texture(cle: 'textureVerticale' | 'textureHorizontale', libelle: string
 const sectionObjet: Section = {
   id: 'objet', titre: 'Objet',
   champs: [
-    { type: 'texte', cle: 'name', libelle: 'Nom', effets: ['rendu'], lire: (c) => c.obj.name, ecrire: (c, v) => { c.obj.name = v; } },
+    { type: 'texte', cle: 'name', libelle: 'Nom', effets: ['rendu'], aide: 'Le nom de l’objet, écrit sur le plan et dans la liste des objets', lire: (c) => c.obj.name, ecrire: (c, v) => { c.obj.name = v; } },
     {
       type: 'choix', cle: 'fonction', libelle: 'Fonction', effets: ['rendu'],
+      aide: 'Ce que l’objet est sur le terrain (terrasse, bâtiment, arbre…) : la fonction décide des réglages proposés ici et du dessin en Vue 3D',
       // Plusieurs champs (elevation, textures, arbre, parasol) n'apparaissent que selon la
       // fonction : le rendu qui suit les fait paraitre aussitot. Le menu ne propose que les
       // fonctions qui ont un sens sur la forme de l'objet (un parasol est un cercle, une terrasse
@@ -140,16 +156,21 @@ const sectionObjet: Section = {
     },
     {
       type: 'nombre', cle: 'width', libelle: 'Largeur', unite: 'm', pas: 0.05, min: 0.05, decimales: 2, historique: true, effets: ['rendu'],
+      aide: 'Largeur du chemin, d’un bord à l’autre',
       visible: (c) => c.obj.type === 'path' && !estPointDeVue(c.obj),
       lire: (c) => largeurChemin(c.obj), ecrire: (c, v) => { if (!(v > 0)) return false; c.obj.width = v; }
     },
     {
       type: 'case', cle: 'curve', libelle: 'Courbe (passe par les points)', effets: ['rendu'],
+      aide: 'Arrondit le tracé : il passe par chaque point en courbe, au lieu de tourner en angle',
       visible: (c) => c.obj.type === 'path' && !estPointDeVue(c.obj),
       lire: (c) => !!c.obj.curve, ecrire: (c, v) => { c.obj.curve = v; }
     },
     {
       type: 'nombre', cle: 'r', libelle: 'Rayon', unite: 'm', pas: 0.01, min: 0.1, decimales: 2, historique: true, retouche: true, effets: ['rendu'],
+      // Un regard, un robinet, un luminaire font moins de 10 cm de rayon : la borne guide le pas, pas la saisie (ui/champs/bornes.ts).
+      bornesIndicatives: true, raisonRefus: 'Rayon refusé : le cercle sortirait de la parcelle, ou il est trop petit (5 cm au moins).',
+      aide: 'Rayon du cercle dessiné sur le plan, du centre au bord',
       visible: (c) => c.obj.type === 'circle',
       lire: (c) => enCercle(c.obj).r,
       ecrire: (c, v) => {
@@ -210,6 +231,7 @@ const sectionApparence: Section = {
   champs: [
     {
       type: 'couleur', cle: 'fill', libelle: 'Couleur', effets: ['rendu'],
+      aide: 'Couleur de l’objet sur le plan ; en Vue 3D aussi, tant qu’aucune texture ne la remplace',
       lire: (c) => c.obj.fill || '#cccccc',
       ecrire: (c, v) => { c.obj.fill = v; if (c.obj.type === 'path') c.obj.stroke = v; }
     },
@@ -222,8 +244,8 @@ const sectionApparence: Section = {
     },
     // Verticale = les faces du bloc extrude en Vue 3D (murs) ; horizontale = le dessus (toit). Un
     // mur et un toit ne partagent presque jamais le meme materiau.
-    { ...texture('textureVerticale', 'Texture verticale'), visible: (c) => !estPointDeVue(c.obj), repli: 'Textures' },
-    { ...texture('textureHorizontale', 'Texture horizontale'), visible: (c) => !estPointDeVue(c.obj), repli: 'Textures' },
+    { ...texture('textureVerticale', 'Texture verticale'), aide: 'Matière des faces verticales en Vue 3D (les murs, les côtés) ; sans texture, la couleur unie', visible: (c) => !estPointDeVue(c.obj), repli: 'Textures' },
+    { ...texture('textureHorizontale', 'Texture horizontale'), aide: 'Matière du dessus en Vue 3D (le sol, le toit) ; sans texture, la couleur unie', visible: (c) => !estPointDeVue(c.obj), repli: 'Textures' },
     // Le gazon de la parcelle du projet en 3D, montre par defaut : une preference d'affichage, gardee
     // a la reouverture comme le relief. Une texture horizontale choisie l'emporte sur lui.
     {
@@ -242,7 +264,7 @@ const sectionApparence: Section = {
 // lui, comme le parasol : ce sont les reglages de l'arbre, pas son apparence au plan.
 /** Un trou dans une terrasse (arbre conserve, trappe) : la terrasse qu'il perce, et le recentrer. */
 const sectionTrou: Section = {
-  id: 'trou', titre: 'Trou dans la terrasse',
+  id: 'trou', titre: 'Trou dans la terrasse', principale: true,
   champs: [
     { type: 'lecture', cle: 'terrasseDuTrou', libelle: 'Terrasse', valeur: (c) => terrasseHote(c.obj, c.objets)?.name ?? 'Aucune — le trou ne perce pas de terrasse' },
     {
@@ -254,7 +276,7 @@ const sectionTrou: Section = {
 };
 
 const sectionArbre: Section = {
-  id: 'arbre', titre: 'Arbre',
+  id: 'arbre', titre: 'Arbre', principale: true,
   champs: [
     {
       type: 'nombre', cle: 'diametreArbre', libelle: 'Diamètre du feuillage', unite: 'm', pas: 0.1, min: 0.1, decimales: 1, effets: ['scene3d'],
@@ -279,6 +301,7 @@ const sectionArbre: Section = {
     },
     {
       type: 'couleur', cle: 'couleurArbre', libelle: 'Teinte du feuillage', effets: ['scene3d'],
+      aide: 'Teinte donnée aux feuilles en Vue 3D ; laissée blanche, le feuillage garde sa couleur d’origine',
       lire: (c) => c.obj.arbre?.couleur || '#ffffff', ecrire: (c, v) => { champsArbre(c.obj).couleur = v; }
     }
   ]
@@ -288,7 +311,7 @@ const sectionArbre: Section = {
 // points a chaque fois, jamais stockee a part : deplacer un point sur le plan ne peut ainsi jamais
 // desynchroniser le nombre de la fleche.
 const sectionPointDeVue: Section = {
-  id: 'pointDeVue', titre: 'Point de vue',
+  id: 'pointDeVue', titre: 'Point de vue', principale: true,
   champs: [
     {
       type: 'nombre', cle: 'altitude', libelle: 'Altitude', unite: 'm', pas: 0.1, min: 0.1, decimales: 2,
@@ -309,6 +332,12 @@ const sectionPointDeVue: Section = {
     { type: 'bouton', cle: 'aller', libelle: '', nom: 'Aller à cette vue en Vue 3D', texte: () => 'Aller à cette vue en Vue 3D', agit: 'interface', executer: (c) => c.allerAuPointDeVue(c.obj) }
   ]
 };
+
+/** La section, ses nombres aux bornes indicatives (ceux des lignes compris). */
+function bornesIndicatives(s: Section): Section {
+  const souple = (ch: Champ): Champ => ch.type === 'nombre' ? { ...ch, bornesIndicatives: true } : ch.type === 'ligne' ? { ...ch, champs: ch.champs.map(souple) } : ch;
+  return { ...s, champs: s.champs.map(souple) };
+}
 
 /** Un nom de coin ou de cote : un texte sans historique, redessine a chaque frappe. */
 const nomDe = (cle: string, libelle: string, lire: (c: ContexteChamps) => string, ecrire: (c: ContexteChamps, v: string) => void): ChampTexte =>
@@ -336,6 +365,8 @@ function sectionCotes(c: ContexteChamps): Section {
     const aFige = !!gelsDe(obj)[i], bFige = !!gelsDe(obj)[j];
     const longueur: ChampNombre = {
       type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', pas: 0.01, min: 0.05, decimales: 2, retouche: true,
+      // Un decroche de quelques centimetres existe (un contour du cadastre, une encoche) : la borne guide le pas, pas la saisie.
+      bornesIndicatives: true, raisonRefus: 'Longueur refusée : elle déformerait un coin figé, ou ferait sortir l’objet de la parcelle.',
       actif: () => !(aFige && bFige),
       aide: aFige && bFige ? 'Les deux coins de ce côté sont figés' : (aFige || bFige ? 'Un coin est figé : l\'autre extrémité du côté sera déplacée pour atteindre cette longueur' : 'Longueur du côté'),
       lire: (cc) => { const p = enPoints(cc.obj).pts; return dist(au(p, i), au(p, j % p.length)); },
@@ -411,7 +442,9 @@ const batimentImporteVerrouille = (o: ObjetPlan): boolean => estBatiment(o) && !
 export function sectionsObjet(c: ContexteChamps): Section[] {
   const o = c.obj;
   const sections: Section[] = [sectionObjet];
-  if (estTerrain(o)) sections.push(sectionParcelle, ...sectionsCloture(c));
+  // Les bornes de la cloture et des portails restent indicatives (ui/champs/bornes.ts) : ces sections sont reprises par ailleurs, et
+  // une haie de plus de 6 m existe ; les faire respecter au clavier se decidera avec elles.
+  if (estTerrain(o)) sections.push(sectionParcelle, ...sectionsCloture(c).map(bornesIndicatives));
   // Le relief suit la cloture : lui aussi n'appartient qu'a la parcelle du projet.
   const relief = sectionRelief(c);
   if (relief) sections.push(relief);

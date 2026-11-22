@@ -21,13 +21,21 @@ import type { ObjetPlan } from '../../../src/model/types.js';
 
 const rien = () => undefined;
 
+/** Ce que lit le nombre borne : un test le change pour jouer un projet qui porte une valeur hors bornes. */
+let entraxe = 40;
+/** Les valeurs que le nombre borne a recues, et celle qu'il refuse de lui-meme. */
+const ecrites: number[] = [];
+
 /** Un champ de chaque type, et une ligne qui en porte trois. */
 function champs(): Champ[] {
   return [
-    { type: 'texte', cle: 'texte', libelle: 'Texte', lire: () => 'abc', ecrire: rien },
+    { type: 'nombre', cle: 'borne', libelle: 'Entraxe', unite: 'cm', pas: 5, min: 20, max: 150, lire: () => entraxe, ecrire: (_c, v) => { if (v === 99) return false; ecrites.push(v); entraxe = v; } },
+    { type: 'texte', cle: 'texte', libelle: 'Texte', aide: 'Ce que ce texte règle, en une phrase.', lire: () => 'abc', ecrire: rien },
+    { type: 'case', cle: 'grisee', libelle: 'Grisée', aide: 'Pourquoi cette case est grisée.', actif: () => false, lire: () => false, ecrire: rien },
     { type: 'nombre', cle: 'nombre', libelle: 'Nombre', unite: 'cm', pas: 5, lire: () => 40, ecrire: rien },
     { type: 'case', cle: 'case', libelle: 'Case', lire: () => true, ecrire: rien },
     { type: 'choix', cle: 'choixCourt', libelle: 'Choix court', options: () => [{ valeur: 'a', libelle: 'A' }, { valeur: 'b', libelle: 'B' }], lire: () => 'a', ecrire: rien },
+    { type: 'choix', cle: 'choixOptionsLongues', libelle: 'Lame', options: () => ['a', 'b', 'c', 'd'].map(v => ({ valeur: v, libelle: v + ' — une lame du commerce de 145 × 27 mm' })), lire: () => 'a', ecrire: rien },
     { type: 'choix', cle: 'choixLong', libelle: 'Choix long', options: () => ['a', 'b', 'c', 'd', 'e'].map(v => ({ valeur: v, libelle: v.toUpperCase() })), lire: () => 'c', ecrire: rien },
     { type: 'couleur', cle: 'couleur', libelle: 'Couleur', lire: () => '#336699', ecrire: rien },
     { type: 'date', cle: 'date', libelle: 'Date', lire: () => '2026-06-21', ecrire: rien },
@@ -41,6 +49,7 @@ function champs(): Champ[] {
     { type: 'ligne', cle: 'ligne', libelle: 'Côté 1', champs: [
       { type: 'texte', cle: 'nom', libelle: 'Nom', lire: () => 'AB', ecrire: rien },
       { type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', lire: () => 3.2, ecrire: rien },
+      { type: 'case', cle: 'fige', libelle: 'Figé', lire: () => false, ecrire: rien },
       { type: 'bouton', cle: 'supprimer', libelle: 'Supprimer', agit: 'projet', executer: rien }
     ] },
     { type: 'texte', cle: 'invisible', libelle: 'Invisible', visible: () => false, lire: () => '', ecrire: rien }
@@ -52,7 +61,7 @@ const SECTIONS: Section[] = [
   { id: 'repliee', titre: 'Repliée', repliee: true, champs: [{ type: 'lecture', cle: 'dansRepliee', libelle: 'Dans une section repliée', valeur: () => 'x' }] }
 ];
 
-const CLES_ATTENDUES = ['texte', 'nombre', 'case', 'choixCourt', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'carte', 'ligne', 'dansRepliee'];
+const CLES_ATTENDUES = ['borne', 'texte', 'grisee', 'nombre', 'case', 'choixCourt', 'choixOptionsLongues', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'carte', 'ligne', 'dansRepliee'];
 
 function monter(classe: string, appliquer: ServiceInspecteur['appliquer'] = () => true): { racine: Root; hote: HTMLElement } {
   const obj = { key: 'o1', name: 'Terrasse', type: 'polygon', fonction: 'terrasse', pts: [] } as unknown as ObjetPlan;
@@ -102,6 +111,28 @@ describe('la carte des champs de l inspecteur', () => {
   }
 });
 
+describe('les libelles qui se lisent', () => {
+  for (const classe of CLASSES) {
+    it('ecrit « Figé » a cote de sa case dans une ligne, en ' + classe, () => {
+      // Sur un coin, la case n'avait aucun libelle visible : un interrupteur seul (audit de l'inspecteur, lot A5).
+      const m = monter(classe);
+      const ligne = m.hote.querySelector('[data-cle="ligne"]')!;
+      expect(ligne.querySelector('.texteCase')?.textContent).toBe('Figé');
+      expect(ligne.querySelector('.texteCase')?.closest('label')?.querySelector('input[type="checkbox"]')).not.toBeNull();
+      // Hors d'une ligne, le libelle du champ suffit : pas de texte en double.
+      expect(m.hote.querySelector('[data-cle="case"] .texteCase')).toBeNull();
+      act(() => m.racine.unmount()); m.hote.remove();
+    });
+
+    it('marque une liste aux options longues, pour qu elle passe sous son libelle, en ' + classe, () => {
+      const m = monter(classe);
+      expect(m.hote.querySelector('[data-cle="choixOptionsLongues"] select')?.classList.contains('long')).toBe(true);
+      expect(m.hote.querySelector('[data-cle="choixLong"] select')?.classList.contains('long')).toBe(false);
+      act(() => m.racine.unmount()); m.hote.remove();
+    });
+  }
+});
+
 describe('la saisie d un nombre', () => {
   for (const classe of CLASSES) {
     it('n ecrit qu une fois quand on valide par Entree, en ' + classe, () => {
@@ -120,6 +151,212 @@ describe('la saisie d un nombre', () => {
       act(() => m.racine.unmount()); m.hote.remove();
     });
   }
+});
+
+describe('l explication d un champ, au doigt comme a la souris', () => {
+  // Audit de l'inspecteur, lot A2 : l'aide n'etait qu'une infobulle, qui ne s'affiche jamais au doigt.
+  for (const classe of CLASSES) {
+    it('un « i » pres du libelle ecrit l aide sous le champ, un second toucher la referme, en ' + classe, () => {
+      const m = monter(classe);
+      const ligne = m.hote.querySelector<HTMLElement>('[data-cle="texte"]')!;
+      const i = ligne.querySelector<HTMLButtonElement>('label.libelle button.aideBouton')!;
+      expect(i.getAttribute('aria-expanded')).toBe('false');
+      expect(i.getAttribute('aria-label')).toBe('Explication : Texte');
+      expect(ligne.querySelector('.aideChamp')).toBeNull();
+      act(() => i.click());
+      expect(i.getAttribute('aria-expanded')).toBe('true');
+      const aide = ligne.querySelector<HTMLElement>('.aideChamp')!;
+      expect(aide.textContent).toBe('Ce que ce texte règle, en une phrase.');
+      expect(aide.id).toBe(i.getAttribute('aria-controls'));
+      act(() => i.click());
+      expect(i.getAttribute('aria-expanded')).toBe('false');
+      expect(ligne.querySelector('.aideChamp')).toBeNull();
+      // L'infobulle du bureau reste.
+      expect(ligne.querySelector('label.libelle')?.getAttribute('title')).toBe('Ce que ce texte règle, en une phrase.');
+      act(() => m.racine.unmount()); m.hote.remove();
+    });
+
+    it('Echap referme l aide, et toucher le libelle ne l ouvre pas, en ' + classe, () => {
+      const m = monter(classe);
+      const ligne = m.hote.querySelector<HTMLElement>('[data-cle="texte"]')!;
+      const i = ligne.querySelector<HTMLButtonElement>('button.aideBouton')!;
+      act(() => ligne.querySelector<HTMLElement>('.texteLibelle')!.click());
+      expect(ligne.querySelector('.aideChamp')).toBeNull();
+      act(() => i.click());
+      expect(ligne.querySelector('.aideChamp')).not.toBeNull();
+      act(() => { i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
+      expect(ligne.querySelector('.aideChamp')).toBeNull();
+      act(() => m.racine.unmount()); m.hote.remove();
+    });
+
+    it('pas de « i » sans aide, ni sur une ligne composee, en ' + classe, () => {
+      const m = monter(classe);
+      expect(m.hote.querySelector('[data-cle="nombre"] button.aideBouton')).toBeNull();
+      expect(m.hote.querySelector('[data-cle="ligne"] button.aideBouton')).toBeNull();
+      act(() => m.racine.unmount()); m.hote.remove();
+    });
+  }
+
+  it('au doigt, l aide d un champ grise reste ecrite sous lui, sans « i » en double', () => {
+    for (const classe of CLASSES) {
+      const m = monter(classe);
+      const ligne = m.hote.querySelector<HTMLElement>('[data-cle="grisee"]')!;
+      if (classe === 'large') expect(ligne.querySelector('button.aideBouton')).not.toBeNull();
+      else {
+        expect(ligne.querySelector('button.aideBouton')).toBeNull();
+        expect(ligne.querySelector('.note')?.textContent).toBe('Pourquoi cette case est grisée.');
+      }
+      act(() => m.racine.unmount()); m.hote.remove();
+    }
+  });
+});
+
+describe('une valeur refusee dit pourquoi', () => {
+  // Audit de l'inspecteur, lot A3 : au clavier, 3 et −10 passaient pour un minimum de 20, et un refus revenait sans un mot.
+  const poser = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  const taper = (champ: HTMLInputElement, texte: string) => {
+    act(() => { champ.focus(); });
+    act(() => { poser.call(champ, texte); champ.dispatchEvent(new Event('input', { bubbles: true })); });
+    act(() => { champ.blur(); });
+  };
+  const ouvrir = (classe: string) => {
+    let appels = 0;
+    const m = monter(classe, (_ch, _c, ecrire) => { appels++; return ecrire() !== false; });
+    const ligne = m.hote.querySelector<HTMLElement>('[data-cle="borne"]')!;
+    return { m, ligne, champ: ligne.querySelector<HTMLInputElement>('input')!, appels: () => appels, message: () => ligne.querySelector('.refusChamp')?.textContent ?? null, fermer: () => { act(() => m.racine.unmount()); m.hote.remove(); } };
+  };
+  beforeEach(() => { entraxe = 40; ecrites.length = 0; });
+
+  for (const classe of CLASSES) {
+    it('refuse au clavier une valeur hors des bornes declarees, et l ecrit sous le champ, en ' + classe, () => {
+      const x = ouvrir(classe);
+      for (const saisie of ['3', '-10', '151']) {
+        taper(x.champ, saisie);
+        expect(x.message()).toBe('Entre 20 et 150 cm');
+        expect(x.champ.getAttribute('aria-invalid')).toBe('true');
+        expect(x.ligne.querySelector('.refusChamp')?.id).toBe(x.champ.getAttribute('aria-describedby'));
+      }
+      expect(x.appels()).toBe(0);
+      expect(ecrites).toEqual([]);
+      expect(entraxe).toBe(40);
+      // Une valeur admise s'ecrit, et le message s'en va.
+      taper(x.champ, '55');
+      expect(ecrites).toEqual([55]);
+      expect(x.message()).toBeNull();
+      expect(x.champ.hasAttribute('aria-invalid')).toBe(false);
+      x.fermer();
+    });
+
+    it('dit qu une valeur dans les bornes est refusee par le champ, en ' + classe, () => {
+      const x = ouvrir(classe);
+      taper(x.champ, '99');
+      expect(x.appels()).toBe(1);
+      expect(x.message()).toMatch(/n’est pas possible ici/);
+      expect(entraxe).toBe(40);
+      // Reprendre la saisie efface le message.
+      act(() => { x.champ.focus(); });
+      act(() => { poser.call(x.champ, '6'); x.champ.dispatchEvent(new Event('input', { bubbles: true })); });
+      expect(x.message()).toBeNull();
+      x.fermer();
+    });
+
+    it('montre telle quelle la valeur hors bornes d un projet, sans l ecrire ni la signaler, en ' + classe, () => {
+      entraxe = 3;
+      const x = ouvrir(classe);
+      expect(x.champ.value).toBe('3');
+      expect(x.message()).toBeNull();
+      act(() => { x.champ.focus(); });
+      act(() => { x.champ.blur(); });
+      expect(x.appels()).toBe(0);
+      expect(entraxe).toBe(3);
+      x.fermer();
+    });
+  }
+
+  for (const classe of CLASSES.filter(k => k !== 'large')) {
+    it('grise « − » au minimum et « + » au maximum, en ' + classe, () => {
+      entraxe = 20;
+      let x = ouvrir(classe);
+      const boutons = () => [...x.ligne.querySelectorAll<HTMLButtonElement>('button.pasBouton')];
+      expect(boutons().map(b => b.disabled)).toEqual([true, false]);
+      expect(boutons()[0]!.title).toBe('Entre 20 et 150 cm');
+      x.fermer();
+      entraxe = 150;
+      x = ouvrir(classe);
+      expect(boutons().map(b => b.disabled)).toEqual([false, true]);
+      x.fermer();
+      entraxe = 40;
+      x = ouvrir(classe);
+      expect(boutons().map(b => b.disabled)).toEqual([false, false]);
+      x.fermer();
+    });
+  }
+});
+
+describe('les fleches d un nombre appliquent tout de suite', () => {
+  // Audit de l'inspecteur, lot A7 : au bureau, les fleches changeaient le chiffre affiche, et le plan attendait Entree.
+  const poser = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  const ouvrir = (classe: string) => {
+    const descripteurs: Champ[] = [];
+    const m = monter(classe, (ch, _c, ecrire) => { descripteurs.push(ch); return ecrire() !== false; });
+    const champ = m.hote.querySelector<HTMLInputElement>('[data-cle="borne"] input')!;
+    const fleche = (key: 'ArrowUp' | 'ArrowDown') => act(() => { champ.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })); });
+    return { m, champ, descripteurs, fleche, fermer: () => { act(() => m.racine.unmount()); m.hote.remove(); } };
+  };
+  beforeEach(() => { entraxe = 40; ecrites.length = 0; });
+
+  for (const classe of CLASSES) {
+    it('chaque fleche du clavier ecrit son pas, et la serie ne compte qu une annulation, en ' + classe, () => {
+      const x = ouvrir(classe);
+      act(() => { x.champ.focus(); });
+      x.fleche('ArrowUp'); x.fleche('ArrowUp'); x.fleche('ArrowDown');
+      expect(ecrites).toEqual([45, 50, 45]);
+      expect(entraxe).toBe(45);
+      // Le premier pas porte l'historique du champ ; les suivants de la serie le retirent (un seul instantane).
+      expect(x.descripteurs.map(d => d.historique)).toEqual([undefined, false, false]);
+      // Quitter le champ n'ecrit rien de plus : il n'y a pas de brouillon.
+      act(() => { x.champ.blur(); });
+      expect(ecrites).toEqual([45, 50, 45]);
+      x.fermer();
+    });
+
+    it('la fleche s arrete a la borne, en ' + classe, () => {
+      entraxe = 150;
+      const x = ouvrir(classe);
+      x.fleche('ArrowUp');
+      expect(ecrites).toEqual([]);
+      x.fleche('ArrowDown');
+      expect(ecrites).toEqual([145]);
+      x.fermer();
+    });
+
+    it('la fleche part de la saisie en cours, en ' + classe, () => {
+      const x = ouvrir(classe);
+      act(() => { x.champ.focus(); });
+      act(() => { poser.call(x.champ, '60'); x.champ.dispatchEvent(new Event('input', { bubbles: true })); });
+      expect(ecrites).toEqual([]);
+      x.fleche('ArrowUp');
+      expect(ecrites).toEqual([65]);
+      x.fermer();
+    });
+  }
+
+  it('au bureau, les fleches du champ (bouton de la souris enfonce) ecrivent a chaque pas, une frappe attend la validation', () => {
+    const x = ouvrir('large');
+    const changer = (texte: string) => act(() => { poser.call(x.champ, texte); x.champ.dispatchEvent(new Event('input', { bubbles: true })); });
+    act(() => { x.champ.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); });
+    changer('45'); changer('50');
+    expect(ecrites).toEqual([45, 50]);
+    expect(x.descripteurs.map(d => d.historique)).toEqual([undefined, false]);
+    act(() => { window.dispatchEvent(new MouseEvent('mouseup')); });
+    // Le bouton relache, une frappe est un brouillon : rien ne s'ecrit avant de quitter le champ.
+    act(() => { x.champ.focus(); });
+    changer('70');
+    expect(ecrites).toEqual([45, 50]);
+    act(() => { x.champ.blur(); });
+    expect(ecrites).toEqual([45, 50, 70]);
+    x.fermer();
+  });
 });
 
 describe('les familles de sections', () => {

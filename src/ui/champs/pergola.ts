@@ -59,7 +59,7 @@ const replier = (champs: Champ[]): Champ[] => champs.map(ch => { const repli = P
 
 const sectionPergola: Section = {
   // Le titre suit l'ouvrage (sectionsPergola) : « Pergola » ou « Carport », mêmes réglages.
-  id: 'pergola', titre: 'Pergola',
+  id: 'pergola', titre: 'Pergola', principale: true,
   explication: 'Le contour est le nu extérieur des poteaux : un poteau à chaque coin, des poteaux intermédiaires selon l\'entraxe, une poutre sur chaque côté.',
   champs: replier([
     {
@@ -83,6 +83,7 @@ const sectionPergola: Section = {
     },
     {
       type: 'choix', cle: 'toit', libelle: 'Toit', effets: EFFETS,
+      aide: 'La couverture : une toile sur des chevrons, un toit à une seule pente (appentis) ou un toit à quatre pans',
       options: (c) => [
         ...(Object.keys(LIBELLE_TOIT_PERGOLA) as ToitPergola[]).map(t => ({ valeur: t, libelle: LIBELLE_TOIT_PERGOLA[t] })),
         ...inconnu(toitPergolaInconnu(c.obj), (t) => 'Toit inconnu (« ' + t + ' »), calculé en ' + LIBELLE_TOIT_PERGOLA[reglages(c).toit].toLowerCase()),
@@ -104,6 +105,7 @@ const sectionPergola: Section = {
     },
     {
       type: 'nombre', cle: 'pente', libelle: 'Pente', unite: '°', pas: 1, min: 2, max: 45, decimales: 0, effets: EFFETS, visible: toitEst('appentis', 'quatre-pans'),
+      aide: 'Inclinaison du toit par rapport à l’horizontale : plus elle est forte, mieux l’eau s’écoule et plus le toit monte',
       lire: (c) => reglages(c).pente, ecrire: (c, v) => { if (!(v >= 2 && v <= 45)) return false; poser(c, 'pente', v); }
     },
     {
@@ -136,6 +138,7 @@ const sectionPergola: Section = {
     },
     {
       type: 'nombre', cle: 'longueurContrefiche', libelle: 'Longueur', unite: 'm', pas: 0.05, min: 0.3, max: 1.5, decimales: 2, effets: EFFETS,
+      aide: 'Longueur de chaque contrefiche, la pièce en biais entre un poteau et une poutre',
       visible: (c) => reglages(c).avecContrefiches,
       lire: (c) => reglages(c).longueurContrefiche, ecrire: (c, v) => { if (!(v >= 0.3 && v <= 1.5)) return false; poser(c, 'longueurContrefiche', v); }
     },
@@ -143,11 +146,12 @@ const sectionPergola: Section = {
     choixSection('sectionChevron', 'Chevrons', (c) => MATERIAUX[reglages(c).materiau].chevrons, 'Section des chevrons, largeur × hauteur, posés sur chant'),
     {
       type: 'nombre', cle: 'entraxeChevrons', libelle: 'Entraxe des chevrons', unite: 'cm', pas: 5, min: 20, max: 150, decimales: 0, effets: EFFETS,
+      aide: 'Distance entre deux chevrons, d’axe en axe : plus ils sont serrés, mieux le toit est porté, et plus il faut de pièces',
       lire: (c) => Math.round(reglages(c).entraxeChevrons * 100), ecrire: (c, v) => { if (!(v >= 20 && v <= 150)) return false; poser(c, 'entraxeChevrons', v / 100); }
     },
-    { type: 'couleur', cle: 'couleurBois', libelle: 'Couleur de la structure', effets: ['scene3d'], lire: (c) => reglages(c).couleurBois, ecrire: (c, v) => poser(c, 'couleurBois', v) },
-    { type: 'couleur', cle: 'couleurToile', libelle: 'Couleur de la toile', effets: ['scene3d'], visible: toitEst('toile'), lire: (c) => reglages(c).couleurToile, ecrire: (c, v) => poser(c, 'couleurToile', v) },
-    { type: 'couleur', cle: 'couleurCouverture', libelle: 'Couleur de la couverture', effets: ['scene3d'], visible: toitEst('appentis', 'quatre-pans'), lire: (c) => reglages(c).couleurCouverture, ecrire: (c, v) => poser(c, 'couleurCouverture', v) },
+    { type: 'couleur', cle: 'couleurBois', libelle: 'Couleur de la structure', aide: 'Couleur des poteaux, des poutres et des chevrons en Vue 3D', effets: ['scene3d'], lire: (c) => reglages(c).couleurBois, ecrire: (c, v) => poser(c, 'couleurBois', v) },
+    { type: 'couleur', cle: 'couleurToile', libelle: 'Couleur de la toile', aide: 'Couleur de la toile en Vue 3D', effets: ['scene3d'], visible: toitEst('toile'), lire: (c) => reglages(c).couleurToile, ecrire: (c, v) => poser(c, 'couleurToile', v) },
+    { type: 'couleur', cle: 'couleurCouverture', libelle: 'Couleur de la couverture', aide: 'Couleur du toit en Vue 3D', effets: ['scene3d'], visible: toitEst('appentis', 'quatre-pans'), lire: (c) => reglages(c).couleurCouverture, ecrire: (c, v) => poser(c, 'couleurCouverture', v) },
     {
       type: 'texte', cle: 'longueursBois', libelle: 'Longueurs achetables', placeholder: '6, 5, 4, 3', effets: ['inspecteur'],
       aide: 'Les longueurs vendues (bois ou profilés), en mètres : le métrage débite chaque section dedans',

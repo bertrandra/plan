@@ -741,7 +741,19 @@
   .carteToitLegende .cleCorps{ border-top:2px dashed var(--ok); }
   .carteToitLegende .cleFaitage{ border-top:3px solid var(--ink); }
   .carteToitLegende .clePignon{ border-top:3px solid var(--accent); }
-  .champ .libelle{ color:var(--ink-soft); font-size:0.74rem; line-height:1.2; }
+  .champ .libelle{ color:var(--ink-soft); font-size:0.74rem; line-height:1.2; display:flex; align-items:center; gap:2px; min-width:0; }
+  .champ .libelle .texteLibelle{ min-width:0; }
+  /* Le « i » d'un champ (lot A2) : il ecrit l'aide sous le champ, la ou l'infobulle ne s'affiche pas. Discret au bureau, une
+     cible de 44 px au doigt ; ouvert, il prend l'accent et un fond, la couleur ne disant rien seule (aria-expanded). */
+  .aideBouton{
+    flex:none; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; padding:0; margin:0;
+    border:none; border-radius:999px; background:transparent; color:var(--ink-soft); cursor:pointer; opacity:0.75;
+  }
+  .aideBouton:hover, .aideBouton:focus-visible{ opacity:1; color:var(--ink); background:var(--accent-light); }
+  .aideBouton[aria-expanded="true"]{ opacity:1; color:var(--on-accent-light); background:var(--accent-light); }
+  .champ .aideChamp{ color:var(--ink); border-left:2px solid var(--accent); padding-left:6px; margin-top:4px; }
+  html:not([data-classe="large"]) .aideBouton{ width:44px; height:44px; margin:-8px 0; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .aideChamp{ font-size:13px; line-height:1.35; margin-top:0; padding-left:8px; }
   .champ .commande{ min-width:0; }
   .champ .note{ font-size:0.68rem; color:var(--ink-soft); margin-top:2px; line-height:1.25; }
   .champ input[type=text], .champ input[type=number], .champ input[type=date], .champ select{
@@ -755,6 +767,11 @@
   .champ input[type=color]{ width:40px; height:32px; padding:0; border:1px solid var(--rule); cursor:pointer; }
   .champNombre{ display:inline-flex; align-items:center; gap:4px; }
   .champNombre .unite{ font-size:0.7rem; color:var(--ink-soft); }
+  /* Une saisie refusee laisse sa raison sous le champ (« Entre 20 et 150 cm ») au lieu de revenir en silence (lot A3). Le mot
+     accompagne la couleur, qui ne porte jamais seule l'information. */
+  .refusChamp{ display:block; margin-top:2px; font-family:var(--sans); font-size:0.68rem; line-height:1.25; color:var(--danger); }
+  .champsEnLigne .refusChamp{ flex-basis:100%; }
+  .champ input[aria-invalid="true"]{ border-color:var(--danger); }
   .champCurseur{ display:flex; align-items:center; gap:8px; }
   .champCurseur input{ flex:1; }
   .champCurseur .valeurCurseur{ min-width:44px; text-align:right; font-variant-numeric:tabular-nums; }
@@ -770,6 +787,16 @@
   .champsEnLigne input[type=text]{ width:90px; flex:1; }
   .champsEnLigne .champNombre input{ width:78px; }
   .champ-ligne .commande{ overflow:hidden; }
+  /* Une liste aux options longues (une lame du commerce) passe sous son libelle, sur toute la largeur : coupee a droite du
+     libelle, elle ne se lisait pas (audit de l'inspecteur, lot A5). */
+  .champ:has(> .commande > select.long){ grid-template-columns:1fr; }
+  /* Une case dans une ligne (« Figé », sur un coin) porte son libelle a cote d'elle. */
+  .caseEnLigne{ display:inline-flex; align-items:center; gap:5px; cursor:pointer; }
+  .texteCase{ font-family:var(--sans); font-size:0.74rem; color:var(--ink-soft); white-space:nowrap; }
+  .interrupteur.avecTexte{ width:auto; gap:8px; }
+  .interrupteur.avecTexte .texteCase{ font-size:14px; color:var(--ink); }
+  .gestesPlan{ width:100%; margin-top:6px; }
+  .gestesPlan .hint{ margin:0 0 4px; }
   /* Un pli de champs dans une section (ui/champs, `repli`) : ce qui sert rarement, ferme a l'ouverture. */
   .plichamps > summary{
     cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px; min-height:28px; padding:2px 4px;
@@ -1429,15 +1456,19 @@
   }
   .pasBouton:hover{ background:var(--accent-light); opacity:1; }
   .pasBouton:disabled{ opacity:0.4; }
-  .pasValeur{ display:flex; align-items:center; justify-content:center; gap:3px; min-width:84px; padding:0 4px; }
+  /* Toute la case du chiffre se touche (audit de l'inspecteur, lot A4) : la zone de saisie prend la hauteur et la largeur de la
+     case, au lieu d'une ligne de texte de 19 px au milieu. */
+  .pasValeur{ display:flex; align-items:stretch; justify-content:center; gap:3px; min-width:84px; padding:0 4px; cursor:text; }
+  .pasValeur .unite{ align-self:center; }
   .pas input[type=text]{
-    width:5.2ch; min-height:0; padding:0; border:none; background:transparent; color:var(--ink); text-align:right;
+    flex:1 1 5.2ch; width:5.2ch; min-width:44px; min-height:44px; padding:0; border:none; background:transparent; color:var(--ink); text-align:right;
     font-family:var(--sans); font-size:15px; font-weight:600; font-variant-numeric:tabular-nums;
   }
   .pas input[type=text]:focus{ outline:none; }
   .pas:focus-within{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
   .pas .unite{ font-size:12px; color:var(--ink-soft); }
-  .interrupteur{ position:relative; display:inline-flex; width:52px; height:32px; flex:none; cursor:pointer; }
+  /* La cible fait 44 px de haut, la piste garde ses 32 px au milieu. */
+  .interrupteur{ position:relative; display:inline-flex; align-items:center; width:52px; height:44px; flex:none; cursor:pointer; }
   .interrupteur input{ position:absolute; inset:0; opacity:0; margin:0; width:100%; height:100%; cursor:pointer; }
   .interrupteur .piste{ width:52px; height:32px; border-radius:16px; background:var(--rule); transition:background .15s; position:relative; }
   .interrupteur .piste::after{ content:''; position:absolute; top:3px; left:3px; width:26px; height:26px; border-radius:50%; background:var(--panel-bg); box-shadow:var(--ombre); transition:transform .15s; }
@@ -1452,6 +1483,9 @@
   }
   .segmente button.actif{ background:var(--ink); color:var(--on-ink); font-weight:600; }
   .segmente button:hover{ opacity:1; }
+  /* Au doigt, chaque choix et chaque bouton d'un champ est une cible de 44 px (lot A4). */
+  html:not([data-classe="large"]) .segmente button{ min-height:44px; min-width:44px; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) :is(.champTexture, .champBouton) button{ min-width:44px; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ{
     grid-template-columns:minmax(9em, 1fr) minmax(0, auto); min-height:52px; padding:6px 0; gap:6px 12px; border-bottom:1px solid var(--hairline); border-radius:0;
   }
@@ -1471,7 +1505,12 @@
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ:not(.pleineLargeur).champ-choix:has(.segmente) > .commande > :first-child{ justify-self:start; text-align:left; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(.segmente) .note{ text-align:left; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(select) .commande > select{ max-width:62vw; }
+  /* Une liste aux options longues passe sous son libelle (lot A5) : les memes poids que les regles de la ligne, qu'elle defait. */
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ.champ-choix:has(select.long){ grid-template-columns:1fr; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ.champ-choix:not(.pleineLargeur):has(select.long) > .commande > select{ max-width:100%; width:100%; justify-self:stretch; text-align:left; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .note:empty{ display:none; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .refusChamp{ grid-column:1 / -1; font-size:12px; text-align:left; margin-top:-2px; }
+  html:not([data-classe="large"]) .pas:has(input[aria-invalid="true"]){ border-color:var(--danger); }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=text]:not(.pas input),
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=date]{ min-height:44px; font-size:15px; border-radius:var(--r-champ); width:100%; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ select{
@@ -1479,7 +1518,7 @@
     border:1px solid var(--border); text-overflow:ellipsis;
   }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=color]{ width:44px; height:44px; border-radius:var(--r-champ); }
-  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champCurseur input[type=range]{ height:32px; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champCurseur input[type=range]{ height:44px; }
   html:not([data-classe="large"]) .curseurRayon input[type=range]{ min-height:32px; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champTexture .vignette{ width:44px; height:44px; border-radius:var(--r-champ); }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champTexture button, html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champBouton button{ min-height:44px; font-size:14px; font-family:var(--sans); border-radius:var(--r-bouton); }

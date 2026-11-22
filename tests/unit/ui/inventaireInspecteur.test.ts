@@ -14,6 +14,9 @@ import type { ObjetPlan } from '../../../src/model/types.js';
 // une tremie neufs, les sections montrees dans l'ordre (`*` : repliee d'office) et les plis de champs
 // (`repli`) de chacune. Un champ ou une section qui revient, ou un pli qui s'ouvre, fait echouer ce test :
 // c'est une decision du proprietaire, pas un detail.
+//
+// L'ordre est le meme pour tous (audit de l'inspecteur, 22 novembre 2026, lot A6) : « Objet », ce qui est propre a l'ouvrage,
+// « Apparence », puis la geometrie.
 
 const objets = structuredClone(DEMO_OBJECTS) as ObjetPlan[];
 for (const n of [nouvelAbri('pergola', { x: 5, y: 5 }, 'pg', 1), nouvelAbri('carport', { x: 8, y: 8 }, 'cp', 1), nouvellePiscine('rectangle', { x: 12, y: 6 }, 'pi', 1), nouveauTrou({ x: 3, y: 3 }, 'tr', 1)]) objets.push(n.obj);
@@ -63,15 +66,15 @@ const DECIDE: Record<string, { sections: string[]; plis?: Record<string, Record<
     }
   },
   'Terrasse': {
-    sections: ['objet', 'apparence', 'implantation', 'lames', 'structure', 'parametres*', 'cotes*', 'coins*'],
+    sections: ['objet', 'implantation', 'lames', 'structure', 'parametres*', 'apparence', 'cotes*', 'coins*'],
     plis: {
       // La lame du commerce se choisit d'un geste ; ses reglages fins, que le choix pose, se replient (lot 2, 16 novembre 2026).
       lames: { 'Détail de la lame (essence, cotes, raideur)': ['essenceBois', 'coefRaideurLame', 'largeurLame', 'epaisseurLame'], 'Rive côté par côté': ['rive0', 'rive1', 'rive2', 'rive3', 'rive4', 'rive5'] }
     }
   },
-  'Piscine 1': { sections: ['objet', 'apparence', 'piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine', 'cotes*', 'coins*'] },
+  'Piscine 1': { sections: ['objet', 'piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine', 'apparence', 'cotes*', 'coins*'] },
   'Pergola 1': {
-    sections: ['objet', 'apparence', 'pergola', 'noteCalcul', 'cotes*', 'coins*'],
+    sections: ['objet', 'pergola', 'noteCalcul', 'apparence', 'cotes*', 'coins*'],
     plis: {
       pergola: {
         'Contrefiches et chevrons': ['avecContrefiches', 'longueurContrefiche', 'sectionContrefiche', 'sectionChevron', 'entraxeChevrons'],
@@ -81,7 +84,7 @@ const DECIDE: Record<string, { sections: string[]; plis?: Record<string, Record<
     }
   },
   'Carport 1': {
-    sections: ['objet', 'apparence', 'pergola', 'noteCalcul', 'cotes*', 'coins*'],
+    sections: ['objet', 'pergola', 'noteCalcul', 'apparence', 'cotes*', 'coins*'],
     plis: {
       pergola: {
         'Contrefiches et chevrons': ['avecContrefiches', 'longueurContrefiche', 'sectionContrefiche', 'sectionChevron', 'entraxeChevrons'],
@@ -91,23 +94,23 @@ const DECIDE: Record<string, { sections: string[]; plis?: Record<string, Record<
     }
   },
   // La maison de la demonstration est dessinee a la main : verrouillee, elle garde ses cotes et ses coins, replies.
-  'Maison': { sections: ['objet', 'fenetres3d*', 'apparence', 'cotes*', 'coins*', 'releve'] },
-  'Maison IGN': { sections: ['objet', 'fenetres3d*', 'apparence', 'releve'] },
-  'Abri de jardin': { sections: ['objet', 'fenetres3d*', 'apparence', 'cotes*', 'coins*', 'releve'] },
+  'Maison': { sections: ['objet', 'fenetres3d*', 'releve', 'apparence', 'cotes*', 'coins*'] },
+  'Maison IGN': { sections: ['objet', 'fenetres3d*', 'releve', 'apparence'] },
+  'Abri de jardin': { sections: ['objet', 'fenetres3d*', 'releve', 'apparence', 'cotes*', 'coins*'] },
   'Parasol 1': {
-    sections: ['objet', 'apparence', 'parasol'],
+    sections: ['objet', 'parasol', 'apparence'],
     plis: { parasol: { 'Date, heure et carte des ombres': ['ombreDate', 'ombreHeure', 'carteAffichee'] } }
   },
   'Chemin Arrière': { sections: ['objet', 'apparence', 'cotes*'] },
   'Dalle beton': { sections: ['objet', 'apparence', 'cotes*', 'coins*'] },
   // Lot L3 : un massif a sa section Plantation (type, plantes, vegetation en 3D, mini-arbre), un equipement sa nature (regard...).
-  'Plattebande Rue': { sections: ['objet', 'apparence', 'massif', 'cotes*', 'coins*'] },
+  'Plattebande Rue': { sections: ['objet', 'massif', 'apparence', 'cotes*', 'coins*'] },
   'Parking': { sections: ['objet', 'apparence', 'cotes*', 'coins*'] },
-  'Trou 1': { sections: ['objet', 'apparence', 'trou', 'cotes*', 'coins*'] },
-  'Spa': { sections: ['objet', 'apparence', 'equipement'] },
-  'Chêne': { sections: ['objet', 'apparence', 'arbre'] },
+  'Trou 1': { sections: ['objet', 'trou', 'apparence', 'cotes*', 'coins*'] },
+  'Spa': { sections: ['objet', 'equipement', 'apparence'] },
+  'Chêne': { sections: ['objet', 'arbre', 'apparence'] },
   'AE 103': { sections: ['objet', 'parcelle', 'apparence'] },
-  'Coin entrant terrasse': { sections: ['objet', 'apparence', 'pointDeVue'] }
+  'Coin entrant terrasse': { sections: ['objet', 'pointDeVue', 'apparence'] }
 };
 
 describe('l inventaire de l inspecteur, ouvrage par ouvrage (decision du 27 octobre 2026)', () => {

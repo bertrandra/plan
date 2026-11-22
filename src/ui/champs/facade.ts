@@ -585,5 +585,5 @@ export function sectionReleve(c: ContexteChamps): Section {
   });
 
   champs.push(...champsSaillies(c), ...champsDuToit());
-  return { id: 'releve', titre: 'Façades et toit', champs };
+  return { id: 'releve', titre: 'Façades et toit', principale: true, champs };
 }

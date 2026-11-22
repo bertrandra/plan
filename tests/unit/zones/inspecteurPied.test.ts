@@ -60,4 +60,17 @@ describe('le pied de l inspecteur', () => {
     monte = monter(droits(false), 'moyen');
     expect(monte.hote.querySelector('.refusPied')?.textContent).toBeTruthy();
   });
+
+  it('range le rappel des gestes du plan dans un pli ferme', () => {
+    // Plus de 400 caracteres sous chaque objet (audit de l'inspecteur, lot A5) : un titre, et le texte derriere.
+    for (const classe of ['large', 'moyen', 'compact']) {
+      const m = monter(droits(true), classe);
+      const pli = m.hote.querySelector<HTMLDetailsElement>('.inspecteurPied details.gestesPlan')!;
+      expect(pli.open).toBe(false);
+      expect(pli.querySelector('summary')?.textContent).toBe('Gestes sur le plan');
+      expect(pli.querySelector('p.hint')?.textContent).toContain('Glissez un point');
+      expect(m.hote.querySelectorAll('.inspecteurPied > p.hint:not(.refusPied)').length).toBe(0);
+      act(() => m.racine.unmount()); m.hote.remove();
+    }
+  });
 });

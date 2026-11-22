@@ -69,11 +69,11 @@ function nombre<K extends keyof Piscine & keyof ReglagesPiscine & string>(cle: K
     ecrire: (c, v) => { if (!(v >= min && v <= max)) return false; poser(c, cle, (v / facteur) as Piscine[K]); }
   };
 }
-const couleur = (cle: 'couleurEau' | 'couleurMargelle' | 'couleurPlage', libelle: string, visible?: (c: ContexteChamps) => boolean): Champ =>
-  ({ type: 'couleur', cle, libelle, effets: ['rendu', 'scene3d'], ...(visible ? { visible } : {}), lire: (c) => reglages(c)[cle], ecrire: (c, v) => poser(c, cle, v) });
+const couleur = (cle: 'couleurEau' | 'couleurMargelle' | 'couleurPlage', libelle: string, visible?: (c: ContexteChamps) => boolean, aide?: string): Champ =>
+  ({ type: 'couleur', cle, libelle, effets: ['rendu', 'scene3d'], ...(aide ? { aide } : {}), ...(visible ? { visible } : {}), lire: (c) => reglages(c)[cle], ecrire: (c, v) => poser(c, cle, v) });
 
 const sectionImplantation: Section = {
-  id: 'piscine', titre: 'Piscine · 1. Implantation et structure',
+  id: 'piscine', titre: 'Piscine · 1. Implantation et structure', principale: true,
   explication: 'Le contour est le bord de l\'eau : la surface du plan d\'eau, celle que l\'urbanisme compte. Parois, margelles et plage s\'ajoutent vers l\'extérieur.',
   champs: [
     choix('implantation', 'Implantation', LIBELLE_IMPLANTATION, 'Enterrée : parois au ras du sol. Semi-enterrée ou hors-sol : les parois dépassent du sol'),
@@ -91,7 +91,7 @@ const sectionImplantation: Section = {
       options: (c) => REVETEMENTS_PAR_STRUCTURE[reglages(c).structure].map(v => ({ valeur: v, libelle: LIBELLE_REVETEMENT[v] })),
       lire: (c) => reglages(c).revetement, ecrire: (c, v) => poser(c, 'revetement', v as Piscine['revetement'])
     }, 'revetement'),
-    couleur('couleurEau', 'Couleur de l\'eau'),
+    couleur('couleurEau', 'Couleur de l\'eau', undefined, 'Couleur de l’eau sur le plan et en Vue 3D'),
     {
       type: 'bouton', cle: 'centrerSurTerrasse', libelle: '', nom: 'Centrer la piscine sur sa terrasse',
       visible: (c) => !!terrasseHote(c.obj, c.objets), texte: () => 'Centrer sur la terrasse',
@@ -133,9 +133,9 @@ const sectionAbords: Section = {
   id: 'abordsPiscine', titre: '3. Abords',
   explication: 'Margelles sur les parois, puis la plage. Une plage en bois est une terrasse du plan, posée sur plots autour du bassin : vous en tirez les coins, elle se chiffre comme toute terrasse, et le bassin la perce. Rien ne s\'appuie sur le bassin.',
   champs: [
-    { type: 'case', cle: 'margelle', libelle: 'Margelles', effets: EFFETS, lire: (c) => reglages(c).margelle, ecrire: (c, v) => poser(c, 'margelle', v) },
-    nombre('largeurMargelle', 'Largeur des margelles', 'cm', 20, 100, 1, 0, undefined, (c) => reglages(c).margelle),
-    couleur('couleurMargelle', 'Couleur des margelles', (c) => reglages(c).margelle),
+    { type: 'case', cle: 'margelle', libelle: 'Margelles', effets: EFFETS, aide: 'Les margelles sont la bordure posée sur le haut des parois, tout autour du bassin', lire: (c) => reglages(c).margelle, ecrire: (c, v) => poser(c, 'margelle', v) },
+    nombre('largeurMargelle', 'Largeur des margelles', 'cm', 20, 100, 1, 0, 'Largeur de la bordure, du bord de l’eau vers l’extérieur', (c) => reglages(c).margelle),
+    couleur('couleurMargelle', 'Couleur des margelles', (c) => reglages(c).margelle, 'Couleur des margelles sur le plan et en Vue 3D'),
     avecMotInconnu({
       type: 'choix', cle: 'plage', libelle: 'Plage', aide: 'Ce qui entoure le bassin au-delà des margelles', effets: EFFETS,
       // La plage en bois calculee par la piscine (jusqu'a la 2.2.0) n'est plus proposee : elle reste
@@ -202,9 +202,9 @@ const sectionEquipements: Section = {
       type: 'lecture', cle: 'filtration', libelle: 'Filtration',
       valeur: (c) => { const h = calculerPiscine(c.obj)?.hydraulique; return h ? fr(h.debit, 1) + ' m³/h · filtre Ø ' + h.diametreFiltre + ' · pompe ' + fr(h.puissancePompeCv, 2) + ' CV · ' + h.skimmers + ' skimmer(s), ' + h.refoulements + ' refoulements' : '—'; }
     },
-    choix('local', 'Local technique', LIBELLE_LOCAL),
+    choix('local', 'Local technique', LIBELLE_LOCAL, 'L’abri de la pompe et du filtre : il est compté au chiffrage, sauf un local existant'),
     nombre('distanceLocal', 'Distance au local', 'm', 0.5, 60, 0.5, 1, 'Du bord du bassin au local : la longueur des canalisations en dépend. Au-delà de 10 m, les pertes de charge grossissent la pompe'),
-    { type: 'case', cle: 'eclairage', libelle: 'Éclairage immergé', effets: EFFETS, lire: (c) => reglages(c).eclairage, ecrire: (c, v) => poser(c, 'eclairage', v) },
+    { type: 'case', cle: 'eclairage', libelle: 'Éclairage immergé', effets: EFFETS, aide: 'Ajoute des projecteurs sous l’eau au chiffrage : un pour 25 m² de bassin environ', lire: (c) => reglages(c).eclairage, ecrire: (c, v) => poser(c, 'eclairage', v) },
     choix('traitement', 'Traitement de l\'eau', LIBELLE_TRAITEMENT, 'L\'électrolyse au sel ajoute l\'électrolyseur et la régulation du pH au chiffrage'),
     choix('chauffage', 'Chauffage', LIBELLE_CHAUFFAGE, 'Une pompe à chaleur se dimensionne sur le volume : un kilowatt pour six mètres cubes')
   ]
@@ -214,7 +214,7 @@ const sectionSecurite: Section = {
   id: 'securitePiscine', titre: '5. Sécurité et urbanisme',
   explication: 'Un dispositif de sécurité normalisé est obligatoire pour tout bassin enterré ou semi-enterré. Le bassin se déclare en mairie dès 10 m².',
   champs: [
-    choix('securite', 'Dispositif de sécurité', LIBELLE_SECURITE),
+    choix('securite', 'Dispositif de sécurité', LIBELLE_SECURITE, 'Le dispositif normalisé retenu contre la noyade : il est compté au chiffrage'),
     { type: 'lecture', cle: 'regime', libelle: 'Autorisation', valeur: (c) => { const calc = calculerPiscine(c.obj, c.objets); return calc ? LIBELLE_REGIME[calc.regime] + (calc.secteurProtege ? ' · secteur protégé' : '') : '—'; } },
     // Un rappel court : les distances a chaque limite et le calcul de la taxe sont dans l'onglet Piscine du tiroir.
     {

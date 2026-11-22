@@ -1704,6 +1704,8 @@ const POINTS = {
     // Un nom tape lettre a lettre est un seul geste : un seul Ctrl+Z le defait.
     await selectionner(page, TERRASSE);
     await inspecteur(page);
+    // A la selection, c'est la section propre a la terrasse qui est ouverte (lot A6, point 193) : le nom est dans « Objet ».
+    await ouvrirSection(page, 'objet');
     const champ = page.locator('#zoneInspecteur [data-cle="name"] input').first();
     await champ.scrollIntoViewIfNeeded();
     const avant = await champ.inputValue();
@@ -3629,6 +3631,85 @@ const POINTS = {
     if (deborde) echecs.push('débordement');
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
       + `mode simple : Fichier ${simple.fichier?.entrees} entrées, Exporter ${simple.exporter?.entrees}, export.dxf ${simple.dxf} ; mode expert : Fichier ${expert.fichier?.entrees}, Exporter ${expert.exporter?.entrees} ; ni « modifié » ni Ctrl+Z ; retenu au rechargement` };
+  },
+  193: async (page, f) => {
+    // L'inspecteur plus simple (audit de l'inspecteur, 22 novembre 2026, lots A1 a A7) : la terrasse de la demonstration choisie,
+    // mode expert eteint. A la selection, « Lames et finitions » est ouverte (au doigt, sous l'onglet Construction), et les sections
+    // vont de l'objet a ce qui lui est propre, a l'apparence, a la geometrie. Dans « Structure et appuis », un entraxe de solives de
+    // 3 puis de −10 cm est refuse au clavier, avec la phrase des bornes sous le champ, et le projet ne bouge pas ; le « i » du champ
+    // ecrit son aide sous lui, un second toucher la referme ; deux fleches du clavier changent l'entraxe tout de suite, et un seul
+    // Ctrl+Z defait la serie ; au doigt, « − » est grise au minimum, et chaque commande fait 44 px.
+    const echecs = [];
+    await modeExpert(page, false);
+    await selectionner(page, TERRASSE);
+    await inspecteur(page);
+    const tactile = f.nom !== 'large';
+    const arrivee = await page.evaluate(() => {
+      const p = document.querySelector('#zoneInspecteur .inspecteurPanneau');
+      const sections = [...p.querySelectorAll('details.inspecteurSection')];
+      return { ouvertes: sections.filter((d) => d.open).map((d) => d.dataset.section), ordre: sections.map((d) => d.dataset.section), famille: p.dataset.familleActive ?? null,
+        visible: (() => { const d = p.querySelector('details[data-section="lames"]'); const r = d?.getBoundingClientRect(); return !!r && r.height > 60; })() };
+    });
+    if (arrivee.ouvertes.join() !== 'lames') echecs.push('section ouverte à la sélection : ' + (arrivee.ouvertes.join() || 'aucune'));
+    if (!arrivee.visible) echecs.push('« Lames et finitions » ne se voit pas');
+    if (arrivee.ordre.join() !== 'objet,implantation,lames,structure,apparence,cotes,coins') echecs.push('ordre : ' + arrivee.ordre.join());
+    if (tactile && arrivee.famille !== 'construction') echecs.push('onglet d’arrivée : ' + arrivee.famille);
+    await ouvrirSection(page, 'structure');
+    const entraxe = () => page.evaluate(() => window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse')?.construction?.soliveEntraxe);
+    const ligne = '#zoneInspecteur [data-cle="soliveEntraxe"]';
+    const depart = await entraxe();
+    // Une valeur hors bornes, au clavier : refusee, et dite.
+    const refus = [];
+    for (const v of [3, -10]) {
+      await saisirNombre(page, 'soliveEntraxe', v);
+      refus.push((await page.locator(ligne + ' .refusChamp').textContent().catch(() => null)) ?? '(rien)');
+      if ((await entraxe()) !== depart) echecs.push(v + ' cm accepté');
+    }
+    if (refus.some((t) => t !== 'Au moins 20 cm')) echecs.push('message de refus : ' + refus.join(' | '));
+    // L'aide, par le « i » : ecrite sous le champ, refermee au second toucher.
+    const i = page.locator(ligne + ' button.aideBouton');
+    await i.scrollIntoViewIfNeeded();
+    const cible = await i.boundingBox();
+    if (tactile && (!cible || cible.width < 43.5 || cible.height < 43.5)) echecs.push('« i » de ' + Math.round(cible?.width ?? 0) + ' × ' + Math.round(cible?.height ?? 0) + ' px');
+    if (tactile) await i.tap(); else await i.click();
+    await page.waitForTimeout(120);
+    const aide = (await page.locator(ligne + ' .aideChamp').textContent().catch(() => null)) ?? '';
+    if (!/Distance entre deux solives/.test(aide) || (await i.getAttribute('aria-expanded')) !== 'true') echecs.push('aide non écrite sous le champ : « ' + aide.slice(0, 40) + ' »');
+    if (tactile) await i.tap(); else await i.click();
+    await page.waitForTimeout(120);
+    if (await page.locator(ligne + ' .aideChamp').count()) echecs.push('l’aide ne se referme pas');
+    // Les fleches : le plan suit a chaque pas, un seul Ctrl+Z pour la serie.
+    const champ = page.locator(ligne + ' input').first();
+    await champ.focus();
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(120);
+    const apresUne = await entraxe();
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(150);
+    const apresDeux = await entraxe();
+    if (apresUne !== depart + 5 || apresDeux !== depart + 10) echecs.push('flèches : ' + depart + ' → ' + apresUne + ' → ' + apresDeux + ' sans valider');
+    await champ.evaluate((el) => el.blur());
+    await annuler(page);
+    const apresAnnulation = await entraxe();
+    if (apresAnnulation !== depart) echecs.push('un Ctrl+Z après deux flèches : ' + apresAnnulation + ' (attendu ' + depart + ')');
+    // Au doigt : « − » grise au minimum, et plus aucune commande de la section sous les 44 px.
+    let petites = 0, moinsGrise = null;
+    if (tactile) {
+      await saisirNombre(page, 'soliveEntraxe', 20);
+      moinsGrise = await page.locator(ligne + ' button.pasBouton').first().isDisabled();
+      if (!moinsGrise) echecs.push('« − » utilisable au minimum');
+      petites = await page.evaluate(() => {
+        const d = document.querySelector('#zoneInspecteur details[data-section="structure"]');
+        return [...d.querySelectorAll('input, select, button, summary')].map((el) => el.closest('label.interrupteur') ?? el)
+          .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && (r.width < 43.5 || r.height < 43.5); }).length;
+      });
+      if (petites) echecs.push(petites + ' cible(s) sous 44 px dans « Structure et appuis »');
+    }
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    if (deborde) echecs.push('débordement');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `à la sélection « ${arrivee.ouvertes.join()} »${tactile ? ' (onglet ' + arrivee.famille + ')' : ''} ; 3 et −10 cm : « ${refus[0]} » ; « i » : « ${aide.slice(0, 34)}… » ; flèches ${depart} → ${apresUne} → ${apresDeux}, un Ctrl+Z → ${apresAnnulation}`
+      + (tactile ? ` ; « − » grisé à 20 : ${moinsGrise ? 'oui' : 'non'} ; ${petites} cible sous 44 px` : '') };
   },
   178: async (page) => {
     // L'inspecteur de la terrasse en trois groupes (lot 3 de la simplification, 16 novembre 2026) : la terrasse de la demonstration
@@ -10635,7 +10716,9 @@ function pointsPour(nomClasse) {
   // 191 : les textes de la calibration (etalons, etapes d'un cas, listes) : identifiants et textes de la chaine ecrits avec leurs accents.
   // 192 : la selection et les chemins perdus : rien de choisi en entrant en Vue 3D, clic reel = explorateur, etiquettes inertes,
   //       « Clôture, portail » et le portail ajoute cloture decochee, la vitrine sans selection ni modification.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192];
+  // 193 : l'inspecteur plus simple : la section propre ouverte a la selection, une valeur hors bornes refusee avec sa phrase, l'aide
+  //       par le « i », les fleches immediates et leur seul Ctrl+Z, les cibles de 44 px.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

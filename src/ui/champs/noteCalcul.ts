@@ -60,6 +60,7 @@ const CHAMPS_HYPOTHESES: Champ[] = [
   },
   {
     type: 'choix', cle: 'classeBois', libelle: 'Classe du bois', effets: EFFETS, visible: enBois,
+    aide: 'La résistance du bois retenue par la note de calcul : C24 pour le bois massif courant, GL24h pour le lamellé-collé, plus résistant',
     options: () => [{ valeur: 'C24', libelle: 'C24 — bois massif' }, { valeur: 'GL24h', libelle: 'GL24h — lamellé-collé' }],
     lire: (c) => hyp(c).classeBois, ecrire: (c, v) => poser(c, 'classeBois', v === 'GL24h' ? 'GL24h' : 'C24')
   },
