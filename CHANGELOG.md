@@ -5,6 +5,50 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **L'inspecteur, plus simple à lire et à régler** (audit du panneau de droite du 22 novembre 2026, les sept lots « sûrs » ;
+  aucune quantité, aucun export, aucun fichier de projet ne change, et les empreintes de `tests/fixtures/golden/` sont
+  identiques) :
+  - **À la sélection, la section propre à l'objet est ouverte**, et plus seulement « Objet » : « Lames et finitions » pour une
+    terrasse, « Façades et toit » pour un bâtiment, la section du parasol, de l'arbre, de la plantation, de l'équipement, du
+    point de vue, de la piscine, de la pergola. Au doigt, on arrive sur l'onglet qui la porte. Une dalle, un chemin et une
+    parcelle, qui n'en ont pas, s'ouvrent comme avant sur « Objet ». La section que vous avez ouverte vous-même reste ouverte
+    d'un objet à l'autre tant que le suivant la porte.
+  - **Le même ordre de sections pour tous les objets** : « Objet », ce qui est propre à l'ouvrage, « Apparence », puis les
+    côtés et les coins. Une terrasse mettait ses étapes après l'apparence, un bâtiment ses façades après ses coins, un parasol
+    sa section en dernier.
+  - **Les flèches d'un nombre appliquent tout de suite au bureau** : aux flèches du champ ou du clavier, le plan et
+    l'estimation suivent à chaque pas, comme au doigt ; une série de pas ne compte qu'une annulation. Une frappe attend
+    toujours Entrée.
+  - **Les libellés** : « Lame de rive (habillage vertical) » et « Planche plate (bordure horizontale) » sans majuscules ;
+    « Sens de pose » en degrés (« ° », l'angle se mesure depuis le côté de référence : dit dans l'aide et sous le champ) ; le
+    titre ne répète plus la fonction (« Terrasse (35,01 m²) » au lieu de « Terrasse — Terrasse (35,01 m²) ») ; une liste aux
+    options longues (« Lame ») passe sous son libellé pour se lire en entier ; « Figé » s'écrit à côté de sa case sur chaque
+    coin ; le rappel des gestes du plan, sous chaque objet, se replie sous « Gestes sur le plan ».
+
+### Ajouté
+
+- **Une explication pour chaque réglage du mode simple** : les 36 réglages qui n'avaient ni aide ni note en reçoivent une, en
+  mots de tous les jours (« Entraxe solives : distance entre deux solives, d'axe en axe… », « Avec lambourdes », « Section
+  solives », les textures, les margelles, le toit et les chevrons d'une pergola…). Les cinq réglages de la clôture attendent le
+  travail en cours sur cette section.
+- **L'explication se lit au doigt** : un « i » près du libellé écrit l'aide sous le champ, un second toucher (ou Échap) la
+  referme. Au bureau l'infobulle reste, et le « i » marche aussi.
+- **Un message quand une valeur est refusée** : sous le champ, « Entre 20 et 150 cm », « Au moins 20 cm », ou la raison du
+  refus, au lieu d'un retour silencieux à l'ancienne valeur ; « − » et « + » se grisent à la borne.
+
+### Corrigé
+
+- **Une valeur hors bornes passait au clavier** : un entraxe de solives de 3 cm, ou de −10 cm, s'écrivait alors que le champ
+  déclare un minimum de 20 (seul le pas à pas du tactile le respectait), et l'estimation en sortait faussée. Une saisie hors
+  des bornes **déjà déclarées** est maintenant refusée ; aucune borne n'est ajoutée ni resserrée. Un projet qui porte déjà une
+  telle valeur s'ouvre, s'affiche et se calcule **à l'identique** : rien n'est corrigé d'office. Trois familles gardent des
+  bornes indicatives au clavier, faute de certitude qu'elles couvrent tous les usages : le rayon d'un cercle, la longueur d'un
+  côté, et la clôture et ses portails.
+- **421 cibles tactiles sous les 44 px** au téléphone (la zone où taper un chiffre, les interrupteurs, les choix côte à côte,
+  la croix d'une texture, le curseur de l'heure) : toutes font 44 px, et toute la case du chiffre se touche.
+
 ## [5.38.0] — 2026-11-21
 
 Version **mineure** au sens de `MD/RELEASE.md`, et il faut le dire sans détour : au banc d'apprentissage, le parcours

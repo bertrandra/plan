@@ -1505,7 +1505,9 @@
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ:not(.pleineLargeur).champ-choix:has(.segmente) > .commande > :first-child{ justify-self:start; text-align:left; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(.segmente) .note{ text-align:left; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(select) .commande > select{ max-width:62vw; }
-  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(select.long) .commande > select{ max-width:100%; width:100%; justify-self:stretch; text-align:left; }
+  /* Une liste aux options longues passe sous son libelle (lot A5) : les memes poids que les regles de la ligne, qu'elle defait. */
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ.champ-choix:has(select.long){ grid-template-columns:1fr; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ.champ-choix:not(.pleineLargeur):has(select.long) > .commande > select{ max-width:100%; width:100%; justify-self:stretch; text-align:left; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .note:empty{ display:none; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .refusChamp{ grid-column:1 / -1; font-size:12px; text-align:left; margin-top:-2px; }
   html:not([data-classe="large"]) .pas:has(input[aria-invalid="true"]){ border-color:var(--danger); }
