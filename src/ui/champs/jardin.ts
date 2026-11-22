@@ -17,7 +17,7 @@ const petitesEssences = () => especesChargees().filter((e) => tailleDe(e).id ===
 const ecrirePlantation = (c: ContexteChamps, p: Omit<Plantation, 'source'>) => { c.obj.plantation = { ...p, source: 'main' }; };
 
 export const sectionMassif: Section = {
-  id: 'massif', titre: 'Plantation',
+  id: 'massif', titre: 'Plantation', principale: true,
   champs: [
     {
       type: 'choix', cle: 'formePlantation', libelle: 'Type', effets: ['scene3d', 'inspecteur', 'rendu'],
@@ -77,7 +77,7 @@ export const sectionMassif: Section = {
 };
 
 export const sectionEquipement: Section = {
-  id: 'equipement', titre: 'Équipement',
+  id: 'equipement', titre: 'Équipement', principale: true,
   champs: [
     {
       type: 'choix', cle: 'natureEquipement', libelle: 'Nature', effets: ['scene3d', 'terrasse', 'rendu'],

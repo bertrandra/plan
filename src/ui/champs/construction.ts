@@ -511,7 +511,8 @@ export function sectionsConstruction(c?: ContexteChamps): Section[] {
   // Les lames avant la structure : leur epaisseur borne l'entraxe de ce qui les porte. Puis le tour : laquelle est verticale,
   // laquelle est a plat.
   const lames: Section = {
-    id: 'lames', titre: 'Lames et finitions',
+    // Ce qu'on vient regler sur une terrasse : la section qui s'ouvre a la selection.
+    id: 'lames', titre: 'Lames et finitions', principale: true,
     champs: [lameCommerce, champ('segmentReference'), champ('sensPose'),
       ...(['essenceBois', 'coefRaideurLame', 'largeurLame', 'epaisseurLame'] as const).map((k) => ({ ...champ(k), repli: PLI_LAME, ...(k === 'coefRaideurLame' ? { expert: true } : {}) })),
       champ('avecLameRive'), champ('hauteurLameRive'), ...champsRiveParCote(c), champ('cotesSansRive'), champ('riveOuvertures'), champ('avecLamePlat')]

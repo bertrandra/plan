@@ -73,7 +73,7 @@ const couleur = (cle: 'couleurEau' | 'couleurMargelle' | 'couleurPlage', libelle
   ({ type: 'couleur', cle, libelle, effets: ['rendu', 'scene3d'], ...(aide ? { aide } : {}), ...(visible ? { visible } : {}), lire: (c) => reglages(c)[cle], ecrire: (c, v) => poser(c, cle, v) });
 
 const sectionImplantation: Section = {
-  id: 'piscine', titre: 'Piscine · 1. Implantation et structure',
+  id: 'piscine', titre: 'Piscine · 1. Implantation et structure', principale: true,
   explication: 'Le contour est le bord de l\'eau : la surface du plan d\'eau, celle que l\'urbanisme compte. Parois, margelles et plage s\'ajoutent vers l\'extérieur.',
   champs: [
     choix('implantation', 'Implantation', LIBELLE_IMPLANTATION, 'Enterrée : parois au ras du sol. Semi-enterrée ou hors-sol : les parois dépassent du sol'),

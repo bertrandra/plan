@@ -17,7 +17,7 @@ import type { Section } from './types.js';
 const OMBRE = 'Date, heure et carte des ombres';
 
 export const sectionParasol: Section = {
-  id: 'parasol', titre: 'Parasol',
+  id: 'parasol', titre: 'Parasol', principale: true,
   champs: [
     // Terrasse de rattachement : c'est elle dont l'ombrage est mesure et sur laquelle porte la
     // recherche de position. Indispensable des qu'il y a plusieurs terrasses.

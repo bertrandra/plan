@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sectionsInspecteur } from '../../../src/ui/champs/sections.js';
-import { champsVisibles, type Champ, type ContexteChamps } from '../../../src/ui/champs/types.js';
+import { champsVisibles, sectionDArrivee, type Champ, type ContexteChamps } from '../../../src/ui/champs/types.js';
 import { DEMO_OBJECTS } from '../../../src/model/demo.js';
 import { ensureConstruction } from '../../../src/engine/construction.js';
 import { nouvelAbri, nouvellePiscine, nouveauTrou } from '../../../src/model/creation.js';
@@ -64,5 +64,36 @@ describe('les explications des reglages du mode simple', () => {
       for (const s of sectionsInspecteur(c)) for (const ch of champsVisibles(s, c)) if (ch.aide !== undefined && ch.aide.trim().length < 12) courtes.push(s.id + '/' + ch.cle);
     }
     expect(courtes).toEqual([]);
+  });
+});
+
+describe('la section qui s ouvre a la selection, et l ordre des sections', () => {
+  // Audit de l'inspecteur, lot A6 : la section propre a l'objet, pas son etat civil ; le meme ordre pour tous.
+  const parNom = (nom: string) => { const o = objets.find(x => x.name === nom); if (!o) throw new Error('absent : ' + nom); return o; };
+  const arrivee = (nom: string) => { const c = contexte(parNom(nom)); return sectionDArrivee(sectionsInspecteur(c), c); };
+
+  it('ouvre les lames d une terrasse, le parasol, l arbre, les facades d un batiment, la piscine, la pergola', () => {
+    expect(arrivee('Terrasse')).toBe('lames');
+    expect(arrivee('Parasol 1')).toBe('parasol');
+    expect(arrivee('Chêne')).toBe('arbre');
+    expect(arrivee('Maison')).toBe('releve');
+    expect(arrivee('Piscine 1')).toBe('piscine');
+    expect(arrivee('Pergola 1')).toBe('pergola');
+    expect(arrivee('Spa')).toBe('equipement');
+  });
+
+  it('reste sur « Objet » pour ce qui n a pas de section propre : une dalle, un chemin, une parcelle', () => {
+    expect(arrivee('Dalle beton')).toBe('objet');
+    expect(arrivee('Chemin Arrière')).toBe('objet');
+    // La cloture et les portails, repris par ailleurs, ne sont pas (encore) la section d'arrivee de la parcelle.
+    expect(arrivee('Parcelle AE 101')).toBe('objet');
+  });
+
+  it('range les sections dans le meme ordre pour tous : l objet, ce qui lui est propre, l apparence, la geometrie', () => {
+    const rang = (id: string) => id === 'objet' ? 0 : id === 'apparence' ? 2 : (id === 'cotes' || id === 'coins') ? 3 : 1;
+    for (const obj of objets) {
+      const rangs = sectionsInspecteur(contexte(obj)).map(s => rang(s.id));
+      expect(rangs, obj.name).toEqual([...rangs].sort((a, b) => a - b));
+    }
   });
 });

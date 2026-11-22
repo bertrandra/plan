@@ -14,7 +14,7 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
-import { champsVisibles } from '../ui/champs/types.js';
+import { champsVisibles, sectionDArrivee } from '../ui/champs/types.js';
 import type { ContexteChamps, Section } from '../ui/champs/types.js';
 import type { Magasin } from '../app/magasin.js';
 import { useCle, cleEtatEtObjets, cleCommandes } from './composants/abonnement.js';
@@ -58,11 +58,6 @@ const sectionsDu = (el: Element | null | undefined): HTMLDetailsElement[] =>
  */
 function replierLesAutres(ouverte: HTMLDetailsElement): void {
   sectionsDu(ouverte).forEach(d => { if (d !== ouverte && d.open) d.open = false; });
-}
-
-/** La section ouverte par defaut : la premiere qui n'est pas repliee d'office (Prix, Parametres...). */
-function premiereOuverte(sections: Section[], c: ContexteChamps): string | null {
-  return sections.find(s => !s.repliee && champsVisibles(s, c).length)?.id ?? null;
 }
 
 /** Un clic sur le titre replie la section ouverte, ou ouvre la premiere quand toutes sont repliees. */
@@ -176,21 +171,31 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
   const tactile = classe !== 'large';
   const [famille, choisirFamille] = useState<Famille>('objet');
   const panneau = useRef<HTMLElement>(null);
-  // Passer a un objet qui n'a pas la section laissee ouverte (une terrasse, puis un batiment) : sa
-  // premiere section s'ouvre, plutot qu'une colonne de titres tous replies.
-  const cle = inspecteur.objet()?.key ?? null;
-  const clePrecedente = useRef(cle);
-  useLayoutEffect(() => {
-    if (clePrecedente.current === cle) return;
-    clePrecedente.current = cle;
-    const sections = [...(panneau.current?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection') ?? [])];
-    if (sections.some(d => d.open)) return;
-    const premiere = sections.find(d => d.dataset.repliee === undefined);
-    if (premiere) premiere.open = true;
-  }, [cle]);
   // Sur telephone, l'inspecteur est une feuille : il n'a pas de repli, la feuille se ferme.
   const ouvert = compact || ouvertStore;
   const obj = inspecteur.objet();
+  const c = ouvert && obj ? inspecteur.contexte(obj) : null;
+  const sections = c ? inspecteur.sections(c) : [];
+  // A la selection, la section propre a l'objet s'ouvre (les lames d'une terrasse, le parasol, les facades d'un batiment), plus
+  // seulement « Objet » ; au doigt, on arrive sur l'onglet qui la porte (audit de l'inspecteur, lot A6 : 15 % des reglages se
+  // voyaient sans rien deplier). La section que la personne a ouverte elle-meme reste ouverte d'un objet a l'autre tant que le
+  // suivant la porte : on la reconnait a ce qu'elle n'est pas celle que l'inspecteur avait ouverte pour l'objet d'avant.
+  const arrivee = c ? sectionDArrivee(sections, c) : null;
+  const cle = c && obj ? obj.key : null;
+  const vu = useRef<{ cle: string | null | undefined; arrivee: string | null }>({ cle: undefined, arrivee: null });
+  useLayoutEffect(() => {
+    const avant = vu.current;
+    vu.current = { cle, arrivee };
+    if (avant.cle === cle) return;
+    const montees = [...(panneau.current?.querySelectorAll<HTMLDetailsElement>('details.inspecteurSection') ?? [])];
+    const laissee = montees.find(d => d.open);
+    const cible = laissee && laissee.dataset.section !== avant.arrivee ? laissee
+      : montees.find(d => d.dataset.section === arrivee) ?? montees.find(d => d.dataset.repliee === undefined);
+    if (!cible) return;
+    montees.forEach(d => { if (d !== cible && d.open) d.open = false; });
+    if (!cible.open) cible.open = true;
+    choisirFamille(familleDe(cible.dataset.section ?? ''));
+  });
   const ouvrirChiffrage = () => {
     if (!tiroir) return;
     tiroir.activer('bom');
@@ -222,8 +227,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
       </Tactile.Provider>
     );
   }
-  const c = inspecteur.contexte(obj);
-  const sections = inspecteur.sections(c);
+  if (!c) return null;
   const pied = (
     <div className="inspecteurPied">
       {/* « Réinitialiser la position » est un outil de la palette (rail, feuille Outils) : un geste n'existe qu'a un endroit. */}
@@ -238,8 +242,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
       </details>
     </div>
   );
-  const ouverteParDefaut = premiereOuverte(sections, c);
-  const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} ouverte={s.id === ouverteParDefaut} />);
+  const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} ouverte={s.id === arrivee} />);
   const presentes = FAMILLES.map(f => f.id).filter(f => sections.some(s => familleDe(s.id) === f && champsVisibles(s, c).length));
   // La famille choisie peut manquer a l'objet suivant (une terrasse, puis un arbre) : on revient a la premiere.
   const active = presentes.includes(famille) ? famille : (presentes[0] ?? 'objet');

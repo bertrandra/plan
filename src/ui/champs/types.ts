@@ -241,6 +241,11 @@ export interface Section {
   titre: string;
   /** Repliee a l'ouverture. */
   repliee?: boolean;
+  /**
+   * La section propre a l'objet, celle de ses reglages de conception (les lames d'une terrasse, le parasol, les facades d'un
+   * batiment) : l'inspecteur l'ouvre a la selection, plutot que « Objet » (`sectionDArrivee`, audit de l'inspecteur, lot A6).
+   */
+  principale?: boolean;
   explication?: string;
   champs: Champ[];
   /** La section entiere est un reglage fin : le mode expert seul la montre (voir `ChampBase.expert`). */
@@ -256,6 +261,15 @@ export function champVisible(ch: Champ, c: ContexteChamps): boolean {
 export function champsVisibles(section: Section, c: ContexteChamps): Champ[] {
   if (section.expert && c.modeSimple === true) return [];
   return section.champs.filter(ch => champVisible(ch, c));
+}
+
+/**
+ * La section que l'inspecteur ouvre a la selection : la section propre a l'objet si elle se montre, sinon la premiere qui n'est pas
+ * repliee d'office (« Objet »). `null` quand rien ne se montre.
+ */
+export function sectionDArrivee(sections: readonly Section[], c: ContexteChamps): string | null {
+  const montrees = sections.filter(s => champsVisibles(s, c).length);
+  return (montrees.find(s => s.principale) ?? montrees.find(s => !s.repliee))?.id ?? null;
 }
 
 /** Une suite de champs a montrer : ouverte (`repli` absent), ou rangee dans un pli ferme. */

@@ -59,7 +59,7 @@ const replier = (champs: Champ[]): Champ[] => champs.map(ch => { const repli = P
 
 const sectionPergola: Section = {
   // Le titre suit l'ouvrage (sectionsPergola) : « Pergola » ou « Carport », mêmes réglages.
-  id: 'pergola', titre: 'Pergola',
+  id: 'pergola', titre: 'Pergola', principale: true,
   explication: 'Le contour est le nu extérieur des poteaux : un poteau à chaque coin, des poteaux intermédiaires selon l\'entraxe, une poutre sur chaque côté.',
   champs: replier([
     {

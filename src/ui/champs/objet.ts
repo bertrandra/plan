@@ -264,7 +264,7 @@ const sectionApparence: Section = {
 // lui, comme le parasol : ce sont les reglages de l'arbre, pas son apparence au plan.
 /** Un trou dans une terrasse (arbre conserve, trappe) : la terrasse qu'il perce, et le recentrer. */
 const sectionTrou: Section = {
-  id: 'trou', titre: 'Trou dans la terrasse',
+  id: 'trou', titre: 'Trou dans la terrasse', principale: true,
   champs: [
     { type: 'lecture', cle: 'terrasseDuTrou', libelle: 'Terrasse', valeur: (c) => terrasseHote(c.obj, c.objets)?.name ?? 'Aucune — le trou ne perce pas de terrasse' },
     {
@@ -276,7 +276,7 @@ const sectionTrou: Section = {
 };
 
 const sectionArbre: Section = {
-  id: 'arbre', titre: 'Arbre',
+  id: 'arbre', titre: 'Arbre', principale: true,
   champs: [
     {
       type: 'nombre', cle: 'diametreArbre', libelle: 'Diamètre du feuillage', unite: 'm', pas: 0.1, min: 0.1, decimales: 1, effets: ['scene3d'],
@@ -311,7 +311,7 @@ const sectionArbre: Section = {
 // points a chaque fois, jamais stockee a part : deplacer un point sur le plan ne peut ainsi jamais
 // desynchroniser le nombre de la fleche.
 const sectionPointDeVue: Section = {
-  id: 'pointDeVue', titre: 'Point de vue',
+  id: 'pointDeVue', titre: 'Point de vue', principale: true,
   champs: [
     {
       type: 'nombre', cle: 'altitude', libelle: 'Altitude', unite: 'm', pas: 0.1, min: 0.1, decimales: 2,
