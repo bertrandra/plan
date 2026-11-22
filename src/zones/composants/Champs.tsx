@@ -102,12 +102,13 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
   return (
     <span className="pas" role="group" aria-label={champ.libelle}>
       {bouton(-1)}
-      <span className="pasValeur">
+      {/* Un libelle : toucher la case ou l'unite pose le curseur dans le chiffre (lot A4). */}
+      <label className="pasValeur">
         <input type="text" inputMode="decimal" role="spinbutton" value={brouillon ?? aLaFrancaise(valeur)} disabled={!actif} title={champ.aide}
           aria-label={champ.libelle} aria-valuenow={champ.lire(c)} aria-valuemin={champ.min} aria-valuemax={champ.max}
           onChange={(e) => setBrouillon(e.target.value)} onBlur={valider} onKeyDown={touches} onFocus={(e) => e.currentTarget.select()} />
         {champ.unite && <span className="unite">{champ.unite}</span>}
-      </span>
+      </label>
       {bouton(1)}
     </span>
   );
