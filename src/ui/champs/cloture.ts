@@ -21,6 +21,7 @@ import {
   DEFAUTS_PAR_TYPE, COULEUR_CLOTURE_DEFAUT, typeDessine,
 } from '../../model/cloture.js';
 import { motConnu } from '../../shell/motsInconnus.js';
+import { toucher } from '../../core/controleurObjets.js';
 import type {
   Cloture, ReglageCloture, CoteCloture, Portail, TypeCloture, ParementMur, EssenceHaie,
   FormePortail, OuverturePortail, RemplissagePortail, MateriauPortail, ObjetPlan,
@@ -190,6 +191,10 @@ function explicationAcces(c: ContexteChamps): string {
   return `Sur le côté ${coteDuNouvelAcces(c.obj, c.objets) + 1}, le plus long : rien ne dit encore où est la rue (point d’adresse, rues lues, parcelles voisines). Dites-le avec la limite d’un côté.`;
 }
 
+/** Ce que disent les boutons d'ajout tant que la cloture n'est pas cochee : s'en servir l'active. */
+export const ACTIVE_LA_CLOTURE = 'L’ajouter active la clôture autour de la parcelle.';
+const AIDE_AJOUT = 'Pose l’accès sur le côté de la rue ; active la clôture autour de la parcelle si elle ne l’est pas';
+
 export function sectionPortails(c: ContexteChamps): Section {
   const o = c.obj;
   const acces = (cc: ContexteChamps): Portail | undefined => {
@@ -207,17 +212,24 @@ export function sectionPortails(c: ContexteChamps): Section {
       // La regle de tous les chemins de creation (geo/coteRue.ts) : le cote dit sur rue, sinon celui
       // que le plan devine (point d'adresse, rues lues, cote sans voisine), sinon le plus long.
       const cote = coteDuNouvelAcces(cc.obj, cc.objets);
+      // Un acces se pose dans une cloture : l'ajouter l'active, le bouton le dit. Sans cela le bouton n'existait qu'une fois la
+      // case « Cloture autour de la parcelle » cochee, et la section, vide, ne se montrait pas : le chemin etait perdu.
+      cl.active = true;
       cl.portails.push(nouveauPortail(nature, cote, longueurDuCote(pts(cc.obj), cote)));
       accesEnCours = cl.portails.length - 1;
     });
+    // La cloture vient peut-etre d'etre activee : la parcelle est dite touchee avant le rendu, qui la redessine (core/controleurObjets.ts).
+    toucher(cc.obj);
     cc.render();
   };
 
   const champs: Champ[] = [
-    { type: 'bouton', cle: 'ajouterPortail', libelle: '', nom: 'Ajouter un portail', texte: () => 'Ajouter un portail', visible: actif,
-      explication: explicationAcces(c),
+    // Toujours proposes sur la parcelle du projet, cloture cochee ou non : s'en servir l'active.
+    { type: 'bouton', cle: 'ajouterPortail', libelle: '', nom: 'Ajouter un portail', texte: () => 'Ajouter un portail',
+      aide: AIDE_AJOUT,
+      explication: explicationAcces(c) + (clotureDe(o).active ? '' : ' ' + ACTIVE_LA_CLOTURE),
       agit: 'projet', executer: ajouter('portail') },
-    { type: 'bouton', cle: 'ajouterPortillon', libelle: '', nom: 'Ajouter un portillon', texte: () => 'Ajouter un portillon', visible: actif, agit: 'projet', executer: ajouter('portillon') },
+    { type: 'bouton', cle: 'ajouterPortillon', libelle: '', nom: 'Ajouter un portillon', texte: () => 'Ajouter un portillon', aide: AIDE_AJOUT, agit: 'projet', executer: ajouter('portillon') },
   ];
 
   clotureDe(o).portails.forEach((a, i) => {

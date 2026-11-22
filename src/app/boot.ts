@@ -29,7 +29,7 @@ import { chargements } from './boot/chargements.js';
 import { brancherLePlan } from './boot/branchements.js';
 import { monterLesPanneaux, sourceControleurs } from './boot/panneaux.js';
 import { brancherAssistant } from './assistant/branchement.js';
-import { demarrerAudit, brancherIsolement, exposerPourLesCaptures } from './boot/annexes.js';
+import { demarrerAudit, brancherIsolement, brancherCheminCloture, lacherLaSelectionDAccueil, exposerPourLesCaptures } from './boot/annexes.js';
 import { demarrerVitrine } from './boot/vitrine.js';
 
 brancherFiletsDErreur();
@@ -53,13 +53,14 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
   const ch = chargements(p, seed, tardifs);
   brancherLePlan(p, atelier, ch, seed, tardifs);
   cadrage.centrerSurParcelle();
-  const vues = creerVues3d(atelier, magasin, commandes, { affichage: p.affichage, createObjectDOM: p.dessin.createObjectDOM, resultats: p.resultats });
+  const vues = creerVues3d(atelier, magasin, commandes, { affichage: p.affichage, createObjectDOM: p.dessin.createObjectDOM, resultats: p.resultats, avantVue3d: () => lacherLaSelectionDAccueil(p) });
   tardifs.vues = vues;
   brancherIsolement(p);
   const { explorateur, inspecteur, projet } = monterLesPanneaux(p, atelier, ch, vues, seed);
   // L'assistant en langue naturelle (lot L6) : il lit le registre et l'inspecteur, et ecrit par eux, en une transaction de l'historique.
   // Ses commandes se declarent ici, avant le premier rendu des zones (monte au rendu suivant, comme les autres).
   brancherAssistant({ etat, magasin, commandes, inspecteur, transaction: (f) => p.historique.transaction(f) });
+  brancherCheminCloture(p, inspecteur);
   Object.assign(tardifs, { explorateur, inspecteur, projet });
   // Sur tablette, l'explorateur et l'inspecteur flottent sur le plan : ouverts d'office, ils en
   // couvriraient les deux tiers. Ils s'ouvrent a la demande.

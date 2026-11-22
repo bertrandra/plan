@@ -9,6 +9,7 @@
 // comme le filaire de la Vue 3D) : ni annulation, ni « projet modifie », permis en lecture seule.
 // Les cases restent rangees dans l'objet pour etre retrouvees a la reouverture, rien de plus.
 
+import { confirmerSelection } from '../core/selectionAccueil.js';
 import { terrasseLayerVisible } from '../render/terrasseCouches.js';
 import { toucher, toucherTout } from '../core/controleurObjets.js';
 import { dossierSelection } from './dossier.js';
@@ -41,6 +42,8 @@ export function creerExplorateur(etat: EtatApp, ctx: ContexteExplorateur, magasi
   return {
     selectionner(cle) {
       etat.selectedKey = cle;
+      // Un choix de la personne, meme s'il redit la selection de l'ouverture : la Vue 3D le garde (core/selectionAccueil.ts).
+      confirmerSelection(etat);
       etat.highlight = { type: null, index: null };
       ctx.render();
     },

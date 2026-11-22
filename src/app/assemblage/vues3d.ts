@@ -41,6 +41,8 @@ import type { creerNavigation3d } from '../../three/navigation.js';
 import type { ServiceVues3d } from '../../zones/vue3d/communs.js';
 
 export interface DependancesVues3d {
+  /** Juste avant d'entrer en Vue 3D (app/modes.ts) : la selection d'accueil y est lachee (app/boot/annexes.ts). */
+  avantVue3d?: () => void;
   affichage: Affichage;
   createObjectDOM: (obj: ObjetPlan) => void;
   resultats: Resultats;
@@ -104,7 +106,8 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     disposeGlbViewerScene: () => { moteur3d()?.disposeGlbViewerScene(); },
     signalerVue: (vue) => magasin.definirVue(vue),
     rendreMaintenant: (changer) => flushSync(changer),
-    rendrePanneauxTerrasse(obj) { d.resultats.actualiserTerrasse(obj); }
+    rendrePanneauxTerrasse(obj) { d.resultats.actualiserTerrasse(obj); },
+    ...(d.avantVue3d ? { avantVue3d: d.avantVue3d } : {})
   });
 
   // Un nouvel export pendant que la visionneuse est ouverte s'y reflete ; fermee, rien n'est construit.

@@ -114,6 +114,8 @@ export function enLectureSeule(): boolean {
  */
 let vitrine = false;
 export function entrerEnVitrine(): void { vitrine = true; }
+/** La page est-elle la vitrine (`?mode=demo`) ? On y regarde le modele 3D : rien ne s'y choisit, rien ne s'y modifie. */
+export function enVitrine(): boolean { return vitrine; }
 
 /** Ce que la lecture d'un projet partage montre de son lien (app/projetPartage.ts) : le bandeau le dit. */
 export interface InfoPartage {
@@ -149,6 +151,18 @@ const COMMANDES_HORS_PARTAGE = new Set(['objet.annuler', 'objet.retablir', 'fich
 export function retireEnPartage(c: Commande): boolean {
   if (c.ecrit === 'affichage') return false;
   return !!c.permission || c.ecrit === 'projet' || GROUPES_HORS_PARTAGE.has(c.groupe) || COMMANDES_HORS_PARTAGE.has(c.id);
+}
+
+/** Ce que la vitrine ne porte pas non plus : le photomontage (une photo a soi sur un plan qui n'est pas le sien) et l'isolement (il demande une selection). */
+const COMMANDES_HORS_VITRINE = new Set(['3d.photomontage', '3d.photomontageAjuster', '3d.photomontageRecaler', 'export.photomontage', 'terrasse.isoler']);
+
+/**
+ * Une commande que la vitrine (`?mode=demo`) ne porte pas : on y regarde le modele 3D, on n'y choisit ni n'y modifie rien (decision
+ * du proprietaire, 22 novembre 2026). Tout ce qu'un projet partage retire, plus ce qui demande une selection ou une photo. Restent
+ * la navigation (tourner, zoomer, plein ecran) et les preferences d'affichage.
+ */
+export function retireEnVitrine(c: Commande): boolean {
+  return retireEnPartage(c) || COMMANDES_HORS_VITRINE.has(c.id);
 }
 
 /**
@@ -203,7 +217,9 @@ export function droitsCourants(): Droits {
   // La demonstration : tout permis ici, sans quota ; ce qui se vend ou demande un compte disparait (`retireEnEssai`).
   if (essai) return { branchee: () => true, aCapacite: (code) => !CAPACITES_HORS_ESSAI.has(code), aPermission: () => true, reste: () => null, retire: retireEnEssai };
   return {
-    branchee: () => contexte !== null,
+    // La vitrine : ce qui modifie ou demande une selection disparait (`retireEnVitrine`).
+    ...(vitrine ? { retire: retireEnVitrine } : {}),
+    branchee: () => vitrine || contexte !== null,
     // Une capacite forcee en dur passe toujours (CAPACITES_FORCEES ci-dessus).
     aCapacite: (code) => CAPACITES_FORCEES.includes(code) || (contexte?.aCapacite(code) ?? true),
     // Le droit d'ecrire passe par `peutEcrire`, pour que le registre et le badge ne puissent pas

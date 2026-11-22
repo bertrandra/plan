@@ -364,6 +364,8 @@ describe('les familles de sections', () => {
     const { familleDe } = await import('../../../src/zones/Inspecteur.js');
     expect(['objet', 'apparence', 'arbre', 'parasol', 'pointDeVue', 'parcelle'].map(familleDe)).toEqual(Array(6).fill('objet'));
     expect(['cotes', 'coins'].map(familleDe)).toEqual(Array(2).fill('geometrie'));
+    // La cloture et les portails de la parcelle : dans la famille montree en arrivant, pas sous un onglet a deviner.
+    expect(['cloture', 'portails'].map(familleDe)).toEqual(Array(2).fill('objet'));
     expect(['implantation', 'fondation', 'lames', 'structure', 'appuis', 'finitions', 'parametres', 'releve'].map(familleDe)).toEqual(Array(8).fill('construction'));
   });
 });

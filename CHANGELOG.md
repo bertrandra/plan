@@ -7,6 +7,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Entrer en Vue 3D sans avoir rien choisi ne sélectionne plus la terrasse.** L'ouverture d'un projet pose d'office une sélection
+  (la terrasse, ou la parcelle d'un fichier relu) : utile sur le plan, où l'inspecteur et le chiffrage s'ouvrent sur elle, elle se
+  retrouvait cernée en Vue 3D alors que la personne n'avait rien choisi. Tant que cette sélection d'accueil n'a été ni choisie
+  (un clic, un toucher, une ligne de l'explorateur) ni utilisée (un champ de l'inspecteur écrit, l'objet glissé), entrer en Vue 3D la
+  lâche, et le retour au plan n'en invente pas d'autre (`core/selectionAccueil.ts`). Une sélection faite par la personne est gardée.
+  Les réglages de la terrasse de la Vue 3D (Filaire, platelage translucide, sol en coupe) restent proposés sans sélection : ils
+  règlent la terrasse courante. « Isoler », qui n'existe que pour un objet sélectionné, n'apparaît en Vue 3D qu'une fois un objet
+  touché. Aucun point de fumée ne comptait sur cette sélection d'office en Vue 3D.
+- **La vitrine (`?mode=demo`) est une démonstration du modèle 3D : on n'y choisit aucun objet et on n'y modifie rien.** Elle
+  s'ouvrait avec la terrasse sélectionnée (cernée d'orange à travers le toit), et un clic sur la maison la sélectionnait. Plus de
+  sélection d'office, plus de sélection au clic ni au doigt ; « Modifier la toiture », « Photomontage sur une photo » et « Isoler »
+  disparaissent de la colonne de la caméra, comme tout ce qui modifie ou demande une sélection (`retireEnVitrine`, `app/acces.ts`).
+  Tourner, zoomer, le plein écran, l'heure et le clic droit restent.
+- **« Ajouter un portail » et « Ajouter un portillon » sont toujours proposés sur la parcelle du projet.** Tant que la case
+  « Clôture autour de la parcelle » était décochée, la section « Portails et portillons » n'avait aucun bouton et ne s'affichait
+  pas : le chemin vers le portail était perdu. S'en servir active la clôture ; le bouton le dit avant (« L’ajouter active la
+  clôture autour de la parcelle. »). Au doigt, les sections « Clôture » et « Portails et portillons » passent de la famille
+  Construction à la famille Objet, celle que la feuille montre en arrivant sur la parcelle.
 - **L'inspecteur, plus simple à lire et à régler** (audit du panneau de droite du 22 novembre 2026, les sept lots « sûrs » ;
   aucune quantité, aucun export, aucun fichier de projet ne change, et les empreintes de `tests/fixtures/golden/` sont
   identiques) :
@@ -29,17 +47,31 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **« Clôture, portail », dans le groupe Créer de la palette** (rail sur tablette, feuille Outils au téléphone) : l'outil
+  sélectionne la parcelle du projet et ouvre son inspecteur sur la section « Clôture », suivie de « Portails et portillons » ;
+  lancé depuis la Vue 3D, il ramène d'abord au plan. Il n'écrit rien : la clôture et ses accès se règlent toujours au même endroit, il y mène.
+- **Point de fumée 192** : entrée en Vue 3D sans sélection, clic réel = explorateur pour chaque sorte d'objet, étiquettes inertes,
+  « Clôture, portail » et le portail ajouté clôture décochée, la vitrine sans sélection ni modification.
 - **Une explication pour chaque réglage du mode simple** : les 36 réglages qui n'avaient ni aide ni note en reçoivent une, en
   mots de tous les jours (« Entraxe solives : distance entre deux solives, d'axe en axe… », « Avec lambourdes », « Section
   solives », les textures, les margelles, le toit et les chevrons d'une pergola…). Les cinq réglages de la clôture attendent le
   travail en cours sur cette section.
 - **L'explication se lit au doigt** : un « i » près du libellé écrit l'aide sous le champ, un second toucher (ou Échap) la
   referme. Au bureau l'infobulle reste, et le « i » marche aussi.
+- **Point de fumée 193** : la section propre ouverte à la sélection, une valeur hors bornes refusée avec sa phrase, l'aide
+  par le « i », les flèches immédiates et leur seul Ctrl+Z, les cibles de 44 px.
 - **Un message quand une valeur est refusée** : sous le champ, « Entre 20 et 150 cm », « Au moins 20 cm », ou la raison du
   refus, au lieu d'un retour silencieux à l'ancienne valeur ; « − » et « + » se grisent à la borne.
 
 ### Corrigé
 
+- **Un clic sur l'étiquette d'une cote, la flèche du nord ou l'échelle ne se perd plus.** Ces calques, posés au-dessus des objets,
+  prenaient le clic ou le toucher sans rien en faire : sur la vue du terrain au téléphone, les étiquettes des cotes couvraient plus
+  du tiers de la terrasse de la démonstration (148 points sur 348), qu'on ne pouvait alors pas sélectionner en la touchant. Ils
+  laissent passer le pointeur : l'objet dessous se sélectionne, comme par sa ligne de l'explorateur. Un glisser parti d'une
+  étiquette ne déplace donc plus la vue : il vise l'objet dessous, comme partout ailleurs sur lui. **Le point de fumée 35 est
+  adapté** : il partait, sans le dire, d'une étiquette de cote prise pour le fond du plan ; il cadre d'abord tout le terrain quand
+  la vue d'ouverture n'a aucun fond libre (le téléphone).
 - **Une valeur hors bornes passait au clavier** : un entraxe de solives de 3 cm, ou de −10 cm, s'écrivait alors que le champ
   déclare un minimum de 20 (seul le pas à pas du tactile le respectait), et l'estimation en sortait faussée. Une saisie hors
   des bornes **déjà déclarées** est maintenant refusée ; aucune borne n'est ajoutée ni resserrée. Un projet qui porte déjà une

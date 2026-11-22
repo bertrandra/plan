@@ -202,10 +202,11 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
   const etatPlan = magasin.store.getState().etat;
   // Le mode audit (app/audit/) : l'etat de la promenade et ses deux gestes, sous les reglages.
   const audit = etatPlan.audit;
-  // Les reglages de la terrasse (filaire, translucide, sol en coupe) ne se montrent que si c'est une
-  // terrasse qui est selectionnee : sur un batiment ou la parcelle, ils ne disent rien.
+  // Les reglages de la terrasse (filaire, translucide, sol en coupe) se montrent pour une terrasse selectionnee, et aussi quand
+  // rien ne l'est : ils reglent la terrasse courante (app/ecouteurs/vue3d.ts), qu'on n'a pas a selectionner pour cela. Sur un
+  // batiment ou la parcelle choisis, ils ne disent rien.
   const selection = etatPlan.objects.find(o => o.key === etatPlan.selectedKey);
-  const terrasse = !!selection && estTerrasse(selection);
+  const terrasse = selection ? estTerrasse(selection) : etatPlan.objects.some(o => o.key === etatPlan.terrasseSelectedKey && estTerrasse(o));
   // Le tiroir des reglages, replie sur son titre par defaut (bureau) ; l'heure et la date, sous
   // l'horloge du canevas, qu'un clic ouvre et referme.
   const [tiroir, setTiroir] = useState(false);

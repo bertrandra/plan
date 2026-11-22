@@ -67,6 +67,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'objet.ajouter.piscineRonde': outil(),
   'objet.ajouter.parasol': outil(),
   'objet.ajouter.pointDeVue': outil(),
+  // Le chemin direct vers la cloture et les portails de la parcelle du projet (app/boot/annexes.ts) : elle n'ajoute rien, elle y mene.
+  'cloture.ouvrir': outil(),
   'objet.ajouter.chemin': outil(),
   'objet.ajouter.polygone': outil(),
   'objet.ajouter.rectangle': outil(),
