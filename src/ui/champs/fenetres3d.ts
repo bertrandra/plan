@@ -79,11 +79,11 @@ export function sectionFenetres3d(c: ContexteChamps): Section | null {
         if (x.mode === 'uneParUne' && !x.liste) x.liste = automatiques(cc);
       }),
     },
-    dimensionCommune('largeur', 'Largeur', 0.4, 3),
-    dimensionCommune('hauteur', 'Hauteur', 0.4, 2.5),
+    dimensionCommune('largeur', 'Largeur', 0.4, 3, 'Largeur de chaque fenêtre dessinée en Vue 3D'),
+    dimensionCommune('hauteur', 'Hauteur', 0.4, 2.5, 'Hauteur de chaque fenêtre, du bas au haut de l’ouverture'),
     dimensionCommune('appui', 'Hauteur d’appui', 0, 2, 'Du plancher du niveau au bas de la fenêtre'),
     dimensionCommune('entraxe', 'Entraxe', 1, 8, 'La distance entre deux fenêtres : plus il est petit, plus elles sont nombreuses'),
-    { type: 'couleur', cle: 'couleur', libelle: 'Couleur des vitres', effets, lire: (cc) => r(cc).couleur ?? '#6F8AA6', ecrire: (cc, v) => ecrire(cc, (x) => { x.couleur = v; }) },
+    { type: 'couleur', cle: 'couleur', libelle: 'Couleur des vitres', aide: 'Couleur des vitres de ces fenêtres en Vue 3D', effets, lire: (cc) => r(cc).couleur ?? '#6F8AA6', ecrire: (cc, v) => ecrire(cc, (x) => { x.couleur = v; }) },
     {
       type: 'bouton', cle: 'ajouter', libelle: '', nom: 'Ajouter une fenêtre', texte: () => 'Ajouter une fenêtre', visible: uneParUne,
       explication: 'Sur le mur de la fenêtre en cours, à sa droite ; sinon sur le plus long mur.',

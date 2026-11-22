@@ -75,9 +75,10 @@ function texture(cle: 'textureVerticale' | 'textureHorizontale', libelle: string
 const sectionObjet: Section = {
   id: 'objet', titre: 'Objet',
   champs: [
-    { type: 'texte', cle: 'name', libelle: 'Nom', effets: ['rendu'], lire: (c) => c.obj.name, ecrire: (c, v) => { c.obj.name = v; } },
+    { type: 'texte', cle: 'name', libelle: 'Nom', effets: ['rendu'], aide: 'Le nom de l’objet, écrit sur le plan et dans la liste des objets', lire: (c) => c.obj.name, ecrire: (c, v) => { c.obj.name = v; } },
     {
       type: 'choix', cle: 'fonction', libelle: 'Fonction', effets: ['rendu'],
+      aide: 'Ce que l’objet est sur le terrain (terrasse, bâtiment, arbre…) : la fonction décide des réglages proposés ici et du dessin en Vue 3D',
       // Plusieurs champs (elevation, textures, arbre, parasol) n'apparaissent que selon la
       // fonction : le rendu qui suit les fait paraitre aussitot. Le menu ne propose que les
       // fonctions qui ont un sens sur la forme de l'objet (un parasol est un cercle, une terrasse
@@ -140,16 +141,19 @@ const sectionObjet: Section = {
     },
     {
       type: 'nombre', cle: 'width', libelle: 'Largeur', unite: 'm', pas: 0.05, min: 0.05, decimales: 2, historique: true, effets: ['rendu'],
+      aide: 'Largeur du chemin, d’un bord à l’autre',
       visible: (c) => c.obj.type === 'path' && !estPointDeVue(c.obj),
       lire: (c) => largeurChemin(c.obj), ecrire: (c, v) => { if (!(v > 0)) return false; c.obj.width = v; }
     },
     {
       type: 'case', cle: 'curve', libelle: 'Courbe (passe par les points)', effets: ['rendu'],
+      aide: 'Arrondit le tracé : il passe par chaque point en courbe, au lieu de tourner en angle',
       visible: (c) => c.obj.type === 'path' && !estPointDeVue(c.obj),
       lire: (c) => !!c.obj.curve, ecrire: (c, v) => { c.obj.curve = v; }
     },
     {
       type: 'nombre', cle: 'r', libelle: 'Rayon', unite: 'm', pas: 0.01, min: 0.1, decimales: 2, historique: true, retouche: true, effets: ['rendu'],
+      aide: 'Rayon du cercle dessiné sur le plan, du centre au bord',
       visible: (c) => c.obj.type === 'circle',
       lire: (c) => enCercle(c.obj).r,
       ecrire: (c, v) => {
@@ -210,6 +214,7 @@ const sectionApparence: Section = {
   champs: [
     {
       type: 'couleur', cle: 'fill', libelle: 'Couleur', effets: ['rendu'],
+      aide: 'Couleur de l’objet sur le plan ; en Vue 3D aussi, tant qu’aucune texture ne la remplace',
       lire: (c) => c.obj.fill || '#cccccc',
       ecrire: (c, v) => { c.obj.fill = v; if (c.obj.type === 'path') c.obj.stroke = v; }
     },
@@ -222,8 +227,8 @@ const sectionApparence: Section = {
     },
     // Verticale = les faces du bloc extrude en Vue 3D (murs) ; horizontale = le dessus (toit). Un
     // mur et un toit ne partagent presque jamais le meme materiau.
-    { ...texture('textureVerticale', 'Texture verticale'), visible: (c) => !estPointDeVue(c.obj), repli: 'Textures' },
-    { ...texture('textureHorizontale', 'Texture horizontale'), visible: (c) => !estPointDeVue(c.obj), repli: 'Textures' },
+    { ...texture('textureVerticale', 'Texture verticale'), aide: 'Matière des faces verticales en Vue 3D (les murs, les côtés) ; sans texture, la couleur unie', visible: (c) => !estPointDeVue(c.obj), repli: 'Textures' },
+    { ...texture('textureHorizontale', 'Texture horizontale'), aide: 'Matière du dessus en Vue 3D (le sol, le toit) ; sans texture, la couleur unie', visible: (c) => !estPointDeVue(c.obj), repli: 'Textures' },
     // Le gazon de la parcelle du projet en 3D, montre par defaut : une preference d'affichage, gardee
     // a la reouverture comme le relief. Une texture horizontale choisie l'emporte sur lui.
     {
@@ -279,6 +284,7 @@ const sectionArbre: Section = {
     },
     {
       type: 'couleur', cle: 'couleurArbre', libelle: 'Teinte du feuillage', effets: ['scene3d'],
+      aide: 'Teinte donnée aux feuilles en Vue 3D ; laissée blanche, le feuillage garde sa couleur d’origine',
       lire: (c) => c.obj.arbre?.couleur || '#ffffff', ecrire: (c, v) => { champsArbre(c.obj).couleur = v; }
     }
   ]

@@ -23,6 +23,7 @@ export const sectionParasol: Section = {
     // recherche de position. Indispensable des qu'il y a plusieurs terrasses.
     {
       type: 'choix', cle: 'terrasseLieeKey', libelle: 'Terrasse rattachée', effets: ['rendu'],
+      aide: 'La terrasse dont l’ombre est mesurée, et sur laquelle « Placer au mieux » cherche la meilleure position',
       actif: (c) => c.objets.some(estTerrasse),
       options: (c) => { const t = c.objets.filter(estTerrasse); return t.length ? t.map(o => ({ valeur: o.key, libelle: o.name })) : [{ valeur: '', libelle: 'Aucune terrasse dans le plan' }]; },
       lire: (c) => terrasseDuParasol(c.obj, c.objets, c.etat.terrasseSelectedKey)?.key || '',
@@ -51,7 +52,7 @@ export const sectionParasol: Section = {
       visible: (c) => !!c.obj.parasol?.matDeporte,
       lire: (c) => Math.round(matAngleDe(c.obj)), ecrire: (c, v) => { champsParasol(c.obj).matAngleDeg = ((v || 0) % 360 + 360) % 360; }
     },
-    { type: 'case', cle: 'ombreAffichee', libelle: 'Afficher l\'ombre', sale: false, effets: ['rendu'], lire: (c) => c.etat.parasol.ombreAffichee, ecrire: (c, v) => { c.etat.parasol.ombreAffichee = v; } },
+    { type: 'case', cle: 'ombreAffichee', libelle: 'Afficher l\'ombre', sale: false, effets: ['rendu'], aide: 'Dessine sur le plan l’ombre du parasol, à la date et à l’heure du soleil du projet', lire: (c) => c.etat.parasol.ombreAffichee, ecrire: (c, v) => { c.etat.parasol.ombreAffichee = v; } },
     {
       type: 'bouton', cle: 'placerAuMieux', libelle: 'Meilleure position', texte: () => 'Placer au mieux',
       explication: 'Cherche sur la terrasse la position qui ombrage le plus, de ' + FENETRE_CARTE_OMBRE.libelle + '.',

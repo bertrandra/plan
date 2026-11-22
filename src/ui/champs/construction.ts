@@ -117,6 +117,7 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
   // ---- Fondation, assise et appuis (etapes 2 et 5) -------------------------------------------
   typePose: reglage({
     type: 'choix', cle: 'typePose', libelle: 'Type de pose',
+    aide: 'Ce qui porte la terrasse : des vis de fondation vissées dans le sol, ou des plots réglables posés sur une assise',
     options: () => [{ valeur: 'vis-fondation', libelle: 'Sur vis de fondation' }, { valeur: 'plots', libelle: 'Sur plots réglables' }],
     note: (cx) => lire(cx).plots ? 'appui posé : il faut une assise' : 'appui fondé : hors gel par la profondeur',
     lire: (cx) => cx.construction().typePose || 'vis-fondation', ecrire: (cx, v) => { cx.construction().typePose = v; }
@@ -220,20 +221,24 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
     note: l => (l.plots && l.visSpa) ? '⚠ voir l\'avertissement en bas de section' : '' }),
   // ---- Structure porteuse -------------------------------------------------------------------
   soliveEntraxe: nombre('soliveEntraxe', 'Entraxe solives', { pas: 5, min: 20, unite: 'cm', defaut: 40, actif: l => !l.sansSolives,
+    aide: 'Distance entre deux solives, d’axe en axe. Plus elles sont serrées, plus la structure est raide, et plus il faut de bois',
     note: l => l.sansSolives ? 'sans objet : pas de solives' : '' }),
   soliveSection: reglage({
     type: 'choix', cle: 'soliveSection', libelle: 'Section solives', actif: (cx) => !lire(cx).sansSolives,
+    aide: 'Largeur × hauteur de la solive, posée sur chant. Plus elle est haute, plus elle porte loin entre deux appuis',
     options: () => SOLIVE_SECTIONS.map(s => ({ valeur: s, libelle: s + ' mm' })),
     note: (cx) => { const l = lire(cx); return l.sansSolives ? 'sans objet : pas de solives' : 'porte ' + Math.round(maxPorteeVisM(l.c) * 100) + ' cm entre appuis'; },
     lire: (cx) => cx.construction().soliveSection || '', ecrire: (cx, v) => { cx.construction().soliveSection = v; }
   }),
   avecLambourde: reglage({
     type: 'case', cle: 'avecLambourde', libelle: 'Avec lambourdes', actif: (cx) => !lire(cx).sansSolives,
+    aide: 'Les lambourdes sont des pièces posées en travers des solives, sur lesquelles les lames se vissent. Sans elles, les lames se vissent directement sur les solives',
     note: (cx) => lire(cx).sansSolives ? 'imposé : ce sont elles qui portent les lames' : '',
     lire: (cx) => lire(cx).sansSolives ? true : !!cx.construction().avecLambourde, ecrire: (cx, v) => { cx.construction().avecLambourde = v; }
   }),
   lambourdeSection: reglage({
-    type: 'choix', cle: 'lambourdeSection', libelle: 'Section lambourdes', actif: (cx) => { const l = lire(cx); return l.sansSolives || !!l.c.avecLambourde; },
+    type: 'choix', cle: 'lambourdeSection', libelle: 'Section lambourdes',
+    aide: 'Largeur × hauteur de la lambourde. La même que celle des solives : un seul bois à acheter', actif: (cx) => { const l = lire(cx); return l.sansSolives || !!l.c.avecLambourde; },
     options: () => LAMBOURDE_SECTIONS.map(s => ({ valeur: s, libelle: s + ' mm' })),
     note: (cx) => { const l = lire(cx); const actif = l.sansSolives || l.c.avecLambourde;
       return !actif ? 'sans objet sans lambourdes'
@@ -242,12 +247,14 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
     lire: (cx) => sectionLambourde(cx.construction()), ecrire: (cx, v) => { cx.construction().lambourdeSection = v; }
   }),
   lambourdeEntraxe: nombre('lambourdeEntraxe', 'Entraxe lambourdes', { pas: 5, min: 20, unite: 'cm', defaut: 40,
+    aide: 'Distance entre deux lambourdes, d’axe en axe : les lames reposent dessus, et une lame mince demande des lambourdes rapprochées',
     actif: l => !l.sansSolives && !!l.c.avecLambourde,
     lire: l => l.sansSolives ? maxEntraxeLameCm(l.c) : (l.c.lambourdeEntraxe ?? 40),
     note: l => l.sansSolives ? 'imposé par l\'épaisseur de lame' : '' }),
   // ---- Lames et sens de pose ----------------------------------------------------------------
   segmentReference: reglage({
     type: 'choix', cle: 'segmentReference', libelle: 'Côté de référence',
+    aide: 'Le côté de la terrasse à partir duquel le sens de pose des lames se mesure',
     options: (cx) => (aDesSommets(cx.obj) ? cx.obj.segmentNames || [] : []).map((sn, i) => ({ valeur: String(i), libelle: nomDuCote(sn, i) })),
     lire: (cx) => String(cx.construction().segmentReference || 0), ecrire: (cx, v) => { cx.construction().segmentReference = parseInt(v, 10) || 0; }
   }),
@@ -258,6 +265,7 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
   // valeur forcee appartient au type de lame pour lequel elle a ete saisie, pas au projet.
   essenceBois: reglage({
     type: 'choix', cle: 'essenceBois', libelle: 'Essence de bois',
+    aide: 'Le bois des lames : il fixe leur prix indicatif et leur raideur, donc l’écartement de ce qui les porte',
     options: () => Object.entries(ESSENCE_PRICES).map(([k, e]) => ({ valeur: k, libelle: e.label })),
     lire: (cx) => cx.construction().essenceBois || '',
     ecrire: (cx, v) => { const c = cx.construction(); c.essenceBois = v; c.coefRaideurLame = LAME_RAIDEUR[v] ?? 1; }
@@ -269,8 +277,10 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
       return 'défaut ' + defaut.toFixed(2) + ' · appuis à ' + maxEntraxeLameCm(c) + ' cm' + (Math.abs(coefRaideurLame(c) - defaut) > 1e-9 ? ' (modifié)' : ''); },
     lire: (cx) => coefRaideurLame(cx.construction()), ecrire: (cx, v) => { cx.construction().coefRaideurLame = v || 1; }
   }),
-  largeurLame: nombre('largeurLame', 'Largeur lame', { pas: 5, min: 60, unite: 'mm', defaut: 140 }),
-  epaisseurLame: nombre('epaisseurLame', 'Épaisseur lame', { pas: 1, min: 15, unite: 'mm', defaut: 25 }),
+  largeurLame: nombre('largeurLame', 'Largeur lame', { pas: 5, min: 60, unite: 'mm', defaut: 140,
+    aide: 'Largeur d’une lame : plus elle est large, moins il faut de lames pour couvrir la terrasse' }),
+  epaisseurLame: nombre('epaisseurLame', 'Épaisseur lame', { pas: 1, min: 15, unite: 'mm', defaut: 25,
+    aide: 'Épaisseur d’une lame : plus elle est mince, plus les pièces qui la portent doivent être rapprochées' }),
   // ---- Finitions du tour : laquelle est verticale, laquelle est a plat, tout de suite ----------
   avecLameRive: reglage({
     type: 'case', cle: 'avecLameRive', libelle: 'Lame de rive — habillage VERTICAL',
