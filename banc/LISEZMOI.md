@@ -67,9 +67,9 @@ commande, activer le modèle), plus l’installation de Python la première fois
 - **Du temps**, et le banc joignable depuis le Mac (c’est le Mac qui l’appelle, en https). La durée n’a pas été mesurée : comme
   ordre de grandeur, attendez de quelques dizaines de minutes à quelques heures sur Apple Silicon pour une centaine de photos, et
   nettement plus (peut-être une nuit, ou davantage) sur un Mac Intel. Laissez le Mac branché ; le script empêche sa mise en
-  veille automatique tant qu’il tourne (`caffeinate`), mais pas celle d’un portable qu’on referme. La clé vit 24 h : si
-  l’entraînement dure plus longtemps, le modèle reste sur le Mac et se dépose à la main à l’étape 3 ; pour l’éviter, montez
-  `jetonHeures` dans `banc-config.php` (72 au plus) avant de créer la clé.
+  veille automatique tant qu’il tourne (`caffeinate`), mais pas celle d’un portable qu’on referme. La clé vit 72 h, le plus long permis : si
+  l’entraînement dure plus longtemps, le modèle reste sur le Mac et se dépose à la main à l’étape 3. Une clé plus courte se
+  règle par `jetonHeures` dans `banc-config.php` (de 1 à 72) avant de la créer.
 
 **Les gestes**
 
@@ -168,7 +168,7 @@ morceau, `&fin=1` pour conclure).
   précédés d’un identifiant public ; le serveur n’en garde que le SHA-256 (`jetons/<id>.json`), comparé par `hash_equals`, contre un
   haché factice quand l’identifiant n’existe pas ; jamais dans une adresse (les journaux gardent les adresses), jamais journalisée.
   Elle ne sort qu’une fois, dans le script téléchargé : **ce script contient une clé, ne le partagez pas** (l’écran et le script le
-  disent ; le script ne l’affiche jamais en entier, et la passe à son Python par l’environnement, pas par la ligne de commande). Elle vit 24 h (`jetonHeures` dans `banc-config.php`, de 1 à 72), se révoque depuis l’écran, et cinq clés au plus vivent à
+  disent ; le script ne l’affiche jamais en entier, et la passe à son Python par l’environnement, pas par la ligne de commande). Elle vit 72 h par défaut (`jetonHeures` dans `banc-config.php`, de 1 à 72), se révoque depuis l’écran, et cinq clés au plus vivent à
   la fois (chacune garde une copie du jeu).
 - **Comment elle se refuse** : inconnue, fausse, mal écrite, échue ou révoquée, la réponse est la même (`401`, « Jeton refusé. ») ;
   vingt essais manqués par adresse en quinze minutes ferment les trois routes (`429`) ; le jeu se lit vingt fois au plus par clé, un

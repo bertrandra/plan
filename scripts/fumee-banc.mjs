@@ -628,7 +628,7 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     await allerA('export');
     const boutonEntrainer = page.getByRole('button', { name: /Entraîner sur mon Mac/ });
     await boutonEntrainer.waitFor();
-    verifier(/Ce script contient une clé valable 24 h : ne le partagez pas\./.test(await texte('.avis-cle')), 'l’écran ne prévient pas que le script porte une clé : ' + await texte('.avis-cle'));
+    verifier(/Ce script contient une clé valable 72 h : ne le partagez pas\./.test(await texte('.avis-cle')), 'l’écran ne prévient pas que le script porte une clé : ' + await texte('.avis-cle'));
     verifier(!/colab/i.test(await page.locator('body').innerText()), 'l’écran d’export parle encore de Colab');
     verifier(await page.locator('.cles-entrainement li').count() === 0, 'une clé d’entraînement est listée avant d’en avoir créé une');
     const creerCle = async () => {
@@ -656,7 +656,7 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     // Le Mac : le script telecharge, lance par bash dans un faux dossier personnel. Il lit le jeu et depose le faux modele.
     const mac = await lancerLeScript(cle);
     verifier(mac.code === 0, `le script d’entraînement s’arrête (code ${mac.code}) : ${(mac.sortie + mac.erreur).slice(-600)}`);
-    verifier(/Clé acceptée, valable encore 2[34] h/.test(mac.sortie) && /Téléchargement du jeu/.test(mac.sortie) && /Déposé dans le banc : RF-DETR Nano · entraîné le /.test(mac.sortie) && /Terminé\./.test(mac.sortie), 'le script ne dit pas ce qu’il a fait : ' + mac.sortie.slice(-600));
+    verifier(/Clé acceptée, valable encore 7[12] h/.test(mac.sortie) && /Téléchargement du jeu/.test(mac.sortie) && /Déposé dans le banc : RF-DETR Nano · entraîné le /.test(mac.sortie) && /Terminé\./.test(mac.sortie), 'le script ne dit pas ce qu’il a fait : ' + mac.sortie.slice(-600));
     verifier(!(mac.sortie + mac.erreur).includes(jeton) && !(mac.sortie + mac.erreur).includes(jeton.split('_')[2]), 'le script affiche sa clé en entier');
     verifier(mac.range.join(',') === 'banc-entrainement', 'le script écrit hors de son dossier : ' + mac.range.join(', '));
     // L'etape 3, sans recharger la page : le modele depose est la, dit d'ou il vient, inactif ; il s'active d'un geste.

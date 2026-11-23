@@ -81,7 +81,7 @@ suivants ces bâtiments écartés comme « déjà dans le banc »), l'écran
 comptes par saison, type de vue, type de bâtiment et état qui font le total, les doublons du banc dits, la carte qui les montre dans son cadre, ce que l'écran ne peut pas dire), le Redressement (étape 2 : les quatre gestes de chaque
 carte en icônes seules, nommés pour l'accessibilité, dans leur carte ; une photo jetable supprimée par la poubelle, sans confirmation,
 rendue par « Annuler », puis supprimée pour de bon : un seul DELETE, au bout du délai), « Entraîner sur mon Mac » (étapes 6 et 3 : une
-photo corrigée jetable fait le jeu ; l'écran prévient « Ce script contient une clé valable 24 h : ne le partagez pas », ne parle
+photo corrigée jetable fait le jeu ; l'écran prévient « Ce script contient une clé valable 72 h : ne le partagez pas », ne parle
 plus de Colab, télécharge un script `.sh` entier qui porte l'adresse du banc et sa clé, donne la commande à coller
 (`bash ~/Downloads/…`) sans montrer la clé, et liste la clé « En attente du script » ; le script téléchargé est alors lancé tel
 quel par bash, dans le rôle du Mac et dans un faux dossier personnel, avec `BANC_ESSAI_MODELE` (ni installation ni

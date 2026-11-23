@@ -5,6 +5,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Banc** : une clé d'entraînement vit maintenant 72 h par défaut, au lieu de 24 h, pour qu'un entraînement long sur le
+  Mac (Intel surtout) dépose son modèle sans geste à la main. 72 h reste le plus long permis ; `jetonHeures` dans
+  `banc-config.php` la raccourcit (de 1 à 72). Une clé déjà créée garde sa durée.
+
 ## [5.39.0] — 2026-11-23
 
 Version **mineure** au sens de `MD/RELEASE.md` : l'inspecteur plus simple, issu de l'audit du panneau de droite du 22 novembre
