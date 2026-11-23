@@ -5,6 +5,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.39.0] — 2026-11-23
+
+Version **mineure** au sens de `MD/RELEASE.md` : l'inspecteur plus simple, issu de l'audit du panneau de droite du 22 novembre
+2026 (#752, #753, #754), et les chemins perdus de la sélection retrouvés (#751). Des fonctions ajoutées donnent le numéro : trois
+départs pour une terrasse (« Pin sur vis », « Pin sur plots », « Exotique sur plots »), « Chercher un réglage », « Clôture,
+portail » dans la palette, « − » et « + » au bureau avec leur pas qui grandit et un curseur sous les réglages bornés, la feuille
+à mi-hauteur au téléphone, une explication pour chaque réglage du mode simple ; le reste est correctif. **Rien n'est retiré ni mis
+derrière un droit** : le mode simple cache davantage de réglages techniques (pergola, carport, bâtiment, relief, terrasse sur
+vis), mais chacun garde sa valeur et son effet, reste montré tant que le projet en porte une valeur autre que celle par défaut ou
+qu'une alerte demande d'y toucher, et le mode expert les montre tous. Une saisie au clavier hors des bornes **déjà déclarées** est
+désormais refusée ; un projet qui porte déjà une telle valeur s'ouvre et se calcule à l'identique. **Aucune quantité ni aucun
+export ne change** : avant le changement de numéro, le code de `main` (dd90d61f) régénère les témoins de la 5.38.0 au bit près ;
+les neuf témoins qui portent le numéro ne changent qu'à lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur
+neuf, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et
+`glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ de fichier nouveau. `deploy/`,
+`regles/` et `banc/` ne changent pas depuis la 5.38.0. La requête témoin de l'assistant change (#752 : libellés et ordre des
+sections de la terrasse) ; requêtes à vérifier contre l'API Claude sur `main` après la fusion de la version (« Vérifier l'API
+Claude »).
+
 ### Ajouté
 - **Trois départs pour une terrasse : « Pin sur vis », « Pin sur plots », « Exotique sur plots »** (audit du panneau de droite
   du 22 novembre 2026, décision B5). En tête de « Lames et finitions », trois boutons règlent d'un coup la lame et la structure :
@@ -18,6 +37,26 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   que le mode simple cache est proposé aussi, marqué « avancé » : y aller allume le mode expert. Choisir un résultat ouvre sa
   section (et son onglet, au doigt), déplie son pli, fait défiler jusqu'à lui et le met en évidence ; Entrée va au premier,
   Échap vide la recherche.
+- **Les cinq réglages de la clôture qui n'avaient pas d'explication en ont une** (« Clôture autour de la parcelle », « Type »,
+  « Hauteur », « Couleur », « Lames ») : plus aucun réglage à saisir du mode simple n'est sans aide ni note. « K portée » et
+  « Coefficient raideur lame » disent qu'ils n'ont pas d'unité, et ce qu'ils sont.
+- **Point de fumée 194** : la pergola en trois groupes sous « Réglages », un réglage du mode expert absent puis montré par le
+  bouton du pied de section, un coin replié, déplié, renommé et rendu par Ctrl+Z, les arrivées de la parcelle et de la maison.
+- **« Clôture, portail », dans le groupe Créer de la palette** (rail sur tablette, feuille Outils au téléphone) : l'outil
+  sélectionne la parcelle du projet et ouvre son inspecteur sur la section « Clôture », suivie de « Portails et portillons » ;
+  lancé depuis la Vue 3D, il ramène d'abord au plan. Il n'écrit rien : la clôture et ses accès se règlent toujours au même endroit, il y mène.
+- **Point de fumée 192** : entrée en Vue 3D sans sélection, clic réel = explorateur pour chaque sorte d'objet, étiquettes inertes,
+  « Clôture, portail » et le portail ajouté clôture décochée, la vitrine sans sélection ni modification.
+- **Une explication pour chaque réglage du mode simple** : les 36 réglages qui n'avaient ni aide ni note en reçoivent une, en
+  mots de tous les jours (« Entraxe solives : distance entre deux solives, d'axe en axe… », « Avec lambourdes », « Section
+  solives », les textures, les margelles, le toit et les chevrons d'une pergola…). Les cinq réglages de la clôture attendent le
+  travail en cours sur cette section.
+- **L'explication se lit au doigt** : un « i » près du libellé écrit l'aide sous le champ, un second toucher (ou Échap) la
+  referme. Au bureau l'infobulle reste, et le « i » marche aussi.
+- **Point de fumée 193** : la section propre ouverte à la sélection, une valeur hors bornes refusée avec sa phrase, l'aide
+  par le « i », les flèches immédiates et leur seul Ctrl+Z, les cibles de 44 px.
+- **Un message quand une valeur est refusée** : sous le champ, « Entre 20 et 150 cm », « Au moins 20 cm », ou la raison du
+  refus, au lieu d'un retour silencieux à l'ancienne valeur ; « − » et « + » se grisent à la borne.
 
 ### Modifié
 - **Changer un nombre demande moins de gestes** (décision B4) : « − » et « + » sont aussi au bureau, de part et d'autre du
@@ -67,7 +106,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     137 px au téléphone, les côtés d'une maison près de trois écrans.
   - **Une parcelle clôturée s'ouvre sur « Clôture »** ; sans clôture, sur « Objet » comme une dalle ou un chemin (la case à
     cocher seule ne vaut pas une section d'arrivée, et l'outil « Clôture, portail » mène à la section).
-
 - **Entrer en Vue 3D sans avoir rien choisi ne sélectionne plus la terrasse.** L'ouverture d'un projet pose d'office une sélection
   (la terrasse, ou la parcelle d'un fichier relu) : utile sur le plan, où l'inspecteur et le chiffrage s'ouvrent sur elle, elle se
   retrouvait cernée en Vue 3D alors que la personne n'avait rien choisi. Tant que cette sélection d'accueil n'a été ni choisie
@@ -106,29 +144,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     options longues (« Lame ») passe sous son libellé pour se lire en entier ; « Figé » s'écrit à côté de sa case sur chaque
     coin ; le rappel des gestes du plan, sous chaque objet, se replie sous « Gestes sur le plan ».
 
-### Ajouté
-- **Les cinq réglages de la clôture qui n'avaient pas d'explication en ont une** (« Clôture autour de la parcelle », « Type »,
-  « Hauteur », « Couleur », « Lames ») : plus aucun réglage à saisir du mode simple n'est sans aide ni note. « K portée » et
-  « Coefficient raideur lame » disent qu'ils n'ont pas d'unité, et ce qu'ils sont.
-- **Point de fumée 194** : la pergola en trois groupes sous « Réglages », un réglage du mode expert absent puis montré par le
-  bouton du pied de section, un coin replié, déplié, renommé et rendu par Ctrl+Z, les arrivées de la parcelle et de la maison.
-
-- **« Clôture, portail », dans le groupe Créer de la palette** (rail sur tablette, feuille Outils au téléphone) : l'outil
-  sélectionne la parcelle du projet et ouvre son inspecteur sur la section « Clôture », suivie de « Portails et portillons » ;
-  lancé depuis la Vue 3D, il ramène d'abord au plan. Il n'écrit rien : la clôture et ses accès se règlent toujours au même endroit, il y mène.
-- **Point de fumée 192** : entrée en Vue 3D sans sélection, clic réel = explorateur pour chaque sorte d'objet, étiquettes inertes,
-  « Clôture, portail » et le portail ajouté clôture décochée, la vitrine sans sélection ni modification.
-- **Une explication pour chaque réglage du mode simple** : les 36 réglages qui n'avaient ni aide ni note en reçoivent une, en
-  mots de tous les jours (« Entraxe solives : distance entre deux solives, d'axe en axe… », « Avec lambourdes », « Section
-  solives », les textures, les margelles, le toit et les chevrons d'une pergola…). Les cinq réglages de la clôture attendent le
-  travail en cours sur cette section.
-- **L'explication se lit au doigt** : un « i » près du libellé écrit l'aide sous le champ, un second toucher (ou Échap) la
-  referme. Au bureau l'infobulle reste, et le « i » marche aussi.
-- **Point de fumée 193** : la section propre ouverte à la sélection, une valeur hors bornes refusée avec sa phrase, l'aide
-  par le « i », les flèches immédiates et leur seul Ctrl+Z, les cibles de 44 px.
-- **Un message quand une valeur est refusée** : sous le champ, « Entre 20 et 150 cm », « Au moins 20 cm », ou la raison du
-  refus, au lieu d'un retour silencieux à l'ancienne valeur ; « − » et « + » se grisent à la borne.
-
 ### Corrigé
 - **Le point de fumée 192 (vitrine) échouait de temps en temps** (« le plan a changé après les touchers, Suppr et Ctrl+Z »), sans
   que rien ait changé. La vitrine fait courir l'horloge (`heureauto=y`), qui range l'heure du soleil sur la parcelle, en minutes
@@ -136,7 +151,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   caractère : l'échec arrivait quand une seule des deux lectures tombait après 16 h 40 de la journée jouée en dix secondes (une
   fois sur douze en novembre, bien plus en été). Le point compare maintenant le texte entier du plan (longueur et empreinte),
   l'heure du soleil mise à part, et vérifie que l'horloge court : plus exigeant, et stable.
-
 - **Un clic sur l'étiquette d'une cote, la flèche du nord ou l'échelle ne se perd plus.** Ces calques, posés au-dessus des objets,
   prenaient le clic ou le toucher sans rien en faire : sur la vue du terrain au téléphone, les étiquettes des cotes couvraient plus
   du tiers de la terrasse de la démonstration (148 points sur 348), qu'on ne pouvait alors pas sélectionner en la touchant. Ils
