@@ -5005,10 +5005,22 @@ const POINTS = {
       await p.waitForFunction(() => window.__plan && window.__plan.etat().objects.length > 0, null, { timeout: 30000 });
       await p.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 60000 });
       await p.waitForTimeout(1500);
-      const etatVitrine = () => p.evaluate(() => ({ sel: window.__plan.etat().selectedKey, lecture: !!window.__plan.etat().lectureSeule, objets: JSON.stringify(window.__plan.etat().objects).length }));
+      // Le plan entier, compare a lui-meme avant et apres : sa longueur et une empreinte de son texte (plus exigeant que la seule
+      // longueur). L'heure du soleil en est retiree : avec `heureauto=y` la vitrine fait courir l'horloge, qui range ses minutes sur
+      // la parcelle (core/soleil.ts) ; de 999 a 1000 minutes (16 h 40) le texte gagne un caractere, et la comparaison echouait
+      // quand une seule des deux lectures tombait apres 16 h 40 de la journee jouee en 10 s (une fois sur douze en novembre, bien
+      // plus en ete). La date du soleil, elle, reste comparee.
+      const etatVitrine = () => p.evaluate(() => {
+        const e = window.__plan.etat();
+        const texte = JSON.stringify(e.objects.map((o) => (o.soleil ? { ...o, soleil: { ...o.soleil, minutes: 0 } } : o)));
+        let h = 0;
+        for (let i = 0; i < texte.length; i++) h = (Math.imul(h, 31) + texte.charCodeAt(i)) | 0;
+        return { sel: e.selectedKey, lecture: !!e.lectureSeule, objets: texte.length + ':' + h, horloge: e.objects.some((o) => o.soleil && Number.isFinite(o.soleil.minutes)) };
+      });
       const v0 = await etatVitrine();
       if (v0.sel !== null) echecs.push('vitrine : ' + v0.sel + ' sélectionné à l’ouverture');
       if (!v0.lecture) echecs.push('vitrine : pas en lecture seule');
+      if (!v0.horloge) echecs.push('vitrine : l’horloge ne court pas (aucune heure de soleil sur la parcelle)');
       const boite = await p.locator('#terrasse3dCanvasHost').boundingBox();
       const prises = new Set();
       for (const [fx, fy] of [[0.5, 0.5], [0.35, 0.45], [0.65, 0.55], [0.5, 0.7], [0.3, 0.7], [0.7, 0.35]]) {

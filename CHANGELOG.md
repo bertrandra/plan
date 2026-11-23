@@ -64,6 +64,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   refus, au lieu d'un retour silencieux à l'ancienne valeur ; « − » et « + » se grisent à la borne.
 
 ### Corrigé
+- **Le point de fumée 192 (vitrine) échouait de temps en temps** (« le plan a changé après les touchers, Suppr et Ctrl+Z »), sans
+  que rien ait changé. La vitrine fait courir l'horloge (`heureauto=y`), qui range l'heure du soleil sur la parcelle, en minutes
+  entières ; le point comparait la longueur du plan entier avant et après, et de 999 à 1 000 minutes (16 h 40) ce texte gagne un
+  caractère : l'échec arrivait quand une seule des deux lectures tombait après 16 h 40 de la journée jouée en dix secondes (une
+  fois sur douze en novembre, bien plus en été). Le point compare maintenant le texte entier du plan (longueur et empreinte),
+  l'heure du soleil mise à part, et vérifie que l'horloge court : plus exigeant, et stable.
 
 - **Un clic sur l'étiquette d'une cote, la flèche du nord ou l'échelle ne se perd plus.** Ces calques, posés au-dessus des objets,
   prenaient le clic ou le toucher sans rien en faire : sur la vue du terrain au téléphone, les étiquettes des cotes couvraient plus
