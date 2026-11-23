@@ -949,7 +949,7 @@ function relais_servir(string $id, string $taille): void {
 // Terminal ; le script lit lui-meme le jeu ici, entraine sur le Mac, puis depose lui-meme le modele ici.
 // Ce que le jeton ouvre, sans session : lire le jeu de SON export (une archive figee a sa creation, rangee sous lui) et deposer UN
 // modele. Ce qu'il n'ouvre pas : tout le reste de l'API (aucune autre route ne le lit), une photo hors de cette archive, une seconde
-// ecriture. Il est tire au hasard (32 octets), garde hache (jamais en clair, jamais journalise), vit 24 h, se revoque depuis l'ecran.
+// ecriture. Il est tire au hasard (32 octets), garde hache (jamais en clair, jamais journalise), vit 72 h (par defaut), se revoque depuis l'ecran.
 
 /** « bj_<identifiant public, 16 chiffres hexa>_<secret, 64 chiffres hexa> » : l'identifiant trouve le fichier, le secret se compare hache. */
 const BANC_JETON = '/^bj_([0-9a-f]{16})_([0-9a-f]{64})$/';
@@ -978,8 +978,8 @@ const BANC_JETON_MODELES = [
 const BANC_ONNX_MODELE = [1 => 0, 2 => 2, 3 => 2, 4 => 2, 5 => 0, 6 => 2, 7 => 2, 8 => 2, 14 => 2, 20 => 2, 25 => 2, 26 => 2];
 const BANC_ONNX_GRAPHE = [1 => 2, 2 => 2, 5 => 2, 10 => 2, 11 => 2, 12 => 2, 13 => 2, 14 => 2, 15 => 2, 16 => 2];
 
-/** La duree d'un jeton, en secondes : 24 h, ou « jetonHeures » de banc-config.php (de 1 a 72). */
-function jeton_duree(): int { return 3600 * max(1, min(72, (int)(banc_config()['jetonHeures'] ?? 24))); }
+/** La duree d'un jeton, en secondes : 72 h, ou « jetonHeures » de banc-config.php (de 1 a 72). */
+function jeton_duree(): int { return 3600 * max(1, min(72, (int)(banc_config()['jetonHeures'] ?? 72))); }
 
 function jeton_fichiers(string $id): array {
   $d = dossier('jetons');
