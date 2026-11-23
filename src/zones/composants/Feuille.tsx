@@ -84,6 +84,7 @@ export function Voile({ magasin }: { magasin: Magasin }) {
   const feuille = useStore(magasin.store, (s) => s.feuille);
   const classe = useStore(magasin.store, (s) => s.classe);
   const vue = useStore(magasin.store, (s) => s.vue);
+  const hauteur = useStore(magasin.store, (s) => s.hauteurFeuille);
   const origine = useRef<HTMLElement | null>(null);
 
   // Les reglages 3D n'ont plus d'objet quand on revient au plan.
@@ -129,6 +130,8 @@ export function Voile({ magasin }: { magasin: Magasin }) {
 
   if (!feuille || classe === 'large') return null;
   // Sur tablette, les panneaux deroulants (Projet, Reglages 3D) n'assombrissent pas le plan : le
-  // voile est transparent, il ne sert qu'a fermer au toucher ailleurs.
-  return <div className={'voileFeuille' + (classe === 'moyen' ? ' voileTransparent' : '')} aria-hidden="true" onClick={() => magasin.definirFeuille(null)} />;
+  // voile est transparent, il ne sert qu'a fermer au toucher ailleurs. Au telephone, les proprietes a
+  // mi-hauteur non plus (decision B8 de l'audit de l'inspecteur) : on regle pour voir le plan suivre.
+  const transparent = classe === 'moyen' || (feuille === 'proprietes' && hauteur !== 'plein');
+  return <div className={'voileFeuille' + (transparent ? ' voileTransparent' : '')} aria-hidden="true" onClick={() => magasin.definirFeuille(null)} />;
 }

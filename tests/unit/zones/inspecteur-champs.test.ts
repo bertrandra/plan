@@ -273,7 +273,8 @@ describe('une valeur refusee dit pourquoi', () => {
     });
   }
 
-  for (const classe of CLASSES.filter(k => k !== 'large')) {
+  // Au bureau aussi depuis la decision B4 : « − » et « + » de part et d'autre du chiffre.
+  for (const classe of CLASSES) {
     it('grise « − » au minimum et « + » au maximum, en ' + classe, () => {
       entraxe = 20;
       let x = ouvrir(classe);

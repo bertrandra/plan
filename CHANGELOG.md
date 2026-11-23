@@ -5,7 +5,31 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+- **Trois départs pour une terrasse : « Pin sur vis », « Pin sur plots », « Exotique sur plots »** (audit du panneau de droite
+  du 22 novembre 2026, décision B5). En tête de « Lames et finitions », trois boutons règlent d'un coup la lame et la structure :
+  lame de pin autoclave 145 × 27 mm sur solives 63 × 175 et lambourdes portées par des vis de fondation ; la même lame sur
+  lambourdes 45 × 70 posées sur plots ; une lame d'ipé 145 × 21 mm sur lambourdes posées sur plots. Ils écrivent exactement ce
+  que vous auriez saisi champ par champ (les mêmes champs, les mêmes valeurs admises) : aucun calcul ne change, tout reste
+  modifiable ensuite, un seul Ctrl+Z revient en arrière, le projet est marqué modifié, et en lecture seule ils sont grisés. La
+  ligne dit lequel est en place, ou « réglages personnalisés ».
+- **« Chercher un réglage » en tête de l'inspecteur** (décision B6). Tapez un mot (« entraxe », « epaisseur », sans accents ni
+  majuscules) : les réglages de l'objet dont le nom ou l'explication le contiennent s'affichent, avec leur section. Un réglage
+  que le mode simple cache est proposé aussi, marqué « avancé » : y aller allume le mode expert. Choisir un résultat ouvre sa
+  section (et son onglet, au doigt), déplie son pli, fait défiler jusqu'à lui et le met en évidence ; Entrée va au premier,
+  Échap vide la recherche.
+
 ### Modifié
+- **Changer un nombre demande moins de gestes** (décision B4) : « − » et « + » sont aussi au bureau, de part et d'autre du
+  chiffre ; maintenus, leur pas grandit (un pas, puis deux, cinq et dix à la fois) : un entraxe passe de 125 à 20 cm en un
+  appui de moins de deux secondes, 14 pas au lieu de 21, toujours défait par un seul Ctrl+Z. Un réglage borné des deux côtés (la
+  pente et la hauteur des poteaux d'une pergola, le niveau fini d'une terrasse, la part de la fosse d'une piscine…) a en plus un
+  curseur sous son chiffre : le plan suit pendant qu'on glisse, et la glissade ne compte qu'une annulation. Le chiffre se tape
+  toujours, avec les mêmes refus expliqués.
+- **Au téléphone, les propriétés s'ouvrent à mi-hauteur** (décision B8) : le plan reste visible au-dessus, sans voile sombre,
+  et l'on voit la terrasse changer pendant qu'on règle. La poignée tire la feuille en plein écran ou la replie ; elle monte
+  d'elle-même quand un champ appelle le clavier (taper un nombre, chercher un réglage). Jusque-là, elle couvrait 795 des 844 px
+  de l'écran.
 - **L'inspecteur montre moins de champs, et se lit en sections plus courtes** (audit du panneau de droite du 22 novembre 2026,
   décisions B1, B2, B3 et B7, approuvées par le propriétaire ; aucune quantité, aucun export, aucun fichier de projet ne change,
   et les empreintes de `tests/fixtures/golden/` sont identiques) :

@@ -193,6 +193,21 @@ la terrasse, choisis dans Z3.
 - **Côtés, coins et points d'un chemin** : une ligne par élément (nom, longueur ou angle), dépliée en place d'un toucher sur
   ses champs (nom, longueur ou angle, figé, supprimer).
 
+Puis, même audit, décisions B4, B5, B6 et B8 :
+
+- **Un nombre a « − » et « + » dans toutes les classes**, un pas qui grandit quand on les maintient, et un curseur quand ses
+  deux bornes sont fermes (`ui/champs/bornes.ts`, `zones/composants/Champs.tsx`). La saisie au clavier reste la seule façon
+  d'une valeur exacte ; les flèches, le curseur et l'appui maintenu font chacun un seul pas d'annulation par série.
+- **Trois départs de terrasse** en tête de « Lames et finitions » : « Pin sur vis », « Pin sur plots », « Exotique sur plots ».
+  Chacun est une commande du registre (`terrasse.prereglage.*`, `app/prereglages.ts`) qui écrit, par les descripteurs, ce que la
+  personne aurait saisi champ par champ (`ui/champs/prereglages.ts`) : un Ctrl+Z, le projet modifié, refusée en lecture seule.
+  Aucun calcul ne change ; la ligne dit lequel est en place.
+- **« Chercher un réglage »** en tête du panneau (`ui/champs/recherche.ts`) : libellé et explication, sans accents ni
+  majuscules ; un réglage du mode expert est proposé « avancé ». Un contrôle d'interface (`inspecteur.recherche`), pas une
+  commande : il ne touche pas au projet.
+- **Au téléphone, la feuille Propriétés s'ouvre à mi-hauteur** (`HAUTEUR_PAR_DEFAUT`, `app/magasin.ts`) : le plan reste visible
+  et non voilé au-dessus ; elle monte en plein écran quand un champ appelle le clavier.
+
 L'inspecteur est **la** zone que le découpage du configurateur en descripteurs de champs
 (`spec-migration-typescript.md` §6.4, `MD/DEFAUTS.md` D-12) rend possible : chaque section est
 une liste de champs `{ clé, libellé, type, unité, bornes, visible(si) }` rendue par un seul
