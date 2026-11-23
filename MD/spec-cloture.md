@@ -200,8 +200,11 @@ face verticale à l'ombre du soleil de l'étude paraît grise, comme la clôture
 
 ## 3. Inspecteur (Z5)
 
-Deux sections sur la parcelle du projet, rangées dans la famille **Objet** au doigt
-(`familleDe` ; Construction jusqu'à la 5.38.0 : sur un terrain, rien n'annonçait cet onglet et le chemin se perdait), et
+Deux sections sur la parcelle du projet, rangées au doigt sous l'onglet **« Réglages »**, le premier
+(`familleDeSection` : tout ce qui est propre à un ouvrage y va, par une règle unique). Sous « Construction », jusqu'à la
+5.38.0, rien n'annonçait cet onglet sur un terrain et le chemin se perdait ; la 5.38 les avait donc passées sous « Objet ».
+« Réglages » dit ce qu'il porte, une parcelle clôturée s'ouvre sur sa section « Clôture » (une parcelle sans clôture, sur
+« Objet »), et l'outil ci-dessous y mène. Elles sont
 visibles sur elle seule : une parcelle voisine n'a ni clôture ni accès. L'outil **« Clôture, portail »** de la palette
 (`cloture.ouvrir`, groupe Créer ; rail sur tablette, feuille Outils au téléphone) y mène : il sélectionne la parcelle du
 projet et ouvre l'inspecteur sur la section Clôture. Il n'écrit rien.

@@ -9,7 +9,7 @@ import { enPoints } from '../../model/formes.js';
 import { volumesDuBatiment } from '../../facade/profil.js';
 import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
 import { ouverturesAutomatiques, mursAOuvrir } from '../../facade/ouvertures.js';
-import { fenetres3dDe, reglerFenetres3d, nouvelleFenetre } from '../../model/fenetres3d.js';
+import { fenetres3dDe, fenetres3dDuProfil, reglerFenetres3d, nouvelleFenetre } from '../../model/fenetres3d.js';
 import { valeursFacadesDe } from '../../regles/facades/reglages.js';
 import { estBatiment } from '../../model/fonctions.js';
 import type { Fenetre3d, Fenetres3d, ObjetPlan } from '../../model/types.js';
@@ -61,8 +61,15 @@ export function sectionFenetres3d(c: ContexteChamps): Section | null {
   const une = (cc: ContexteChamps) => uneParUne(cc) && !!enCours(cc);
   const ecrireFenetre = (cc: ContexteChamps, f: (w: Fenetre3d) => void) => ecrire(cc, (x) => { const w = x.liste?.[fenetreEnCours]; if (w) f(w); });
   const largeurDuMur = (cc: ContexteChamps, cote: number) => facadesDuContour(pts(cc.obj), 0).find((x) => x.cote === cote)?.largeur ?? 0;
+  // L'appui et l'entraxe sont du mode expert (audit de l'inspecteur, decision B1) : la largeur et la hauteur suffisent a dessiner
+  // des fenetres vraisemblables. Une valeur que le batiment porte, autre que celle de son profil de facades, reste montree.
+  const reglee = (cle: 'appui' | 'entraxe') => (cc: ContexteChamps): boolean => {
+    const ecrit = cc.obj.batiment?.fenetres3d?.[cle];
+    return ecrit !== undefined && ecrit !== fenetres3dDuProfil(valeursFacadesDe(cc.obj.batiment))[cle];
+  };
   const dimensionCommune = (cle: 'largeur' | 'hauteur' | 'appui' | 'entraxe', libelle: string, min: number, max: number, aide?: string): Champ => ({
     type: 'nombre', cle, libelle, unite: 'm', pas: 0.1, min, max, decimales: 2, visible: toutes, effets, ...(aide ? { aide } : {}),
+    ...(cle === 'appui' || cle === 'entraxe' ? { expert: true, resteMontre: reglee(cle) } : {}),
     lire: (cc) => r(cc)[cle],
     ecrire: (cc, v) => { if (!(v >= min && v <= max)) return false; ecrire(cc, (x) => { x[cle] = v; }); },
   });

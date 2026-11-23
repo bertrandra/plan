@@ -933,7 +933,11 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 - **Pergola, carport** : garder ouverts matériau, toit, hauteur, côté de référence, adossé, débord, poteaux, poutres ; replier
   contrefiches, chevrons, couleurs, longueurs achetables, et la note de calcul (son PDF reste à portée) ; le métrage et les
   prix partent dans un onglet du tiroir des résultats.
-- **Bâtiment, annexe** : garder « Façades et toit » ; replier « Fenêtres (3D) » ; un bâtiment importé et verrouillé ne montre
+  Depuis le 22 novembre 2026 (audit de l'inspecteur, B1 et B2) : trois groupes, « Forme et toit », « Structure »,
+  « Couleurs », sans pli ; contrefiches, chevrons et longueurs achetables sont du mode expert, comme les hypothèses fines de
+  la note (les régions de neige et de vent, que l'alerte demande, sortent du pli).
+- **Bâtiment, annexe** : garder « Façades et toit » (deux sections depuis le 22 novembre 2026 : « Toit », celle d'arrivée,
+  puis « Façades ») ; replier « Fenêtres (3D) » ; un bâtiment importé et verrouillé ne montre
   plus ses côtés ni ses coins (dessiné à la main, il les garde, repliés).
 - **Parasol** : garder ouverts la terrasse rattachée, le mât, « Afficher l'ombre » et « Meilleure position » ; replier la date,
   l'heure et la carte des heures d'ombre.

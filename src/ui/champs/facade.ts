@@ -300,6 +300,37 @@ const champToit3d: Champ = {
   executer: (cx) => cx.executerCommande('toit.modifierEn3d'),
 };
 
+/** « Toit en 3D » : ce que la 3D montre du toit, quand le batiment en a plusieurs lectures (corps du LiDAR, surface mesuree, volumes). */
+function champModeToit(mode: (cc: ContexteChamps) => string, corps: (cc: ContexteChamps) => boolean): Champ {
+  return {
+    type: 'choix',
+    cle: 'toitMode',
+    libelle: 'Toit en 3D',
+    visible: (cc) => !!cc.obj.batiment?.toitMesure || corps(cc),
+    // Du mode expert (audit de l'inspecteur, decision B1) : la 3D choisit elle-meme ce qu'elle montre du toit. Un mode choisi a la
+    // main, autre que celui qu'elle prendrait seule, reste montre.
+    expert: true,
+    resteMontre: (cc) => {
+      const b = cc.obj.batiment;
+      if (!b?.modeToit) return false;
+      const seule = { ...b };
+      delete seule.modeToit;
+      return modeToitActif(seule) !== modeToitActif(b);
+    },
+    historique: true,
+    effets: ['scene3d', 'inspecteur'],
+    aide: 'Corps et pignons : les corps du bâtiment lus sur le LiDAR HD de l’IGN, chacun son faîtage et ses égouts aux hauteurs de ses murs, avec les pignons qui partent du faîtage. Tel que mesuré : la surface relevée à 50 cm, nettoyée des arbres — fidèle, même à un toit compliqué. Un toit par corps : le contour découpé en rectangles, chacun son toit simple. Un seul toit : une forme simple sur tout le contour, que l’on règle ci-dessous',
+    options: (cc) => [
+      ...(cc.obj.batiment?.corpsToit?.length ? [{ valeur: 'corps', libelle: 'Corps et pignons (LiDAR)' }] : []),
+      ...(cc.obj.batiment?.toitMesure ? [{ valeur: 'mesure', libelle: 'Tel que mesuré (LiDAR)' }] : []),
+      ...(corps(cc) ? [{ valeur: 'volumes', libelle: 'Un toit par corps' }] : []),
+      { valeur: 'simple', libelle: 'Un seul toit' },
+    ],
+    lire: (cc) => mode(cc),
+    ecrire: (cc, v) => { champsBatiment(cc.obj).modeToit = v === 'corps' || v === 'mesure' || v === 'volumes' ? v : 'simple'; },
+  };
+}
+
 /** Les champs du toit : les corps de batiment, puis le toit unique (forme, hauteur, faitage, couverture). */
 function champsDuToit(): Champ[] {
   // Le toit unique ne se montre que si c'est lui que la 3D dessine : en surface mesuree ou en
@@ -311,23 +342,7 @@ function champsDuToit(): Champ[] {
   const corps = (cc: ContexteChamps) => (cc.obj.batiment?.volumesToit?.length ?? 0) >= 2;
   return [
     champToit3d,
-    {
-      type: 'choix',
-      cle: 'toitMode',
-      libelle: 'Toit en 3D',
-      visible: (cc) => !!cc.obj.batiment?.toitMesure || corps(cc),
-      historique: true,
-      effets: ['scene3d', 'inspecteur'],
-      aide: 'Corps et pignons : les corps du bâtiment lus sur le LiDAR HD de l’IGN, chacun son faîtage et ses égouts aux hauteurs de ses murs, avec les pignons qui partent du faîtage. Tel que mesuré : la surface relevée à 50 cm, nettoyée des arbres — fidèle, même à un toit compliqué. Un toit par corps : le contour découpé en rectangles, chacun son toit simple. Un seul toit : une forme simple sur tout le contour, que l’on règle ci-dessous',
-      options: (cc) => [
-        ...(cc.obj.batiment?.corpsToit?.length ? [{ valeur: 'corps', libelle: 'Corps et pignons (LiDAR)' }] : []),
-        ...(cc.obj.batiment?.toitMesure ? [{ valeur: 'mesure', libelle: 'Tel que mesuré (LiDAR)' }] : []),
-        ...(corps(cc) ? [{ valeur: 'volumes', libelle: 'Un toit par corps' }] : []),
-        { valeur: 'simple', libelle: 'Un seul toit' },
-      ],
-      lire: (cc) => mode(cc),
-      ecrire: (cc, v) => { champsBatiment(cc.obj).modeToit = v === 'corps' || v === 'mesure' || v === 'volumes' ? v : 'simple'; },
-    },
+    champModeToit(mode, corps),
     {
       type: 'carte',
       cle: 'toitCarte',
@@ -584,6 +599,15 @@ export function sectionReleve(c: ContexteChamps): Section {
     });
   });
 
-  champs.push(...champsSaillies(c), ...champsDuToit());
-  return { id: 'releve', titre: 'Façades et toit', principale: true, champs };
+  champs.push(...champsSaillies(c));
+  return { id: 'releve', titre: 'Façades', champs };
+}
+
+/**
+ * Le toit d'un batiment, a part de ses facades (audit de l'inspecteur, decision B2 : « Façades et toit » tenait en un bloc de plus
+ * de deux ecrans au telephone, les reglages du toit apres une ligne par mur). C'est ce qu'on vient regler sur un batiment : la
+ * section d'arrivee.
+ */
+export function sectionToit(): Section {
+  return { id: 'toit', titre: 'Toit', principale: true, champs: champsDuToit() };
 }

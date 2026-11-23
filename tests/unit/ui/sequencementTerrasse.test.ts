@@ -4,7 +4,7 @@ import { sectionsConstruction } from '../../../src/ui/champs/construction.js';
 import { creerInspecteur, type ContexteInspecteur } from '../../../src/app/inspecteur.js';
 import { creerMagasin } from '../../../src/app/magasin.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
-import { familleDe } from '../../../src/zones/Inspecteur.js';
+import { familleDeSection } from '../../../src/ui/champs/sections.js';
 import { constructionTerrasseNeuve, defaultConstruction } from '../../../src/engine/construction.js';
 import type { EtatApp } from '../../../src/core/state.js';
 import type { Construction, ObjetPlan } from '../../../src/model/types.js';
@@ -31,7 +31,7 @@ describe('les etapes d\'une terrasse', () => {
     expect(sections.map(s => s.titre)).toEqual(['Terrasse · Forme et niveau', 'Lames et finitions', 'Structure et appuis', 'Paramètres de calcul']);
     expect(sections.filter(s => s.repliee).map(s => s.id)).toEqual(['parametres']);
     expect(sections.filter(s => s.expert).map(s => s.id)).toEqual(['parametres']);
-    expect(sections.map(s => familleDe(s.id))).toEqual(Array(4).fill('construction'));
+    expect(sections.map(s => familleDeSection(s.id))).toEqual(Array(4).fill('reglages'));
   });
 
   it('chaque groupe ne montre que ce qui decoule des choix precedents', () => {

@@ -7,7 +7,7 @@
 
 import { hypothesesDe, noteDeCalcul, SK200, TERRAINS, VB0, ZONES_NEIGE, type NoteCalcul, type VerifPiece } from '../../engine/abri/noteCalcul.js';
 import { libelleSection, LIBELLE_ROLE, pergolaDe } from '../../engine/abri/pergola.js';
-import type { CategorieTerrain, HypothesesCalcul, ZoneNeige } from '../../model/types.js';
+import type { CategorieTerrain, HypothesesCalcul, ObjetPlan, ZoneNeige } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
 
 const EFFETS: Effet[] = ['inspecteur'];
@@ -23,6 +23,22 @@ function poser<K extends keyof HypothesesCalcul>(c: ContexteChamps, cle: K, v: H
 
 const hyp = (c: ContexteChamps) => hypothesesDe(c.obj, pergolaDe(c.obj));
 const enBois = (c: ContexteChamps) => pergolaDe(c.obj).materiau === 'bois';
+
+/** Le projet porte-t-il pour cette hypothese une valeur qui n'est pas celle par defaut (lue avec et sans, comme le calcul la lit) ? */
+const regle = (cle: keyof HypothesesCalcul) => (c: ContexteChamps): boolean => {
+  const k = c.obj.pergola?.calcul;
+  if (!k || k[cle] === undefined) return false;
+  const sans: HypothesesCalcul = { ...k };
+  delete sans[cle];
+  const o = { ...c.obj, pergola: { ...c.obj.pergola, calcul: sans } } as ObjetPlan;
+  return hypothesesDe(o, pergolaDe(o))[cle] !== hyp(c)[cle];
+};
+/**
+ * Une hypothese fine du calcul (rugosite du terrain, obstruction, poids de la couverture, classes du bois, epaisseur des profiles) :
+ * du mode expert (audit de l'inspecteur, decision B1), montree quand meme tant que le projet en porte une valeur reglee. Les
+ * regions de neige et de vent, que l'alerte demande de choisir, et l'altitude restent a tous.
+ */
+const fine = (ch: Champ): Champ => ({ ...ch, expert: true, resteMontre: regle(ch.cle as keyof HypothesesCalcul) });
 
 const CHAMPS_HYPOTHESES: Champ[] = [
   {
@@ -42,39 +58,39 @@ const CHAMPS_HYPOTHESES: Champ[] = [
     aide: 'Altitude du terrain : la neige augmente au-dessus de 200 m',
     lire: (c) => hyp(c).altitude, ecrire: (c, v) => { if (!(v >= 0 && v <= 2000)) return false; poser(c, 'altitude', v); }
   },
-  {
+  fine({
     type: 'choix', cle: 'terrain', libelle: 'Catégorie de terrain', effets: EFFETS,
     aide: 'La rugosité des abords, au vent de l\'ouvrage (NF EN 1991-1-4, annexe nationale)',
     options: () => (Object.keys(TERRAINS) as CategorieTerrain[]).map(t => ({ valeur: t, libelle: TERRAINS[t].libelle })),
     lire: (c) => hyp(c).terrain, ecrire: (c, v) => poser(c, 'terrain', v as CategorieTerrain)
-  },
-  {
+  }),
+  fine({
     type: 'nombre', cle: 'obstruction', libelle: 'Obstruction sous le toit', unite: '%', pas: 10, min: 0, max: 100, decimales: 0, effets: EFFETS,
     aide: 'Part du passage du vent bouchée sous le toit (φ) : une voiture garée, du mobilier, un mur. Elle augmente le soulèvement',
     lire: (c) => Math.round(hyp(c).obstruction * 100), ecrire: (c, v) => { if (!(v >= 0 && v <= 100)) return false; poser(c, 'obstruction', v / 100); }
-  },
-  {
+  }),
+  fine({
     type: 'nombre', cle: 'poidsCouverture', libelle: 'Poids de la couverture', unite: 'kg/m²', pas: 1, min: 0, max: 200, decimales: 1, effets: EFFETS,
     aide: 'Toile : 0,5 ; bac acier ou polycarbonate : 10 ; tuiles : 45',
     lire: (c) => hyp(c).poidsCouverture, ecrire: (c, v) => { if (!(v >= 0 && v <= 200)) return false; poser(c, 'poidsCouverture', v); }
-  },
-  {
+  }),
+  fine({
     type: 'choix', cle: 'classeBois', libelle: 'Classe du bois', effets: EFFETS, visible: enBois,
     aide: 'La résistance du bois retenue par la note de calcul : C24 pour le bois massif courant, GL24h pour le lamellé-collé, plus résistant',
     options: () => [{ valeur: 'C24', libelle: 'C24 — bois massif' }, { valeur: 'GL24h', libelle: 'GL24h — lamellé-collé' }],
     lire: (c) => hyp(c).classeBois, ecrire: (c, v) => poser(c, 'classeBois', v === 'GL24h' ? 'GL24h' : 'C24')
-  },
-  {
+  }),
+  fine({
     type: 'choix', cle: 'classeService', libelle: 'Classe de service', effets: EFFETS, visible: enBois,
     aide: 'Classe 3 : bois exposé aux intempéries ; classe 2 : bois abrité de la pluie',
     options: () => [{ valeur: '3', libelle: '3 — extérieur exposé' }, { valeur: '2', libelle: '2 — sous abri' }],
     lire: (c) => String(hyp(c).classeService), ecrire: (c, v) => poser(c, 'classeService', v === '2' ? 2 : 3)
-  },
-  {
+  }),
+  fine({
     type: 'nombre', cle: 'epaisseurAlu', libelle: 'Épaisseur des profilés', unite: 'mm', pas: 0.5, min: 1, max: 10, decimales: 1, effets: EFFETS,
     visible: (c) => !enBois(c), aide: 'Épaisseur des parois des tubes, d\'après la fiche du fabricant',
     lire: (c) => hyp(c).epaisseurAlu, ecrire: (c, v) => { if (!(v >= 1 && v <= 10)) return false; poser(c, 'epaisseurAlu', v); }
-  }
+  })
 ];
 
 /** `'Chevrons 45 × 145 mm'`. */
@@ -108,23 +124,27 @@ function lignesResultats(n: NoteCalcul): Champ[] {
   return champs;
 }
 
-/** Le pli de la note : ses hypotheses et ses verifications, piece par piece. */
+/** Le pli de la note : ses hypotheses fines et ses verifications, piece par piece. */
 const PLI_NOTE = 'Hypothèses et vérifications';
+/** Ce que l'alerte demande de choisir, et l'altitude qui va avec la neige : en vue, pas dans le pli. */
+const A_CHOISIR = new Set(['zoneNeige', 'zoneVent', 'altitude']);
 
 /**
- * La note de calcul d'un abri, repliee : ce qui manque pour l'obtenir et les pieces insuffisantes
- * restent en vue, avec le bouton du PDF ; les hypotheses et les verifications se lisent d'un clic.
+ * La note de calcul d'un abri : ce qui manque pour l'obtenir, les regions de neige et de vent que cette alerte demande de choisir
+ * (elles etaient dans le pli ferme : on lisait la demande sans voir ou y repondre) et les pieces insuffisantes restent en vue, avec
+ * le bouton du PDF ; les hypotheses fines et les verifications se lisent d'un clic.
  */
 export function sectionNoteCalcul(c: ContexteChamps): Section {
   const n = noteDeCalcul(c.obj);
   const tous = [...CHAMPS_HYPOTHESES, ...(n ? lignesResultats(n) : [])];
   const enVue = (ch: Champ) => ch.type === 'alerte' || ch.type === 'bouton';
   const manque = tous.filter(ch => enVue(ch) && ch.cle === 'calcul-manque');
-  const plies = tous.filter(ch => !enVue(ch)).map((ch): Champ => ({ ...ch, repli: PLI_NOTE }));
+  const choisir = tous.filter(ch => A_CHOISIR.has(ch.cle));
+  const plies = tous.filter(ch => !enVue(ch) && !A_CHOISIR.has(ch.cle)).map((ch): Champ => ({ ...ch, repli: PLI_NOTE }));
   const apres = tous.filter(ch => enVue(ch) && ch.cle !== 'calcul-manque');
   return {
     id: 'noteCalcul', titre: 'Note de calcul',
     explication: 'Pré-dimensionnement selon NF EN 1990, 1991, 1995 et 1999 et leurs annexes nationales. Il ne vérifie ni les assemblages ni le sol, et ne remplace pas l\'étude d\'un bureau d\'études : la note PDF détaille ses limites.',
-    champs: [...manque, ...plies, ...apres]
+    champs: [...manque, ...choisir, ...plies, ...apres]
   };
 }

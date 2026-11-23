@@ -275,7 +275,7 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
   }),
   coefRaideurLame: reglage({
     type: 'nombre', cle: 'coefRaideurLame', libelle: 'Coefficient raideur lame', pas: 0.05, min: 0.3, max: 2, decimales: 2,
-    aide: 'Raideur de la lame par rapport au résineux (1,00). Multiplie l\'écartement admissible des appuis.',
+    aide: 'Un rapport, sans unité : la raideur de la lame comparée à celle d’un résineux, qui vaut 1,00. À 1,20, les pièces qui portent les lames peuvent s’écarter de 20 % de plus',
     note: (cx) => { const c = cx.construction(); const defaut = LAME_RAIDEUR[c.essenceBois ?? ''] ?? 1;
       return 'défaut ' + defaut.toFixed(2) + ' · appuis à ' + maxEntraxeLameCm(c) + ' cm' + (Math.abs(coefRaideurLame(c) - defaut) > 1e-9 ? ' (modifié)' : ''); },
     lire: (cx) => coefRaideurLame(cx.construction()), ecrire: (cx, v) => { cx.construction().coefRaideurLame = v || 1; }
@@ -313,7 +313,9 @@ export const CHAMPS_CONSTRUCTION: { [K in keyof Required<Construction>]: Champ |
     lire: (cx) => !!cx.construction().avecLamePlat, ecrire: (cx, v) => { cx.construction().avecLamePlat = v; }
   }),
   // ---- Parametres de calcul -----------------------------------------------------------------
-  kPortee: nombre('kPortee', 'K portée', { pas: 0.1, min: 5, defaut: PORTEE_VIS_K, note: () => 'portée = K · h · (b/entraxe)^⅓ · (250/charge)^⅓ — calé sur NF DTU 51.4' }),
+  kPortee: nombre('kPortee', 'K portée', { pas: 0.1, min: 5, defaut: PORTEE_VIS_K,
+    aide: 'Un coefficient sans unité : la constante de la formule qui donne la portée d’une solive entre deux appuis. Plus il est grand, plus les appuis s’écartent',
+    note: () => 'portée = K · h · (b/entraxe)^⅓ · (250/charge)^⅓ — calé sur NF DTU 51.4' }),
   kEntraxeLame: nombre('kEntraxeLame', 'K entraxe lame', { pas: 0.5, min: 5, defaut: ENTRAXE_LAME_K, note: () => 'écartement des appuis = K × épaisseur de lame' }),
   jeuLames: reglage({ type: 'nombre', cle: 'jeuLames', libelle: 'Jeu entre lames', pas: 1, min: 0, unite: 'mm', decimales: 0, note: () => 'ajouté à la largeur de lame pour l\'espacement du platelage',
     lire: (cx) => cx.construction().jeuLames ?? 6, ecrire: (cx, v) => { cx.construction().jeuLames = isNaN(v) ? 6 : v; } }),
@@ -527,7 +529,11 @@ export function sectionsConstruction(c?: ContexteChamps): Section[] {
       champ('supportType'), champ('supportDecaissement'), expert(champ('plotSurfaceAssise')),
       champ('plotAvecSolives'), champ('soliveEntraxe'), champ('soliveSection'), champ('avecLambourde'), champ('lambourdeSection'), champ('lambourdeEntraxe'),
       expert(champ('chargeNormale')), expert(champ('chargeSpa')), expert(champ('visModeAuto')), expert(champ('plotEntraxeAuto')),
-      champ('visEntraxe'), champ('plotEntraxe'), champ('plotsDansEmprise'), chargeParPlot,
+      // « Portée max entre vis » ne se regle qu'une fois « Portée vis automatique » decochee, case du mode expert : en mode simple
+      // elle se montrait grisee, sans rien pour la liberer (audit de l'inspecteur, decision B1). Elle suit donc cette case, et reste
+      // montree quand le projet porte une portee reglee a la main.
+      { ...expert(champ('visEntraxe')), resteMontre: (cx) => cx.construction().visModeAuto === false },
+      champ('plotEntraxe'), champ('plotsDansEmprise'), chargeParPlot,
       expert(champ('visEntraxeZoneSpa')), expert(champ('visMargeZoneSpa')),
       ...alertes
     ]

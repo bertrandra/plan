@@ -6,6 +6,43 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ## [Non publié]
 
 ### Modifié
+- **L'inspecteur montre moins de champs, et se lit en sections plus courtes** (audit du panneau de droite du 22 novembre 2026,
+  décisions B1, B2, B3 et B7, approuvées par le propriétaire ; aucune quantité, aucun export, aucun fichier de projet ne change,
+  et les empreintes de `tests/fixtures/golden/` sont identiques) :
+  - **Le mode simple cache les réglages techniques hors terrasse aussi** (B1). Rien n'est supprimé : chaque réglage garde sa
+    valeur et son effet, et le mode expert (menu Affichage) les montre tous. Passent en mode expert : pour une **pergola** ou un
+    **carport**, « Contrefiches », leur « Longueur » et leur « Section », « Chevrons », « Entraxe des chevrons », « Longueurs
+    achetables », et dans la note de calcul « Catégorie de terrain », « Obstruction sous le toit », « Poids de la couverture »,
+    « Classe du bois », « Classe de service », « Épaisseur des profilés » ; pour un **bâtiment**, « Murs en 3D », « Toit en 3D »,
+    « Hauteur d’appui » et « Entraxe » des fenêtres ; pour la **parcelle**, les réglages techniques du relief (« Grille »,
+    « Maillage secondaire », « Points max », « Zéro du plan ») ; pour une **terrasse sur vis**, « Portée max entre vis », qui se
+    montrait grisée sans rien pour la libérer (la case « Portée vis automatique » est du mode expert). La région de neige, la
+    région de vent et l'altitude restent à tous, et sortent du pli fermé : l'alerte qui demande de les choisir les précède.
+  - **Un réglage caché ne l'est jamais à tort.** Il reste montré en mode simple tant que le projet en porte une valeur autre que
+    celle par défaut (des chevrons resserrés, un mode de toit choisi à la main, un plafond de points réglé : la démonstration
+    garde ainsi « Points max »), ou qu'une alerte demande d'y toucher (une pièce que la note de calcul juge insuffisante montre
+    sa section et son entraxe ; un avertissement du métrage sur les contrefiches ou sur les longueurs achetables, les réglages
+    correspondants).
+  - **Le pied de chaque section dit ce qui est caché** : « 6 réglages avancés », avec un bouton « Mode expert » qui les montre
+    (la même préférence de l'appareil que la case du menu Affichage, où elle s'éteint). Une section entière du mode expert
+    (« Paramètres de calcul » d'une terrasse) se dit au pied du panneau.
+  - **Pergola et carport en trois groupes**, comme la terrasse (B2) : « Forme et toit » (matériau, toit, hauteur, côté de
+    référence, pente, mur, débord), ouverte à la sélection, « Structure » (poteaux, entraxe maximal, poutres), « Couleurs », puis
+    « Note de calcul ». Un seul bloc de dix-sept lignes et deux plis jusque-là.
+  - **« Façades et toit » devient « Toit » et « Façades »** (B2) : le toit, ce qu'on vient régler sur un bâtiment, s'ouvre à la
+    sélection ; les façades, une ligne par mur, suivent. « Fenêtres (3D) » vient après elles.
+  - **Au doigt, les trois onglets sont « Réglages », « Objet », « Géométrie »** (B3), par une règle unique : tout ce qui est
+    propre à l'ouvrage est sous « Réglages », le premier onglet et celui d'arrivée. Il s'appelait « Construction », et ne portait
+    ni « Relief », ni « Fenêtres (3D) », ni la section d'un arbre, d'un parasol, d'une plantation, d'un équipement ou d'un point
+    de vue, rangées sous « Objet ». « Clôture » et « Portails et portillons », passées sous « Objet » à la 5.38 parce que rien
+    n'annonçait « Construction » sur un terrain, le rejoignent aussi : « Réglages » dit ce qu'il porte, et l'outil « Clôture,
+    portail » y mène comme avant.
+  - **Une ligne par côté, par coin et par point d'un chemin** (B7) : le nom donné et la longueur (ou l'angle, et « figé ») ; un
+    toucher sur la ligne la déplie en place sur ses champs — nom, longueur ou angle, « Figé », « Supprimer » —, un par rangée,
+    avec leur explication et des cibles de 44 px au doigt ; au clavier, la ligne est un bouton (Tab, Entrée). Un coin prenait
+    137 px au téléphone, les côtés d'une maison près de trois écrans.
+  - **Une parcelle clôturée s'ouvre sur « Clôture »** ; sans clôture, sur « Objet » comme une dalle ou un chemin (la case à
+    cocher seule ne vaut pas une section d'arrivée, et l'outil « Clôture, portail » mène à la section).
 
 - **Entrer en Vue 3D sans avoir rien choisi ne sélectionne plus la terrasse.** L'ouverture d'un projet pose d'office une sélection
   (la terrasse, ou la parcelle d'un fichier relu) : utile sur le plan, où l'inspecteur et le chiffrage s'ouvrent sur elle, elle se
@@ -46,6 +83,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     coin ; le rappel des gestes du plan, sous chaque objet, se replie sous « Gestes sur le plan ».
 
 ### Ajouté
+- **Les cinq réglages de la clôture qui n'avaient pas d'explication en ont une** (« Clôture autour de la parcelle », « Type »,
+  « Hauteur », « Couleur », « Lames ») : plus aucun réglage à saisir du mode simple n'est sans aide ni note. « K portée » et
+  « Coefficient raideur lame » disent qu'ils n'ont pas d'unité, et ce qu'ils sont.
+- **Point de fumée 194** : la pergola en trois groupes sous « Réglages », un réglage du mode expert absent puis montré par le
+  bouton du pied de section, un coin replié, déplié, renommé et rendu par Ctrl+Z, les arrivées de la parcelle et de la maison.
 
 - **« Clôture, portail », dans le groupe Créer de la palette** (rail sur tablette, feuille Outils au téléphone) : l'outil
   sélectionne la parcelle du projet et ouvre son inspecteur sur la section « Clôture », suivie de « Portails et portillons » ;
@@ -64,6 +106,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   refus, au lieu d'un retour silencieux à l'ancienne valeur ; « − » et « + » se grisent à la borne.
 
 ### Corrigé
+- **Le point de fumée 192 (vitrine) échouait de temps en temps** (« le plan a changé après les touchers, Suppr et Ctrl+Z »), sans
+  que rien ait changé. La vitrine fait courir l'horloge (`heureauto=y`), qui range l'heure du soleil sur la parcelle, en minutes
+  entières ; le point comparait la longueur du plan entier avant et après, et de 999 à 1 000 minutes (16 h 40) ce texte gagne un
+  caractère : l'échec arrivait quand une seule des deux lectures tombait après 16 h 40 de la journée jouée en dix secondes (une
+  fois sur douze en novembre, bien plus en été). Le point compare maintenant le texte entier du plan (longueur et empreinte),
+  l'heure du soleil mise à part, et vérifie que l'horloge court : plus exigeant, et stable.
 
 - **Un clic sur l'étiquette d'une cote, la flèche du nord ou l'échelle ne se perd plus.** Ces calques, posés au-dessus des objets,
   prenaient le clic ou le toucher sans rien en faire : sur la vue du terrain au téléphone, les étiquettes des cotes couvraient plus

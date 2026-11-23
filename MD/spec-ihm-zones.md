@@ -177,6 +177,22 @@ la terrasse, choisis dans Z3.
 | Terrasse — construction | fonction terrasse | le configurateur (53 réglages) ; l'optimisation est un onglet de Z6 depuis le 27 octobre 2026 | `renderTerrasseConfigurator`, `optimiserParametres` |
 | Terrasse — vue 3D | fonction terrasse, vue 3D active | filaire, tous les objets, opaques, textures, ombres | `vue3d.*` |
 
+**Depuis l'audit de l'inspecteur du 22 novembre 2026** (décisions B1, B2, B3 et B7), au-delà de ce tableau d'origine :
+
+- **L'ordre et les onglets viennent d'une seule règle**, le rang de la section (`rangDeSection`, `ui/champs/sections.ts`) :
+  « Objet » (et « Parcelle », qui dit ce qu'est le terrain), ce qui est propre à l'ouvrage, « Apparence », puis les côtés et
+  les coins. Au doigt, trois onglets suivent ce rang : **« Réglages »** (tout ce qui est propre à l'ouvrage, en premier et à
+  l'arrivée), « Objet », « Géométrie ».
+- **Les longues sections sont découpées** comme la terrasse : pergola et carport en « Forme et toit », « Structure »,
+  « Couleurs », puis « Note de calcul » ; un bâtiment en « Toit » (sa section d'arrivée) et « Façades ».
+- **Le mode simple cache les réglages techniques** (`expert: true`) hors terrasse aussi : contrefiches, chevrons, longueurs
+  achetables et hypothèses fines d'un abri, « Murs en 3D », « Toit en 3D », appui et entraxe des fenêtres d'un bâtiment,
+  réglages techniques du relief, « Portée max entre vis ». Un réglage qu'une alerte demande de toucher, ou dont le projet
+  porte une valeur réglée, reste montré (`resteMontre`) ; le pied de chaque section dit combien sont cachés et propose
+  « Mode expert » (la préférence du menu Affichage).
+- **Côtés, coins et points d'un chemin** : une ligne par élément (nom, longueur ou angle), dépliée en place d'un toucher sur
+  ses champs (nom, longueur ou angle, figé, supprimer).
+
 L'inspecteur est **la** zone que le découpage du configurateur en descripteurs de champs
 (`spec-migration-typescript.md` §6.4, `MD/DEFAUTS.md` D-12) rend possible : chaque section est
 une liste de champs `{ clé, libellé, type, unité, bornes, visible(si) }` rendue par un seul
@@ -224,7 +240,7 @@ vit sans DOM dans `app/cadastre/importCadastre.ts`, `app/cadastre/actualisationI
 Un quatrième s'y ajoute en `2.2.0`, plein écran : le **relevé de façade** (`zones/Releve.tsx`,
 [`spec-releve-facade.md`](spec-releve-facade.md) §4). Depuis le lot F6 (29 octobre 2026), c'est
 l'**éditeur** d'une façade déjà relevée, ouvert par la commande `facade.modifier` depuis la section
-« Façades et toit » de Z5 — seul endroit où elle vit, avec `facade.photographier` (qui ouvre l'audit
+« Façades » de Z5 (« Façades et toit » jusqu'à la 5.38.0) — seul endroit où elle vit, avec `facade.photographier` (qui ouvre l'audit
 de la parcelle sur la prise de ce mur : les photos ne se prennent que là) et `facade.retirer`.
 Confirmations et invites (`shell/dialogs.ts`) deviennent le composant Dialog du design system ;
 `showToast` et `showErrBanner` deviennent Z9.

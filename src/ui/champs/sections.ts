@@ -12,7 +12,7 @@
 import { aParticularite } from '../../model/fonctions.js';
 import { sectionsObjet } from './objet.js';
 import { sectionsConstruction } from './construction.js';
-import { sectionReleve, estBatiment } from './facade.js';
+import { sectionReleve, sectionToit, estBatiment } from './facade.js';
 import type { ContexteChamps, Section } from './types.js';
 
 export function sectionsInspecteur(c: ContexteChamps): Section[] {
@@ -23,12 +23,32 @@ export function sectionsInspecteur(c: ContexteChamps): Section[] {
     const geometrie = sections.findIndex(s => s.id === 'cotes');
     sections.splice(geometrie < 0 ? sections.length : geometrie, 0, ...sectionsConstruction(c));
   }
-  if (estBatiment(c.obj)) sections.push(sectionReleve(c));
+  // Le toit puis les facades d'un batiment, avant ses fenetres en 3D : ce qu'on regle d'abord vient d'abord.
+  if (estBatiment(c.obj)) {
+    const fenetres = sections.findIndex(s => s.id === 'fenetres3d');
+    sections.splice(fenetres < 0 ? sections.length : fenetres, 0, sectionToit(), sectionReleve(c));
+  }
   return dansLOrdre(sections);
 }
 
-/** Le rang d'une section : l'objet, ce qui lui est propre, son apparence, sa geometrie. */
-const rang = (id: string): number => id === 'objet' ? 0 : id === 'apparence' ? 2 : (id === 'cotes' || id === 'coins') ? 3 : 1;
+/**
+ * Le rang d'une section : l'objet (0), ce qui lui est propre (1), son apparence (2), sa geometrie (3). « Parcelle » dit ce qu'est
+ * le terrain (son lieu, sa reference cadastrale, rien a regler) : elle va avec « Objet ». Au doigt, les onglets de l'inspecteur
+ * suivent ce rang (`familleDeSection`), sans autre liste a tenir.
+ */
+export const rangDeSection = (id: string): number => (id === 'objet' || id === 'parcelle') ? 0 : id === 'apparence' ? 2 : (id === 'cotes' || id === 'coins') ? 3 : 1;
+const rang = rangDeSection;
+
+/**
+ * Les trois onglets de l'inspecteur au doigt (zones/Inspecteur.tsx), une regle unique (audit de l'inspecteur, decision B3) : ce qui
+ * est propre a l'ouvrage (ses etapes, sa section, la cloture d'une parcelle, son relief, les fenetres d'un batiment) est toujours
+ * sous « Réglages » ; « Objet » porte ce qu'il est et son apparence ; « Géométrie », ses cotes et ses coins.
+ */
+export type Famille = 'reglages' | 'objet' | 'geometrie';
+export function familleDeSection(id: string): Famille {
+  const r = rangDeSection(id);
+  return r === 1 ? 'reglages' : r === 3 ? 'geometrie' : 'objet';
+}
 
 /** Les sections par rang ; a rang egal, l'ordre ou elles ont ete composees (les etapes d'une terrasse, d'une piscine). */
 function dansLOrdre(sections: Section[]): Section[] {
