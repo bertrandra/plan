@@ -51,12 +51,44 @@ export function aLaBorne(ch: ChampNombre, valeur: number, sens: 1 | -1): boolean
  * bornes (un ancien projet), le premier pas vers elles s'y pose — c'est un geste de la personne, pas une correction d'office,
  * et un champ dont l'ecriture refuse tout ce qui en sort resterait bloque sans cela.
  */
-export function valeurApresPas(ch: ChampNombre, valeur: number, sens: 1 | -1): number | null {
+export function valeurApresPas(ch: ChampNombre, valeur: number, sens: 1 | -1, facteur = 1): number | null {
   if (aLaBorne(ch, valeur, sens)) return null;
   const inc = increment(ch);
-  let v = valeur + sens * inc;
+  let v = valeur + sens * inc * facteur;
   if (ch.min !== undefined) v = Math.max(ch.min, v);
   if (ch.max !== undefined) v = Math.min(ch.max, v);
   const d = ch.decimales ?? (String(inc).split('.')[1]?.length ?? 0);
   return Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+}
+
+/**
+ * Le pas grandit quand on maintient « − » ou « + » (audit de l'inspecteur, decision B4) : un pas pour les premieres repetitions,
+ * qui laissent viser une valeur proche, puis deux, cinq et dix pas a la fois. Passer un entraxe de 125 a 20 cm demandait 21
+ * touchers ; maintenu, c'est moins de deux secondes. `repetition` compte les pas repetes d'un meme appui, le premier exclu.
+ */
+export function facteurDePas(repetition: number): number {
+  if (repetition < 6) return 1;
+  if (repetition < 16) return 2;
+  if (repetition < 30) return 5;
+  return 10;
+}
+
+/** Au-dela, un curseur ne vise plus une valeur : chaque pixel sauterait plusieurs pas. */
+const PAS_MAX_CURSEUR = 400;
+
+/**
+ * Le nombre se regle aussi au curseur (decision B4) : seulement quand ses deux bornes sont declarees, et fermes, et qu'elles
+ * tiennent en un nombre raisonnable de pas (une pente, un niveau, un entraxe borne). Sans borne haute, un curseur inventerait une
+ * limite ; aux bornes indicatives, il interdirait ce que la saisie permet.
+ */
+export function avecCurseur(ch: ChampNombre): boolean {
+  if (ch.bornesIndicatives || ch.min === undefined || ch.max === undefined || !(ch.max > ch.min)) return false;
+  const pas = (ch.max - ch.min) / increment(ch);
+  return pas >= 2 && pas <= PAS_MAX_CURSEUR;
+}
+
+/** La valeur que le curseur montre : celle du projet, ramenee dans les bornes (un ancien projet peut en sortir). */
+export function valeurDuCurseur(ch: ChampNombre, valeur: number): number {
+  const min = ch.min ?? valeur, max = ch.max ?? valeur;
+  return Number.isFinite(valeur) ? Math.min(max, Math.max(min, valeur)) : min;
 }

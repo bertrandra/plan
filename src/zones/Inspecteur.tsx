@@ -12,10 +12,11 @@
 // d'un champ ne depend jamais de la classe ; sa forme, si (tests/unit/zones/inspecteur-champs).
 // Sur telephone, l'inspecteur est la feuille Proprietes ; sur tablette, un panneau flottant.
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { champsVisibles, reglagesAvancesMasques, sectionDArrivee } from '../ui/champs/types.js';
 import { familleDeSection, type Famille } from '../ui/champs/sections.js';
+import { chercherReglages, RESULTATS_MAX, type ReglageTrouve } from '../ui/champs/recherche.js';
 import type { ContexteChamps, Section } from '../ui/champs/types.js';
 import type { Magasin } from '../app/magasin.js';
 import { useCle, cleEtatEtObjets, cleCommandes } from './composants/abonnement.js';
@@ -172,6 +173,107 @@ function Familles({ presentes, active, choisir }: { presentes: Famille[]; active
   );
 }
 
+/**
+ * « Chercher un réglage » (audit de l'inspecteur, decision B6) : un champ en tete du panneau, qui trouve un reglage de l'objet par son
+ * libelle ou son aide, sans accents ni majuscules, et dit sa section. Un reglage que le mode simple cache se trouve aussi, marque
+ * « avancé » : y aller allume le mode expert, comme le bouton du pied d'une section. Choisir un resultat ouvre sa section (et son
+ * onglet, au doigt), deplie son pli, fait defiler jusqu'a lui et le met en evidence ; la recherche s'efface. Un reglage d'interface :
+ * ni Ctrl+Z, ni « projet modifié ».
+ */
+function Recherche({ sections, c, aller }: { sections: Section[]; c: ContexteChamps; aller: (r: ReglageTrouve) => void }) {
+  // La recherche appartient a l'objet sur lequel elle a ete tapee : passer a un autre objet la vide.
+  const [saisie, saisir] = useState<{ objet: string; texte: string }>({ objet: c.obj.key, texte: '' });
+  const texte = saisie.objet === c.obj.key ? saisie.texte : '';
+  const idListe = useId();
+  const liste = useRef<HTMLUListElement>(null);
+  const tous = texte ? chercherReglages(sections, c, texte) : [];
+  const montres = tous.slice(0, RESULTATS_MAX);
+  const choisir = (r: ReglageTrouve) => { saisir({ objet: c.obj.key, texte: '' }); aller(r); };
+  const etat = !texte.trim() ? '' : texte.trim().length < 2 ? 'Tapez au moins deux lettres.'
+    : !tous.length ? 'Aucun réglage de cet objet ne porte ce nom.'
+    : tous.length > montres.length ? montres.length + ' réglages sur ' + tous.length + ' : précisez la recherche.'
+    : tous.length + (tous.length > 1 ? ' réglages' : ' réglage');
+  return (
+    <div className="rechercheReglage" role="search">
+      <input type="search" data-controle="inspecteur.recherche" placeholder="Chercher un réglage" aria-label="Chercher un réglage" aria-controls={montres.length ? idListe : undefined}
+        autoComplete="off" spellCheck={false} value={texte}
+        onChange={(e) => saisir({ objet: c.obj.key, texte: e.target.value })}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && texte) { e.preventDefault(); e.stopPropagation(); saisir({ objet: c.obj.key, texte: '' }); }
+          if (e.key === 'Enter' && montres[0]) { e.preventDefault(); choisir(montres[0]); }
+          if (e.key === 'ArrowDown' && montres.length) { e.preventDefault(); liste.current?.querySelector('button')?.focus(); }
+        }} />
+      {etat && <p className="hint etatRecherche" role="status">{etat}</p>}
+      {montres.length > 0 && (
+        <ul className="resultatsRecherche" id={idListe} ref={liste} aria-label="Réglages trouvés"
+          onKeyDown={(e) => {
+            const boutons = [...(liste.current?.querySelectorAll('button') ?? [])];
+            const i = boutons.indexOf(document.activeElement as HTMLButtonElement);
+            if (e.key === 'ArrowDown' && i >= 0) { e.preventDefault(); boutons[Math.min(boutons.length - 1, i + 1)]?.focus(); }
+            if (e.key === 'ArrowUp' && i >= 0) { e.preventDefault(); if (i === 0) (liste.current?.parentElement?.querySelector('input') as HTMLInputElement | null)?.focus(); else boutons[i - 1]?.focus(); }
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); saisir({ objet: c.obj.key, texte: '' }); }
+          }}>
+          {montres.map((r) => (
+            <li key={r.section + '/' + r.cle}>
+              <button type="button" data-controle="inspecteur.resultatRecherche" data-section={r.section} data-cle-cible={r.cle} onClick={() => choisir(r)}
+                title={r.avance ? 'Réglage avancé : y aller allume le mode expert, qui s’éteint au menu Affichage' : undefined}>
+                <span className="libelleTrouve">{r.libelle}</span>
+                <span className="ouTrouve">{r.titreSection}{r.avance ? ' · avancé' : ''}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Aller au reglage choisi dans la recherche (decision B6) : sa section s'ouvre seule, son onglet devient celui qu'on montre, son pli
+ * se deplie ; puis, une fois l'onglet montre, le panneau defile jusqu'a lui, le met en evidence, et au bureau lui donne le focus
+ * (au doigt, le focus ouvrirait le clavier sur un champ qu'on voulait seulement voir). Un reglage avance attend un rendu ou deux
+ * que le mode expert le monte.
+ */
+function useAllerAuReglage(panneau: React.RefObject<HTMLElement | null>, tactile: boolean, magasin: Magasin, choisirFamille: (f: Famille) => void): (r: ReglageTrouve) => void {
+  /** Le reglage choisi, que le prochain rendu ouvre. */
+  const cible = useRef<{ section: string; cle: string; essais: number } | null>(null);
+  const [, relire] = useState(0);
+  useLayoutEffect(() => {
+    const voulue = cible.current;
+    if (!voulue || !panneau.current) return;
+    const details = panneau.current.querySelector<HTMLDetailsElement>('details.inspecteurSection[data-section="' + voulue.section + '"]');
+    const ligne = details?.querySelector<HTMLElement>('[data-cle="' + voulue.cle + '"]');
+    if (!details || !ligne) { if (++voulue.essais > 3) cible.current = null; return; }
+    cible.current = null;
+    sectionsDu(details).forEach(d => { d.open = d === details; });
+    const pli = ligne.closest<HTMLDetailsElement>('details.plichamps');
+    if (pli) pli.open = true;
+    choisirFamille(familleDeSection(voulue.section));
+    requestAnimationFrame(() => {
+      ligne.scrollIntoView?.({ block: 'center' });
+      ligne.classList.add('champTrouve');
+      window.setTimeout(() => ligne.classList.remove('champTrouve'), 2400);
+      if (!tactile) ligne.querySelector<HTMLElement>('input:not([type=range]):not([type=hidden]), select, textarea, button:not(.aideBouton):not(.pasBouton)')?.focus({ preventScroll: true });
+    });
+  });
+  return (r) => {
+    cible.current = { section: r.section, cle: r.cle, essais: 0 };
+    if (r.avance) magasin.definirOption('modeExpert', true);
+    relire(n => n + 1);
+  };
+}
+
+/**
+ * Au telephone, la feuille s'ouvre a mi-hauteur (decision B8) ; un champ qui appelle le clavier la fait monter en plein ecran, sans
+ * quoi le clavier couvrirait le champ et la moitie de feuille qui reste. Les − et +, le curseur, les choix et les cases ne
+ * l'appellent pas : avec eux, la feuille reste a mi-hauteur et le plan suit au-dessus.
+ */
+function monterPourLeClavierDe(magasin: Magasin, cible: EventTarget): void {
+  if (magasin.store.getState().hauteurFeuille === 'plein') return;
+  const clavier = cible instanceof HTMLTextAreaElement || (cible instanceof HTMLInputElement && ['text', 'search', 'number', 'email', 'tel', 'url', ''].includes(cible.type));
+  if (clavier) magasin.definirHauteurFeuille('plein');
+}
+
 export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInspecteur) {
   // Le plan (les champs lisent l'objet choisi et ceux qui l'entourent), l'etat des outils, et les commandes que ses boutons lient ;
   // gele tant que l'inspecteur est cache. Ses ecritures touchent leur objet (app/inspecteur.ts).
@@ -220,6 +322,8 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
     choisirFamille(familleDeSection(id ?? ''));
     voulue.scrollIntoView?.({ block: 'nearest' });
   });
+  const allerAuReglage = useAllerAuReglage(panneau, tactile, magasin, choisirFamille);
+  const monterPourLeClavier = (e: React.FocusEvent<HTMLElement>) => { if (compact) monterPourLeClavierDe(magasin, e.target); };
   const ouvrirChiffrage = () => {
     if (!tiroir) return;
     tiroir.activer('bom');
@@ -292,10 +396,10 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
       </div>;
   return (
     <Tactile.Provider value={tactile}>
-      <aside ref={panneau} className="inspecteurPanneau" aria-label={compact ? 'Propriétés' : 'Inspecteur'} data-famille-active={filtre}>
+      <aside ref={panneau} className="inspecteurPanneau" aria-label={compact ? 'Propriétés' : 'Inspecteur'} data-famille-active={filtre} onFocus={monterPourLeClavier}>
         {entete}
         {tactile ? <Familles presentes={presentes} active={active} choisir={choisirFamille} /> : null}
-        <div className={compact ? 'corpsFeuille' : 'corpsInspecteur'}>{corps}{pied}</div>
+        <div className={compact ? 'corpsFeuille' : 'corpsInspecteur'}><Recherche sections={sections} c={c} aller={allerAuReglage} />{corps}{pied}</div>
         {chiffrage}
       </aside>
     </Tactile.Provider>

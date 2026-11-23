@@ -3327,7 +3327,8 @@ const POINTS = {
     // Le pli se lit avant d'ouvrir la section (ouvrirSection ouvre aussi les plis) : il est monte, ferme ou non.
     const avant = await page.evaluate(() => {
       const d = document.querySelector('#zoneInspecteur details[data-section="lames"]');
-      const premier = d?.querySelector('[data-cle]')?.getAttribute('data-cle');
+      // Les trois departs (decision B5 de l'audit de l'inspecteur) viennent avant elle : la lame est le premier reglage apres eux.
+      const premier = d?.querySelector('.champs > [data-cle]:not([data-cle="prereglages"])')?.getAttribute('data-cle');
       const pli = d?.querySelector('details.plichamps[data-pli^="Détail de la lame"]');
       const c = window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse').construction;
       return { premier, pliFerme: !!pli && !pli.open, dansPli: pli ? [...pli.querySelectorAll('[data-cle]')].map((e) => e.getAttribute('data-cle')) : [],
@@ -3864,6 +3865,161 @@ const POINTS = {
     return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
       + `pergola : ${p.reglages.length} sections${tactile ? ', onglets ' + p.onglets.join(' · ') : ''} ; « Structure » : ${simple.cles.length} réglages, « ${simple.rappel} », ${expert.cles.length} en mode expert ; `
       + `${replies.n} coins de ${replies.hauteurMin} à ${replies.hauteurMax} px, déplié : ${detail.cles.join(', ')} ; « ${avantNom} » → « ${renomme} » → Ctrl+Z → « ${apresAnnulation} » ; parcelle : « ${parcelle.ouvertes.join()} », maison : « ${maison.ouvertes.join()} »` };
+  },
+  195: async (page, f) => {
+    // La saisie et la recherche de l'inspecteur (audit de l'inspecteur du 22 novembre 2026, decisions B4, B5, B6 et B8), mode expert
+    // eteint, sur la terrasse de la demonstration. Au telephone, la feuille des proprietes s'ouvre a mi-hauteur, le plan visible et non
+    // voile au-dessus. « Entraxe solives » a « − » et « + » dans toutes les classes ; maintenu, « − » va de 125 a 20 cm en moins de
+    // 21 pas, certains de 10 cm, et un Ctrl+Z rend 125. Un niveau fini impose (0 a 200 cm) a son curseur, que les fleches font avancer. « Chercher un
+    // réglage » trouve « Entraxe solives » et y va (section ouverte, ligne en evidence, a l'ecran) ; « k portee » trouve un reglage
+    // avance, qui allume le mode expert. « Pin sur plots » regle la lame et la structure d'un coup, marque le projet, se lit « en place »,
+    // et un seul Ctrl+Z rend la construction d'avant.
+    const echecs = [];
+    const tactile = f.nom !== 'large';
+    const compact = f.nom === 'compact';
+    await modeExpert(page, false);
+    await selectionner(page, TERRASSE);
+    await inspecteur(page);
+    const construction = () => page.evaluate((src) => JSON.stringify(window.__plan.etat().objects.find(new Function('o', 'return ' + src)).construction), TERRASSE);
+    const lire = (cle) => page.evaluate(({ src, cle }) => window.__plan.etat().objects.find(new Function('o', 'return ' + src)).construction[cle], { src: TERRASSE, cle });
+    const depart = await construction();
+
+    // ---- 1. La feuille a mi-hauteur (B8) ---------------------------------------------------------------
+    let feuilleMi = null;
+    if (compact) {
+      feuilleMi = await page.evaluate(() => {
+        const z = document.getElementById('zoneInspecteur').getBoundingClientRect();
+        return { hauteur: window.__plan.magasin().hauteurFeuille, haut: Math.round(z.top), ecran: innerHeight, voile: !!document.querySelector('.voileFeuille.voileTransparent') };
+      });
+      if (feuilleMi.hauteur !== 'mi' || feuilleMi.haut < feuilleMi.ecran * 0.3) echecs.push('feuille à l’ouverture : ' + feuilleMi.hauteur + ', haut à ' + feuilleMi.haut + ' px');
+      if (!feuilleMi.voile) echecs.push('le plan est voilé sous la feuille à mi-hauteur');
+    }
+
+    // ---- 2. Le widget nombre (B4) ------------------------------------------------------------------------
+    await ouvrirSection(page, 'structure');
+    await saisirNombre(page, 'soliveEntraxe', 125);
+    if (compact) await inspecteur(page);
+    await ouvrirSection(page, 'structure');
+    const boutons = page.locator('#zoneInspecteur [data-cle="soliveEntraxe"] button.pasBouton');
+    if ((await boutons.count()) !== 2) echecs.push((await boutons.count()) + ' bouton(s) « − / + »');
+    const moins = boutons.first();
+    await moins.scrollIntoViewIfNeeded();
+    const bx = await moins.boundingBox();
+    if (tactile && (bx.width < 43.5 || bx.height < 43.5)) echecs.push('« − » de ' + Math.round(bx.width) + ' × ' + Math.round(bx.height) + ' px');
+    if (!tactile && (await moins.getAttribute('tabindex')) !== '-1') echecs.push('« − » dans la tabulation au bureau');
+    await page.mouse.move(bx.x + bx.width / 2, bx.y + bx.height / 2);
+    // Les valeurs prises pendant l'appui, relevees a chaque image dans la page : le pas qui grandit se lit a ce qu'elles sautent de
+    // plus de 5 cm, et a ce qu'il en faut moins que les 21 pas d'un pas fixe. Pas de seuil de temps : chaque pas recalcule la
+    // terrasse, et la machine du cloud n'a pas la cadence d'un telephone.
+    await page.evaluate((src) => {
+      const o = window.__plan.etat().objects.find(new Function('o', 'return ' + src));
+      const vues = window.__valeursAppui = [o.construction.soliveEntraxe];
+      const suivre = () => { const x = o.construction.soliveEntraxe; if (x !== vues[vues.length - 1]) vues.push(x); if (x > 20 && vues.length < 60) requestAnimationFrame(suivre); };
+      requestAnimationFrame(suivre);
+    }, TERRASSE);
+    const t0 = Date.now();
+    await page.mouse.down();
+    let v = await lire('soliveEntraxe');
+    while (v > 20 && Date.now() - t0 < 8000) { await page.waitForTimeout(40); v = await lire('soliveEntraxe'); }
+    const maintien = Date.now() - t0;
+    await page.mouse.up(); await page.waitForTimeout(150);
+    const vues = await page.evaluate(() => window.__valeursAppui);
+    const sautMax = Math.max(...vues.slice(1).map((x, i) => vues[i] - x));
+    if (v !== 20 || sautMax < 10 || vues.length - 1 >= 21) echecs.push('maintenir « − » : ' + v + ' cm, ' + (vues.length - 1) + ' pas, saut maximal ' + sautMax + ' cm');
+    if (compact) await feuille(page, null);
+    await annuler(page);
+    const apresMaintien = await lire('soliveEntraxe');
+    if (apresMaintien !== 125) echecs.push('un Ctrl+Z après l’appui : ' + apresMaintien + ' cm');
+    await annuler(page);
+    await inspecteur(page);
+    // Le curseur d'un nombre borne : le niveau fini impose.
+    await ouvrirSection(page, 'implantation');
+    const caseNiveau = page.locator('#zoneInspecteur [data-cle="poseDecaissee"] input[type=checkbox]');
+    await caseNiveau.scrollIntoViewIfNeeded();
+    await caseNiveau.click({ force: true }); await page.waitForTimeout(250);
+    const curseur = page.locator('#zoneInspecteur [data-cle="niveauFini"] input[type=range]');
+    let curseurLu = null;
+    if (!(await curseur.count())) echecs.push('pas de curseur sous « Niveau fini »');
+    else {
+      await curseur.scrollIntoViewIfNeeded();
+      const cb = await curseur.boundingBox();
+      if (tactile && cb.height < 43.5) echecs.push('curseur de ' + Math.round(cb.height) + ' px de haut');
+      await curseur.focus();
+      const n0 = await lire('niveauFini');
+      await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(150);
+      curseurLu = [n0, await lire('niveauFini'), await curseur.getAttribute('min'), await curseur.getAttribute('max')];
+      if (curseurLu[1] !== n0 + 2 || curseurLu[2] !== '0' || curseurLu[3] !== '200') echecs.push('curseur : ' + curseurLu.join(' / '));
+      await curseur.evaluate((el) => el.blur());
+    }
+    if (compact) await feuille(page, null);
+    await annuler(page); await annuler(page);
+    if ((await construction()) !== depart) echecs.push('Ctrl+Z ne rend pas la construction après le curseur');
+    await inspecteur(page);
+
+    // ---- 3. Chercher un reglage (B6) ---------------------------------------------------------------------
+    const recherche = page.locator('#zoneInspecteur input[type=search]');
+    let trouve = null, avance = null;
+    if (!(await recherche.count())) echecs.push('pas de champ « Chercher un réglage »');
+    else {
+      await recherche.scrollIntoViewIfNeeded();
+      const rb = await recherche.boundingBox();
+      if (tactile && rb.height < 43.5) echecs.push('recherche de ' + Math.round(rb.height) + ' px de haut');
+      await recherche.click(); await recherche.fill('ENTRAXE sol'); await page.waitForTimeout(150);
+      const resultats = page.locator('#zoneInspecteur .resultatsRecherche button');
+      const premier = (await resultats.first().textContent()) ?? '';
+      if (!premier.startsWith('Entraxe solives')) echecs.push('premier résultat : « ' + premier + ' »');
+      if (compact && (await page.evaluate(() => window.__plan.magasin().hauteurFeuille)) !== 'plein') echecs.push('la feuille ne monte pas pour le clavier');
+      if (tactile) await resultats.first().tap(); else await resultats.first().click();
+      await page.waitForTimeout(500);
+      trouve = await page.evaluate(() => {
+        const l = document.querySelector('#zoneInspecteur details[data-section="structure"] [data-cle="soliveEntraxe"]');
+        const r = l?.getBoundingClientRect();
+        return { ouverte: !!l?.closest('details')?.open, evidence: !!l?.classList.contains('champTrouve'), alEcran: !!r && r.height > 0 && r.top >= 0 && r.bottom <= innerHeight, vide: document.querySelector('#zoneInspecteur input[type=search]').value === '' };
+      });
+      if (!trouve.ouverte || !trouve.evidence || !trouve.alEcran || !trouve.vide) echecs.push('aller au réglage : ' + JSON.stringify(trouve));
+      await recherche.scrollIntoViewIfNeeded();
+      await recherche.click(); await recherche.fill('k portée'); await page.waitForTimeout(150);
+      avance = (await resultats.first().textContent()) ?? '';
+      if (!/^K portée.*avancé/.test(avance)) echecs.push('réglage avancé : « ' + avance + ' »');
+      if (tactile) await resultats.first().tap(); else await resultats.first().click();
+      await page.waitForTimeout(500);
+      const expert = await page.evaluate(() => ({ expert: window.__plan.magasin().options.modeExpert, ligne: !!document.querySelector('#zoneInspecteur [data-cle="kPortee"].champTrouve') }));
+      if (!expert.expert || !expert.ligne) echecs.push('réglage avancé atteint : ' + JSON.stringify(expert));
+      if (await modeExpert(page, false)) echecs.push('le mode expert ne s’éteint pas');
+      if ((await construction()) !== depart) echecs.push('la recherche a modifié le projet');
+      await inspecteur(page);
+    }
+
+    // ---- 4. Les trois departs (B5) -------------------------------------------------------------------------
+    await ouvrirSection(page, 'lames');
+    const pinPlots = page.locator('#zoneInspecteur button[data-commande="terrasse.prereglage.pinPlots"]');
+    const departs = await page.locator('#zoneInspecteur [data-cle="prereglages"] button[data-commande]').count();
+    if (departs !== 3) echecs.push(departs + ' départ(s)');
+    let pose = null;
+    if (await pinPlots.count()) {
+      await pinPlots.scrollIntoViewIfNeeded();
+      const pb = await pinPlots.boundingBox();
+      if (tactile && pb.height < 43.5) echecs.push('« Pin sur plots » de ' + Math.round(pb.height) + ' px de haut');
+      await page.evaluate(() => { window.__plan.etat().dirty = false; });
+      if (tactile) await pinPlots.tap(); else await pinPlots.click();
+      await page.waitForTimeout(400);
+      pose = await page.evaluate((src) => {
+        const c = window.__plan.etat().objects.find(new Function('o', 'return ' + src)).construction;
+        return { c: [c.typePose, c.plotAvecSolives, c.essenceBois, c.largeurLame, c.epaisseurLame, c.lambourdeSection].join(' '), sale: !!window.__plan.etat().dirty,
+          note: document.querySelector('#zoneInspecteur [data-cle="prereglages"] .note')?.textContent ?? '' };
+      }, TERRASSE);
+      if (pose.c !== 'plots false pin-classe4 145 27 45x70' || !pose.sale || pose.note !== 'en place : pin sur plots') echecs.push('« Pin sur plots » : ' + JSON.stringify(pose));
+      if (compact) await feuille(page, null);
+      await annuler(page);
+      if ((await construction()) !== depart) echecs.push('un Ctrl+Z ne rend pas la construction d’avant le départ');
+    }
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    if (deborde) echecs.push('débordement');
+    if (compact) await feuille(page, null);
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + (feuilleMi ? `feuille à mi-hauteur (haut à ${feuilleMi.haut} px sur ${feuilleMi.ecran}) ; ` : '')
+      + `− maintenu 125 → ${v} cm en ${maintien} ms et ${vues.length - 1} pas (saut maximal ${sautMax} cm), Ctrl+Z → ${apresMaintien} ; curseur du niveau fini ${curseurLu ? curseurLu[0] + ' → ' + curseurLu[1] : '—'} ; `
+      + `recherche → ${trouve ? 'section ouverte, ligne en évidence' : '—'}, « ${avance ?? ''} » ; « Pin sur plots » → ${pose ? pose.c + ', « ' + pose.note + ' »' : '—'}` };
   },
   178: async (page) => {
     // L'inspecteur de la terrasse en trois groupes (lot 3 de la simplification, 16 novembre 2026) : la terrasse de la demonstration
@@ -10889,7 +11045,9 @@ function pointsPour(nomClasse) {
   //       par le « i », les fleches immediates et leur seul Ctrl+Z, les cibles de 44 px.
   // 194 : l'inspecteur a moins de champs : pergola en trois groupes sous « Réglages », un reglage du mode expert absent puis montre
   //       par la ligne « réglages avancés », un coin replie, deplie et renomme, les arrivees de la parcelle et de la maison.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194];
+  // 195 : la saisie et la recherche de l'inspecteur : feuille a mi-hauteur au telephone, « − » maintenu qui accelere, curseur d'un
+  //       nombre borne, « Chercher un réglage » (et un reglage avance), le depart « Pin sur plots » et son seul Ctrl+Z.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

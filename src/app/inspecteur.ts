@@ -14,6 +14,7 @@ import { vue3d } from '../three/etat3d.js';
 import { ouvrirSelecteurTexture } from './parcours.js';
 import { showToast } from '../shell/dialogs.js';
 import { brancherDialogueDeclaration } from './ecouteurs/exports.js';
+import { brancherPrereglages } from './prereglages.js';
 import { brancherDialogueDevis, preferencesDevis } from './devis.js';
 import type { ServiceDossier } from './declaration/serviceDossier.js';
 import { champAnnulable, ecritLeProjet } from './administration/ecritures.js';
@@ -174,6 +175,16 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       ctx.redimensionner();
     }
   };
+  // Les trois departs d'une terrasse (decision B5) : des commandes qui ecrivent par les descripteurs de l'inspecteur.
+  brancherPrereglages(commandes, etat, {
+    contexte, preparerHistorique: ctx.preparerHistorique, markDirty: ctx.markDirty, toast: showToast,
+    apres: (obj) => {
+      toucher(obj);
+      confirmerSelection(etat);
+      const c = contexte(obj);
+      for (const e of ['terrasse', 'scene3d'] as const) effet(e, c);
+    }
+  });
   // La declaration prealable : un dialogue du menu Exporter qui rend des champs de la parcelle. Le
   // service qui les ecrit le declare, comme il les ecrit dans l'inspecteur.
   brancherDialogueDeclaration(commandes, service, ctx.dossier);

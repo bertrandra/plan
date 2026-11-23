@@ -7,12 +7,14 @@
 //
 // Tactile : commandes de 32 px au moins sur bureau. Sur telephone et tablette (spec-ihm-mobile §7.1),
 // le meme descripteur prend une forme tactile : un nombre devient un pas a pas (− et + de 44 px, la
-// valeur reste saisissable), une case un interrupteur, un choix court une commande segmentee.
+// valeur reste saisissable), une case un interrupteur, un choix court une commande segmentee. Depuis
+// la decision B4 de l'audit de l'inspecteur, le nombre a aussi ses − et + au bureau, un pas qui grandit
+// quand on les maintient, et un curseur sous lui quand ses bornes sont fermes.
 
 import { createContext, useContext, useEffect, useId, useReducer, useRef, useState } from 'react';
 import { champActif } from '../../app/administration/ecritures.js';
 import { champsVisibles, champVisible, groupesDeChamps } from '../../ui/champs/types.js';
-import { aLaBorne, horsBornes, messageRefus, phraseBornes, valeurApresPas } from '../../ui/champs/bornes.js';
+import { aLaBorne, avecCurseur, facteurDePas, horsBornes, messageRefus, phraseBornes, valeurApresPas, valeurDuCurseur } from '../../ui/champs/bornes.js';
 import type { Champ, ChampBouton, ChampLigne, ChampNombre, ChampTexture, ContexteChamps } from '../../ui/champs/types.js';
 import type { Inspecteur as ServiceInspecteur } from '../../app/inspecteur.js';
 import { CarteToit } from './CarteToit.js';
@@ -29,7 +31,7 @@ export const Tactile = createContext(false);
  */
 export type ServiceChamps = Pick<ServiceInspecteur, 'appliquer' | 'executer'>;
 
-interface PropsChamp<T extends Champ = Champ> { champ: T; c: ContexteChamps; inspecteur: ServiceChamps; inline?: boolean }
+interface PropsChamp<T extends Champ = Champ> { champ: T; c: ContexteChamps; inspecteur: ServiceChamps; inline?: boolean | undefined }
 
 const formater = (v: number, decimales: number | undefined) => Number.isFinite(v) ? (decimales === undefined ? String(v) : v.toFixed(decimales)) : '';
 
@@ -47,13 +49,19 @@ const REPETITION_MS = 400, CADENCE_MS = 90;
  */
 const SERIE_MS = 1500;
 
-/** Un nombre : brouillon local pendant la saisie, ecrit a la validation ; refuse, il revient a ce qu'il lit et dit pourquoi. */
-function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
+/**
+ * Un nombre : brouillon local pendant la saisie, ecrit a la validation ; refuse, il revient a ce qu'il lit et dit pourquoi. Ses « − »
+ * et « + » ecrivent tout de suite, et maintenus, leur pas grandit (`facteurDePas`) ; borne des deux cotes, un curseur le suit dessous
+ * (`avecCurseur`). Dans une ligne (`inline`), au bureau, ni boutons ni curseur : la ligne doit tenir sur une rangee.
+ */
+function Nombre({ champ, c, inspecteur, inline }: PropsChamp<ChampNombre>) {
   const tactile = useContext(Tactile);
   const [brouillon, setBrouillon] = useState<string | null>(null);
   // Le refus appartient a l'objet sur lequel il a ete prononce : le composant sert au suivant, le message non.
   const [refus, setRefus] = useState<{ objet: string; texte: string } | null>(null);
   const minuteur = useRef<number | null>(null);
+  /** Les pas repetes de l'appui en cours : le pas grandit avec eux. */
+  const repetitions = useRef(0);
   const dernierPas = useRef(0);
   const sourisTenue = useRef(false);
   const idRefus = useId();
@@ -88,7 +96,8 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
    * repetitions d'un appui maintenu n'en ajoutent pas : un appui, un seul instantané d'annulation.
    */
   function pas(sens: 1 | -1, premier: boolean): void {
-    const v = valeurApresPas(champ, champ.lire(c), sens);
+    if (premier) repetitions.current = 0; else repetitions.current++;
+    const v = valeurApresPas(champ, champ.lire(c), sens, premier ? 1 : facteurDePas(repetitions.current));
     // A la borne, le bouton se grise et ne recoit plus la fin de l'appui : la repetition s'arrete ici.
     if (v === null) { arreter(); return; }
     setBrouillon(null);
@@ -137,18 +146,6 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
   };
   const sousLeChamp = message && <span className="refusChamp" id={idRefus} role="status">{tactile ? aLaFrancaise(message) : message}</span>;
   const decrit = message ? { 'aria-invalid': true, 'aria-describedby': idRefus } : {};
-  if (!tactile) {
-    return (
-      <>
-        <span className="champNombre">
-          <input type="number" value={brouillon ?? valeur} step={champ.pas} min={champ.min} max={champ.max} disabled={!actif} title={champ.aide}
-            aria-label={champ.libelle} {...decrit} onChange={(e) => changer(e.target.value)} onBlur={valider} onKeyDown={touches} onMouseDown={tenirSouris} />
-          {champ.unite && <span className="unite">{champ.unite}</span>}
-        </span>
-        {sousLeChamp}
-      </>
-    );
-  }
 
   const presser = (sens: 1 | -1) => (e: React.PointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0) return;
@@ -160,15 +157,33 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
   const bouton = (sens: 1 | -1) => {
     // A la borne, le bouton se grise et le dit : le pas s'arretait deja, sans rien montrer.
     const borne = aLaBorne(champ, lu, sens);
+    // Au bureau, les fleches du champ font deja ce pas au clavier : les boutons restent hors de l'ordre de tabulation, pour ne pas
+    // tripler les arrets de Tab d'une section. Au doigt, ils y restent : un clavier branche a une tablette les atteint.
     return (
       <button type="button" className="pasBouton" disabled={!actif || borne} aria-label={(sens > 0 ? 'Augmenter ' : 'Diminuer ') + champ.libelle}
-        title={borne ? phraseBornes(champ) : undefined}
+        title={borne ? phraseBornes(champ) : (sens > 0 ? 'Augmenter' : 'Diminuer') + ' (maintenir pour aller plus vite)'} tabIndex={tactile ? undefined : -1}
         onPointerDown={presser(sens)} onPointerUp={arreter} onPointerLeave={arreter} onPointerCancel={arreter}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pas(sens, true); } }}>
-        <Icone nom={sens > 0 ? 'plus' : 'moins'} taille={18} />
+        <Icone nom={sens > 0 ? 'plus' : 'moins'} taille={tactile ? 18 : 14} />
       </button>
     );
   };
+  const curseur = !inline && avecCurseur(champ) ? <CurseurNombre champ={champ} lu={lu} texte={valeur} actif={actif} ecrire={ecrirePasDeSerie} /> : null;
+  if (!tactile) {
+    return (
+      <>
+        <span className={inline ? 'champNombre' : 'champNombre avecPas'}>
+          {!inline && bouton(-1)}
+          <input type="number" value={brouillon ?? valeur} step={champ.pas} min={champ.min} max={champ.max} disabled={!actif} title={champ.aide}
+            aria-label={champ.libelle} {...decrit} onChange={(e) => changer(e.target.value)} onBlur={valider} onKeyDown={touches} onMouseDown={tenirSouris} />
+          {champ.unite && <span className="unite">{champ.unite}</span>}
+          {!inline && bouton(1)}
+        </span>
+        {curseur}
+        {sousLeChamp}
+      </>
+    );
+  }
   return (
     <>
       <span className="pas" role="group" aria-label={champ.libelle}>
@@ -182,8 +197,22 @@ function Nombre({ champ, c, inspecteur }: PropsChamp<ChampNombre>) {
         </label>
         {bouton(1)}
       </span>
+      {curseur}
       {sousLeChamp}
     </>
+  );
+}
+
+/**
+ * Le curseur d'un nombre borne (decision B4) : glisser ecrit a chaque cran, le plan suit, et la glissade entiere ne fait qu'un pas
+ * d'annulation (la serie des fleches, `ecrire`). Il double le chiffre sans le remplacer : la saisie reste la seule facon d'une valeur
+ * exacte.
+ */
+function CurseurNombre({ champ, lu, texte, actif, ecrire }: { champ: ChampNombre; lu: number; texte: string; actif: boolean; ecrire: (v: number) => void }) {
+  return (
+    <input type="range" className="curseurNombre" min={champ.min} max={champ.max} step={champ.pas ?? 'any'} value={valeurDuCurseur(champ, lu)} disabled={!actif}
+      aria-label={champ.libelle + ' (curseur)'} aria-valuetext={aLaFrancaise(texte) + (champ.unite ? ' ' + champ.unite : '')}
+      onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v) && v !== lu) ecrire(v); }} />
   );
 }
 
@@ -207,7 +236,9 @@ function Bouton({ champ, c, inspecteur }: PropsChamp<ChampBouton>) {
   const actif = champActif(champ, c);
   return (
     <span className="champBouton">
-      <button type="button" className="secondary small" disabled={!actif} title={champ.aide} onClick={() => inspecteur.executer(champ, c)}>
+      {/* Un bouton lie a une commande la nomme, comme ceux du pied et de la palette : la fumee et l'inventaire le retrouvent par elle. */}
+      <button type="button" className="secondary small" disabled={!actif} title={champ.aide} data-commande={typeof champ.agit === 'object' ? champ.agit.commande : undefined}
+        onClick={() => inspecteur.executer(champ, c)}>
         {champ.texte ? champ.texte(c) : champ.libelle}
       </button>
       {champ.explication && <span className="explication">{champ.explication}</span>}
@@ -227,7 +258,7 @@ function Commande({ champ, c, inspecteur, inline }: PropsChamp) {
       return <input type="text" value={champ.lire(c)} placeholder={champ.placeholder} disabled={!actif} title={champ.aide} aria-label={champ.libelle}
         onChange={(e) => ecrire<string>((v) => champ.ecrire(c, v))(e.target.value)} />;
     case 'nombre':
-      return <Nombre champ={champ} c={c} inspecteur={inspecteur} />;
+      return <Nombre champ={champ} c={c} inspecteur={inspecteur} inline={inline} />;
     case 'case':
       if (tactile) {
         return <label className={inline ? 'interrupteur avecTexte' : 'interrupteur'}>
@@ -348,8 +379,9 @@ function LigneOuverte({ champ, c, inspecteur }: PropsChamp) {
   const aideDejaEcrite = tactile && grise && !!champ.aide;
   // Le « i » (audit de l'inspecteur, lot A2) : l'infobulle n'existe pas au doigt, et 78 aides ecrites ne s'y lisaient jamais. Un
   // toucher ecrit l'aide sous le champ, un second la referme ; au bureau l'infobulle reste, et le « i » marche aussi. Une ligne
-  // composee (un cote, un coin) n'en porte pas : ses commandes ont chacune la leur.
-  const avecAide = !!champ.aide && !aideDejaEcrite && champ.type !== 'ligne';
+  // composee (un cote, un coin) n'en porte pas : ses commandes ont chacune la leur. Une rangee de boutons (les departs d'une
+  // terrasse) en porte un : ses boutons n'ont qu'une infobulle, que le doigt ne voit pas.
+  const avecAide = !!champ.aide && !aideDejaEcrite && (champ.type !== 'ligne' || champ.champs.every(s => s.type === 'bouton'));
   const brute = [champ.note ? champ.note(c) : '', aideDejaEcrite && champ.aide ? champ.aide : ''].filter(Boolean).join(' — ');
   const note = tactile ? aLaFrancaise(brute) : brute;
   const pleineLargeur = champ.type === 'alerte' || champ.type === 'carte' || (champ.type === 'bouton' && !champ.libelle);

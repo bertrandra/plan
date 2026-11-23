@@ -83,6 +83,18 @@ Depuis la `2.1.0` (`MD/spec-ihm-mobile.md`), chaque zone a une forme par classe,
 - **Une longue liste de lignes se replie** (`ChampLigne.resume`) : un côté, un coin, le point d'un
   chemin ne montrent que leur nom et leur longueur ou leur angle ; un toucher déplie les champs en
   place, un par rangée.
+- **Un nombre a « − » et « + » partout** (hors tabulation au bureau, où les flèches font le même pas),
+  un pas qui grandit quand on les maintient (`facteurDePas`) et un curseur sous lui quand ses deux
+  bornes sont fermes (`avecCurseur`, `ui/champs/bornes.ts`) : déclarer `min` **et** `max` suffit à
+  l'avoir. Une borne incertaine reste `bornesIndicatives` : ni refus au clavier, ni curseur.
+- **« Chercher un réglage »** lit `libelle` et `aide` des descripteurs (`ui/champs/recherche.ts`) : un
+  champ sans libellé (alerte, bouton pleine largeur) ne se trouve pas, un libellé clair et une aide
+  qui emploie les mots de la personne le rendent trouvable. Un champ du mode expert se trouve,
+  marqué « avancé ».
+- **Un préréglage écrit par les descripteurs** (`ui/champs/prereglages.ts`) : jamais une écriture
+  directe dans le modèle, toujours une commande du registre pour l'annulation et les droits.
+- **Au téléphone, la feuille Propriétés s'ouvre à mi-hauteur**, plan visible et non voilé ; un champ
+  qui appelle le clavier la fait monter en plein écran (`zones/Inspecteur.tsx`).
 - **Comparer à la maquette, écran par écran**, avant de dire qu'un écran est fait
   (https://claude.ai/artifact/1HGs8FN1nB4T3HCr5n1VWt) : la `2.1.0` avait la structure mais pas le
   rendu de Propriétés, de Chiffrage ni du plan, et les tests ne le voyaient pas.

@@ -22,10 +22,11 @@ const champLame = (cx: ContexteChamps) => sectionsConstruction(cx).find((s) => s
 const bom = (o: ObjetPlan) => JSON.stringify(computeBOM(o, computeTerrasseLayers(o, [o])));
 
 describe('la lame du commerce', () => {
-  it('est le premier champ des lames ; les reglages fins se replient sous elle', () => {
+  it('est le premier reglage des lames, apres les trois departs ; les reglages fins se replient sous elle', () => {
     const cx = contexte(terrasse({}));
     const lames = sectionsConstruction(cx).find((s) => s.id === 'lames')!;
-    expect(lames.champs[0]!.cle).toBe('lameCommerce');
+    // Les departs (decision B5 de l'audit de l'inspecteur) reglent la lame et la structure d'un coup : ils viennent avant.
+    expect(lames.champs.slice(0, 2).map((c) => c.cle)).toEqual(['prereglages', 'lameCommerce']);
     expect(lames.champs.filter((c) => c.repli === 'Détail de la lame (essence, cotes, raideur)').map((c) => c.cle)).toEqual(['essenceBois', 'coefRaideurLame', 'largeurLame', 'epaisseurLame']);
   });
 

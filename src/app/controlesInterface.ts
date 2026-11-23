@@ -164,6 +164,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'inspecteur.famille.geometrie': { libelle: 'Sections de géométrie (au doigt)', zone: Z5, nature: 'navigation' },
   'inspecteur.famille.reglages': { libelle: 'Sections des réglages de l’ouvrage (au doigt)', zone: Z5, nature: 'navigation' },
   'inspecteur.reglagesAvances': { libelle: 'Réglages avancés masqués (mode expert)', zone: Z5, nature: 'affichage', description: 'Au pied d’une section, le nombre de réglages que le mode simple cache, et le bouton qui allume le mode expert' },
+  'inspecteur.recherche': { libelle: 'Chercher un réglage', zone: Z5, nature: 'navigation', description: 'Trouve un réglage de l’objet par son nom ou son explication, sans accents ni majuscules, y compris ceux du mode expert' },
+  'inspecteur.resultatRecherche': { libelle: 'Aller au réglage trouvé', zone: Z5, nature: 'navigation', repete: true, description: 'Ouvre la section du réglage, le fait défiler jusqu’à lui et le met en évidence ; un réglage avancé allume le mode expert' },
   'inspecteur.chiffrage': { libelle: 'Bandeau du chiffrage recalculé', zone: Z5, nature: 'navigation', description: 'Résume le chiffrage de la terrasse ; ouvre son détail' },
 
   // ---- Z6 : le tiroir des resultats ----------------------------------------------------------------

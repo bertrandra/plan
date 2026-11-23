@@ -767,6 +767,18 @@
   .champ input[type=color]{ width:40px; height:32px; padding:0; border:1px solid var(--rule); cursor:pointer; }
   .champNombre{ display:inline-flex; align-items:center; gap:4px; }
   .champNombre .unite{ font-size:0.7rem; color:var(--ink-soft); }
+  /* Au bureau aussi, « − » et « + » de part et d'autre du chiffre (decision B4 de l'audit de l'inspecteur) : ils remplacent les
+     fleches minuscules du navigateur, qu'on retire pour ne pas montrer deux fois le meme geste. Le chiffre se tape toujours. */
+  .champNombre.avecPas{ gap:0; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); overflow:hidden; }
+  .champNombre.avecPas input[type=number]{ width:64px; border:none; border-radius:0; text-align:right; appearance:textfield; -moz-appearance:textfield; }
+  .champNombre.avecPas input[type=number]::-webkit-inner-spin-button, .champNombre.avecPas input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
+  .champNombre.avecPas input[type=number]:focus{ outline:none; }
+  .champNombre.avecPas:focus-within{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .champNombre.avecPas:has(input[aria-invalid="true"]){ border-color:var(--danger); }
+  .champNombre.avecPas .unite{ padding:0 6px 0 2px; }
+  .champNombre.avecPas .pasBouton{ width:26px; min-height:30px; }
+  /* Le curseur d'un nombre borne (decision B4) : sous le chiffre, sur toute la largeur de la commande. */
+  .curseurNombre{ display:block; width:100%; margin:4px 0 0; accent-color:var(--accent); }
   /* Une saisie refusee laisse sa raison sous le champ (« Entre 20 et 150 cm ») au lieu de revenir en silence (lot A3). Le mot
      accompagne la couleur, qui ne porte jamais seule l'information. */
   .refusChamp{ display:block; margin-top:2px; font-family:var(--sans); font-size:0.68rem; line-height:1.25; color:var(--danger); }
@@ -805,6 +817,32 @@
   html:not([data-classe="large"]) .ligneResume{ min-height:44px; font-size:14px; padding:0 4px; border-radius:var(--r-champ); }
   html:not([data-classe="large"]) .ligneResume .valeurResume{ font-weight:600; }
   html:not([data-classe="large"]) #zoneInspecteur .inspecteurSection .ligneDetail.champs{ padding:0 0 0 10px; margin-left:4px; }
+  /* « Chercher un réglage » (decision B6 de l'audit de l'inspecteur) : en tete du corps du panneau, au-dessus des sections. Les
+     resultats disent le libelle, puis la section ; un reglage avance le dit en toutes lettres, la couleur ne portant rien seule. */
+  .rechercheReglage{ padding:6px 10px 4px; }
+  .rechercheReglage input[type=search]{
+    width:100%; box-sizing:border-box; min-height:30px; padding:4px 10px; border:1px solid var(--border); border-radius:999px;
+    background:var(--input-bg); color:var(--ink); font-family:var(--sans); font-size:0.78rem;
+  }
+  .rechercheReglage input[type=search]:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .rechercheReglage .etatRecherche{ margin:4px 4px 0; }
+  .resultatsRecherche{ list-style:none; margin:4px 0 2px; padding:0; border:1px solid var(--hairline); border-radius:var(--r-champ); background:var(--panel-bg); overflow:hidden; }
+  .resultatsRecherche li + li{ border-top:1px solid var(--hairline); }
+  .resultatsRecherche button{
+    display:flex; flex-direction:column; align-items:flex-start; gap:1px; width:100%; min-height:32px; padding:4px 10px; margin:0; border:none; border-radius:0;
+    background:transparent; color:var(--ink); font-family:var(--sans); text-align:left; cursor:pointer;
+  }
+  .resultatsRecherche button:hover, .resultatsRecherche button:focus-visible{ background:var(--accent-light); color:var(--on-accent-light); opacity:1; }
+  .resultatsRecherche .libelleTrouve{ font-size:0.78rem; }
+  .resultatsRecherche .ouTrouve{ font-size:0.66rem; color:var(--ink-soft); }
+  .resultatsRecherche button:hover .ouTrouve, .resultatsRecherche button:focus-visible .ouTrouve{ color:inherit; }
+  /* Le reglage atteint par la recherche se signale un instant : un trait d'accent et un fond doux. */
+  .champ.champTrouve{ background:var(--accent-light); box-shadow:inset 3px 0 0 var(--accent); transition:background .2s; }
+  html:not([data-classe="large"]) .rechercheReglage{ padding:4px 0 6px; }
+  html:not([data-classe="large"]) .rechercheReglage input[type=search]{ min-height:44px; font-size:15px; padding:0 14px; }
+  html:not([data-classe="large"]) .resultatsRecherche button{ min-height:52px; padding:6px 12px; }
+  html:not([data-classe="large"]) .resultatsRecherche .libelleTrouve{ font-size:15px; }
+  html:not([data-classe="large"]) .resultatsRecherche .ouTrouve{ font-size:12.5px; }
   /* Le rappel des reglages que le mode simple cache, au pied d'une section (decision B1) : discret, et de quoi les montrer. */
   .reglagesAvances{
     display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0 0; padding-top:6px; border-top:1px dashed var(--rule);
@@ -1545,6 +1583,8 @@
   }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=color]{ width:44px; height:44px; border-radius:var(--r-champ); }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champCurseur input[type=range]{ height:44px; }
+  /* Au doigt, le curseur d'un nombre passe sous la ligne entiere, et sa cible fait 44 px de haut. */
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .curseurNombre{ grid-column:1 / -1; height:44px; margin:-4px 0 0; }
   html:not([data-classe="large"]) .curseurRayon input[type=range]{ min-height:32px; }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champTexture .vignette{ width:44px; height:44px; border-radius:var(--r-champ); }
   html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champTexture button, html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champBouton button{ min-height:44px; font-size:14px; font-family:var(--sans); border-radius:var(--r-bouton); }

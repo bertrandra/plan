@@ -139,9 +139,14 @@ export interface Magasin {
   definirOption<K extends keyof OptionsCommandes>(cle: K, valeur: OptionsCommandes[K]): void;
 }
 
-/** La hauteur d'ouverture de chaque feuille : les listes a mi-hauteur, les resultats en entier. */
+/**
+ * La hauteur d'ouverture de chaque feuille : les listes a mi-hauteur, les resultats en entier. Les proprietes s'ouvrent a mi-hauteur
+ * (audit de l'inspecteur, decision B8) : en plein ecran, la feuille couvrait 795 des 844 px du telephone, et l'on reglait un nombre sans
+ * voir le plan bouger. Elle se tire en plein ecran par sa poignee, et monte d'elle-meme quand un champ appelle le clavier
+ * (zones/Inspecteur.tsx).
+ */
 export const HAUTEUR_PAR_DEFAUT: Record<Feuille, HauteurFeuille> = {
-  projet: 'plein', outils: 'mi', objets: 'mi', proprietes: 'plein', resultats: 'plein', reglages3d: 'mi'
+  projet: 'plein', outils: 'mi', objets: 'mi', proprietes: 'mi', resultats: 'plein', reglages3d: 'mi'
 };
 
 export function creerMagasin(etat: EtatApp): Magasin {

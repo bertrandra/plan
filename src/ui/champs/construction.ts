@@ -33,6 +33,7 @@ import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SEC
 import type { Construction } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { nomDuCote } from '../nomCote.js';
+import { lignePrereglages } from './prereglages.js';
 
 /** Ce que les champs de construction lisent de la terrasse courante, calcule une fois par rendu. */
 interface Lecture {
@@ -465,6 +466,12 @@ function champsRiveParCote(c?: ContexteChamps): Champ[] {
   }));
 }
 
+/**
+ * Les trois departs d'une terrasse (ui/champs/prereglages.ts) : sa note dit lequel est en place, lu sur les champs de la terrasse.
+ * Le champ des departs lui-meme ne se relit pas : il n'en porte aucune valeur.
+ */
+const prereglages: Champ = lignePrereglages((cx) => sectionsConstruction(cx).flatMap((s) => s.champs).filter((ch) => ch.cle !== 'prereglages'));
+
 /** Les etapes de la terrasse, dans l'ordre ou l'on decide (voir l'en-tete). */
 export function sectionsConstruction(c?: ContexteChamps): Section[] {
   // Le niveau fini d'abord : il fixe le decaissement, donc ce qui reste de hauteur aux appuis. Puis
@@ -515,7 +522,8 @@ export function sectionsConstruction(c?: ContexteChamps): Section[] {
   const lames: Section = {
     // Ce qu'on vient regler sur une terrasse : la section qui s'ouvre a la selection.
     id: 'lames', titre: 'Lames et finitions', principale: true,
-    champs: [lameCommerce, champ('segmentReference'), champ('sensPose'),
+    // Les trois departs d'abord (decision B5) : ils reglent d'un coup ce que la suite detaille champ par champ.
+    champs: [prereglages, lameCommerce, champ('segmentReference'), champ('sensPose'),
       ...(['essenceBois', 'coefRaideurLame', 'largeurLame', 'epaisseurLame'] as const).map((k) => ({ ...champ(k), repli: PLI_LAME, ...(k === 'coefRaideurLame' ? { expert: true } : {}) })),
       champ('avecLameRive'), champ('hauteurLameRive'), ...champsRiveParCote(c), champ('cotesSansRive'), champ('riveOuvertures'), champ('avecLamePlat')]
   };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aLaBorne, horsBornes, messageRefus, phraseBornes, valeurApresPas } from '../../../src/ui/champs/bornes.js';
+import { aLaBorne, avecCurseur, facteurDePas, horsBornes, messageRefus, phraseBornes, valeurApresPas, valeurDuCurseur } from '../../../src/ui/champs/bornes.js';
 import { sectionsInspecteur } from '../../../src/ui/champs/sections.js';
 import { sectionsConstruction } from '../../../src/ui/champs/construction.js';
 import type { Champ, ChampNombre, ContexteChamps } from '../../../src/ui/champs/types.js';
@@ -104,5 +104,48 @@ describe('les bornes des champs du plan', () => {
     expect(tous(terrasse).filter(x => x.section === 'cotes' && x.ch.cle === 'longueur').every(x => x.ch.bornesIndicatives)).toBe(true);
     // Les reglages de la construction, eux, tiennent leurs bornes.
     expect(tous(terrasse).filter(x => x.section === 'structure').some(x => x.ch.bornesIndicatives)).toBe(false);
+  });
+});
+
+describe('le pas qui grandit et le curseur (decision B4)', () => {
+  it('maintenu, le pas grandit : un, puis deux, cinq et dix pas a la fois', () => {
+    expect([0, 5, 6, 15, 16, 29, 30, 100].map(facteurDePas)).toEqual([1, 1, 2, 2, 5, 5, 10, 10]);
+  });
+
+  it('un grand pas reste dans les bornes', () => {
+    const ch = nombre({ min: 20, max: 150 });
+    expect(valeurApresPas(ch, 125, -1, 10)).toBe(75);
+    expect(valeurApresPas(ch, 40, -1, 10)).toBe(20);
+    expect(valeurApresPas(ch, 145, 1, 5)).toBe(150);
+    expect(valeurApresPas(ch, 20, -1, 10)).toBeNull();
+  });
+
+  it('maintenir « − » de 125 a 20 cm prend moins de deux secondes, contre 21 touchers', () => {
+    // Le premier pas, puis une repetition toutes les 90 ms apres 400 ms (zones/composants/Champs.tsx).
+    const ch = nombre({ min: 20, max: 150 });
+    let v: number | null = valeurApresPas(ch, 125, -1)!, n = 0, ms = 400;
+    while (v !== null && v > 20) { n++; ms += 90; v = valeurApresPas(ch, v, -1, facteurDePas(n)); }
+    expect(v).toBe(20);
+    expect(ms).toBeLessThan(2000);
+  });
+
+  it('ne montre un curseur qu entre deux bornes fermes, et pas pour des centaines de milliers de pas', () => {
+    expect(avecCurseur(nombre({ min: 2, max: 45, pas: 1 }))).toBe(true);
+    expect(avecCurseur(nombre({ min: 20 }))).toBe(false);
+    expect(avecCurseur(nombre({ min: 20, max: 150, bornesIndicatives: true }))).toBe(false);
+    expect(avecCurseur(nombre({ min: 0, max: 1e6, pas: 1 }))).toBe(false);
+    expect(avecCurseur(nombre({ min: 5, max: 5 }))).toBe(false);
+  });
+
+  it('le curseur montre la valeur du projet ramenee dans les bornes, sans l ecrire', () => {
+    const ch = nombre({ min: 20, max: 150 });
+    expect([3, 40, 400].map((v) => valeurDuCurseur(ch, v))).toEqual([20, 40, 150]);
+  });
+
+  it('le niveau fini d une terrasse, borne de 0 a 200 cm, a son curseur', () => {
+    const terrasse = DEMO_OBJECTS.find((o) => o.fonction === 'terrasse') as ObjetPlan;
+    const cx = { etat: { objects: DEMO_OBJECTS, highlight: {} }, obj: terrasse, objets: DEMO_OBJECTS, parcelle: null, construction: () => terrasse.construction } as unknown as ContexteChamps;
+    const niveau = sectionsConstruction(cx).flatMap((s) => s.champs).find((c) => c.cle === 'niveauFini') as ChampNombre;
+    expect(avecCurseur(niveau)).toBe(true);
   });
 });
