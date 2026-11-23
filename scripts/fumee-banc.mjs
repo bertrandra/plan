@@ -628,7 +628,7 @@ async function jouer(navigateur, serveur, net, nom, etat) {
     await allerA('export');
     const boutonEntrainer = page.getByRole('button', { name: /Entraîner sur mon Mac/ });
     await boutonEntrainer.waitFor();
-    verifier(/Ce script contient une clé valable 24 h : ne le partagez pas\./.test(await texte('.avis-cle')), 'l’écran ne prévient pas que le script porte une clé : ' + await texte('.avis-cle'));
+    verifier(/Ce script contient une clé valable 72 h : ne le partagez pas\./.test(await texte('.avis-cle')), 'l’écran ne prévient pas que le script porte une clé : ' + await texte('.avis-cle'));
     verifier(!/colab/i.test(await page.locator('body').innerText()), 'l’écran d’export parle encore de Colab');
     verifier(await page.locator('.cles-entrainement li').count() === 0, 'une clé d’entraînement est listée avant d’en avoir créé une');
     const creerCle = async () => {

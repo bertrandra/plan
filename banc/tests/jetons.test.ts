@@ -192,11 +192,11 @@ describe.skipIf(!php)('les jetons d’entraînement : l’aller-retour du script
       if (fs.statSync(p).isFile() && !p.endsWith('.jpg') && !p.endsWith('.zip')) expect(fs.readFileSync(p, 'utf8'), f).not.toContain(secret);
     }
     expect(a.public).toMatchObject({ architecture: { id: 'rf-detr-nano', format: 'rf-detr', resolution: 384, depart: 'coco' }, jeu: { images: { train: 1, val: 0, test: 0 }, verifieesSeulement: true }, lectures: 0, depose: null });
-    // 24 h par defaut.
+    // 72 h par defaut.
     const duree = (new Date(String(a.public.expireLe)).getTime() - new Date(String(a.public.creeLe)).getTime()) / 3600000;
-    expect(duree).toBeGreaterThan(23.9);
-    expect(duree).toBeLessThan(24.1);
-    expect((await json(await appel('GET', 'jetons'))).heures).toBe(24);
+    expect(duree).toBeGreaterThan(71.9);
+    expect(duree).toBeLessThan(72.1);
+    expect((await json(await appel('GET', 'jetons'))).heures).toBe(72);
   });
 
   it('le script est un fichier bash entier : l’adresse du banc, sa clé (jamais affichée en entier), les trois routes du jeton, les réglages d’entraînement', async () => {
@@ -209,7 +209,7 @@ describe.skipIf(!php)('les jetons d’entraînement : l’aller-retour du script
     expect(c.script).toContain(`BANC_CLE='${c.jeton}'`);
     expect(c.script).toContain("BANC_ARCHITECTURE='rf-detr-nano'\nBANC_RESOLUTION=384\nBANC_MORCEAU=4194304\nFAMILLE=rfdetr\n");
     expect(c.script).toContain(`bash ~/Downloads/${c.fichier}`);
-    expect(c.script).toMatch(/CE FICHIER CONTIENT UNE CLE valable 24 h : ne le partagez pas\./);
+    expect(c.script).toMatch(/CE FICHIER CONTIENT UNE CLE valable 72 h : ne le partagez pas\./);
     expect(c.script).toContain('Apache 2.0');
     // Le jeton n'est ecrit qu'une fois, jamais dans une adresse, et le shell ne s'en sert que deux fois : pour en afficher le debut
     // (onze caracteres : « bj_ » et la moitie de l'identifiant public), et pour le passer au Python par l'environnement.
@@ -316,7 +316,7 @@ describe.skipIf(!php)('les jetons d’entraînement : l’aller-retour du script
     expect(refuse.sortie).toMatch(/1\/6 Python : .+ \(3\.\d+/);
     expect(refuse.sortie).toContain('2/6 Création de l’environnement Python isolé');
     expect(refuse.sortie).toContain('3/6 ESSAI (BANC_ESSAI_MODELE)');
-    expect(refuse.sortie).toMatch(/Clé acceptée, valable encore 2[34] h \d\d min\. Jeu : 1 photo\(s\) pour apprendre, 0 pour valider, 0 pour le test\./);
+    expect(refuse.sortie).toMatch(/Clé acceptée, valable encore 7[12] h \d\d min\. Jeu : 1 photo\(s\) pour apprendre, 0 pour valider, 0 pour le test\./);
     expect(refuse.sortie).toContain('4/6 Téléchargement du jeu…');
     expect(refuse.erreur).toContain('ARRÊT : dépôt impossible — le banc refuse (415) : Ce fichier n’est pas un modèle ONNX.');
     expect(refuse.erreur).toContain(`Le modèle est gardé ici : ${pasUnModele}`);
@@ -387,8 +387,8 @@ describe.skipIf(!php)('les jetons d’entraînement : l’aller-retour du script
     const e = await json(etat) as unknown as { reste: number; jeu: { racine: string } };
     expect(e).toMatchObject({ architecture: 'rf-detr-nano', jeu: { images: (c.public.jeu as { images: object }).images }, depose: false });
     expect(Object.keys(e).sort()).toEqual(['architecture', 'depose', 'expireLe', 'jeu', 'reste']);
-    expect(e.reste).toBeGreaterThan(24 * 3600 - 60);
-    expect(e.reste).toBeLessThanOrEqual(24 * 3600);
+    expect(e.reste).toBeGreaterThan(72 * 3600 - 60);
+    expect(e.reste).toBeLessThanOrEqual(72 * 3600);
     expect(e.jeu.racine).toMatch(/^banc-rf-detr-nano-\d{8}-\d{6}$/);
     expect((await json(await appel('GET', 'jetons'))).jetons).toContainEqual(expect.objectContaining({ id: c.id, lectures: 0 }));
     await photoCorrigee('apres-le-jeton.jpg');

@@ -25,7 +25,7 @@ function telecharger(nom: string, contenu: string, type: string): void {
 
 export function useEntrainement(banc: Banc, choix: { format: 'detect' | 'seg' | 'rfdetr' | 'natif'; variante: string; depart: 'coco' | 'zero'; verifiees: boolean }) {
   const [jetons, setJetons] = useState<JetonEntrainement[]>([]);
-  const [heures, setHeures] = useState(24);
+  const [heures, setHeures] = useState(72);
   const [attente, setAttente] = useState(false);
   /** Le script qui vient d'etre telecharge : son nom et la commande qui le lance, pour dire quoi en faire. Jamais son contenu. */
   const [script, setScript] = useState<{ fichier: string; commande: string } | null>(null);
