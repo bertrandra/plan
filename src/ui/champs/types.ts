@@ -121,6 +121,12 @@ interface ChampBase {
    * sa valeur, et le calcul la lit comme avant.
    */
   expert?: boolean;
+  /**
+   * Un reglage `expert` que le mode simple montre pourtant : le projet porte une valeur qui n'est pas celle par defaut, ou une alerte
+   * demande de le regler. Sans cela, un reglage cache agirait sur le dessin et le prix sans que rien ne le dise (audit de
+   * l'inspecteur, decision B1).
+   */
+  resteMontre?: (c: ContexteChamps) => boolean;
 }
 
 export interface ChampTexte extends ChampBase {
@@ -230,6 +236,12 @@ export interface ChampCarte extends ChampBase {
 export interface ChampLigne extends ChampBase {
   type: 'ligne';
   champs: Champ[];
+  /**
+   * La ligne se replie : elle ne montre que son libelle et ce resume (le nom et la longueur d'un cote, l'angle d'un coin) ; un
+   * toucher la deplie en place sur ses champs, un par rangee (audit de l'inspecteur, decision B7 : un coin prenait 137 px au
+   * telephone, les cotes d'une maison pres de trois ecrans). Absent : les commandes restent cote a cote, comme une facade.
+   */
+  resume?: (c: ContexteChamps) => string;
 }
 
 export type Champ =
@@ -252,15 +264,26 @@ export interface Section {
   expert?: boolean;
 }
 
-/** Le champ se montre-t-il ? Sa condition, et le mode expert pour un reglage fin. */
+/** Le champ se montre-t-il ? Sa condition, et le mode expert pour un reglage fin (sauf celui qui doit rester montre). */
 export function champVisible(ch: Champ, c: ContexteChamps): boolean {
-  return !(ch.expert && c.modeSimple === true) && (!ch.visible || ch.visible(c));
+  return !(ch.expert && c.modeSimple === true && !ch.resteMontre?.(c)) && (!ch.visible || ch.visible(c));
 }
 
 /** Les champs de la section, ceux qui se montrent : aucun pour une section du mode expert tant qu'il est eteint. */
 export function champsVisibles(section: Section, c: ContexteChamps): Champ[] {
   if (section.expert && c.modeSimple === true) return [];
   return section.champs.filter(ch => champVisible(ch, c));
+}
+
+/**
+ * Combien de reglages de la section le mode simple cache : ceux que le mode expert montrerait pour cet objet. La section le dit a
+ * son pied (zones/Inspecteur.tsx), pour qu'on sache qu'ils existent et comment les montrer. Lu dans le meme contexte que le rendu :
+ * les champs y gardent leurs lectures deja faites (construction.ts).
+ */
+export function reglagesAvancesMasques(section: Section, c: ContexteChamps): number {
+  if (c.modeSimple !== true) return 0;
+  const cache = (ch: Champ) => (section.expert || (!!ch.expert && !ch.resteMontre?.(c))) && (!ch.visible || ch.visible(c));
+  return section.champs.filter(cache).length;
 }
 
 /**

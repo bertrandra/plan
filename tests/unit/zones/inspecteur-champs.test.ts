@@ -360,12 +360,22 @@ describe('les fleches d un nombre appliquent tout de suite', () => {
 });
 
 describe('les familles de sections', () => {
-  it('rangent chaque section dans Objet, Geometrie ou Construction', async () => {
-    const { familleDe } = await import('../../../src/zones/Inspecteur.js');
-    expect(['objet', 'apparence', 'arbre', 'parasol', 'pointDeVue', 'parcelle'].map(familleDe)).toEqual(Array(6).fill('objet'));
+  it('rangent chaque section dans Reglages, Objet ou Geometrie, par une regle unique', async () => {
+    const { familleDeSection: familleDe } = await import('../../../src/ui/champs/sections.js');
+    // Ce que l'objet est (son etat civil, la reference cadastrale d'un terrain) et son apparence.
+    expect(['objet', 'parcelle', 'apparence'].map(familleDe)).toEqual(Array(3).fill('objet'));
     expect(['cotes', 'coins'].map(familleDe)).toEqual(Array(2).fill('geometrie'));
-    // La cloture et les portails de la parcelle : dans la famille montree en arrivant, pas sous un onglet a deviner.
-    expect(['cloture', 'portails'].map(familleDe)).toEqual(Array(2).fill('objet'));
-    expect(['implantation', 'fondation', 'lames', 'structure', 'appuis', 'finitions', 'parametres', 'releve'].map(familleDe)).toEqual(Array(8).fill('construction'));
+    // Tout ce qui est propre a l'ouvrage, toujours sous le meme onglet (decision B3) : les etapes d'une terrasse, d'un abri, d'une
+    // piscine, le toit et les facades, mais aussi la section d'un arbre ou d'un parasol, le relief et les fenetres en 3D (sous Objet
+    // jusque-la), la cloture et les portails d'une parcelle (sous Objet depuis la 5.38, faute d'un onglet qui les annonce).
+    const propres = ['implantation', 'lames', 'structure', 'parametres', 'toit', 'releve', 'pergola', 'pergolaStructure', 'pergolaCouleurs', 'noteCalcul', 'piscine',
+      'arbre', 'parasol', 'pointDeVue', 'massif', 'equipement', 'trou', 'relief', 'fenetres3d', 'cloture', 'portails'];
+    expect(propres.map(familleDe)).toEqual(propres.map(() => 'reglages'));
+  });
+
+  it('montrent « Réglages » en premier, et l onglet porte ce nom', async () => {
+    const source = (await import('node:fs')).readFileSync('src/zones/Inspecteur.tsx', 'utf8');
+    const ordre = [...source.matchAll(/\{ id: '(reglages|objet|geometrie)', libelle: '([^']+)' \}/g)].map(m => m[1] + ':' + m[2]);
+    expect(ordre).toEqual(['reglages:Réglages', 'objet:Objet', 'geometrie:Géométrie']);
   });
 });

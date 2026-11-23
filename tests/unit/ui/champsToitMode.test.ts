@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sectionReleve } from '../../../src/ui/champs/facade.js';
+import { sectionToit } from '../../../src/ui/champs/facade.js';
 import { champsVisibles, type Champ, type ChampChoix, type ChampLecture, type ContexteChamps } from '../../../src/ui/champs/types.js';
 import type { CorpsToit, ObjetPlan, ToitMesure, VolumeToit } from '../../../src/model/types.js';
 import { decrireCorps } from '../../../src/ui/champs/facade.js';
@@ -19,8 +19,8 @@ const volumes: VolumeToit[] = [
   { pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 8 }, { x: 0, y: 8 }], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 }, egout: 6 },
   { pts: [{ x: 8, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 8, y: 8 }], toit: { forme: 'appentis', hauteur: 1, angleFaitage: 90 } },
 ];
-const cles = (c: ContexteChamps) => champsVisibles(sectionReleve(c) as never, c).map((x: Champ) => x.cle);
-const champ = <T extends Champ>(c: ContexteChamps, cle: string): T => { const ch = sectionReleve(c).champs.find((x) => x.cle === cle); if (!ch) throw new Error(cle); return ch as T; };
+const cles = (c: ContexteChamps) => champsVisibles(sectionToit(), c).map((x: Champ) => x.cle);
+const champ = <T extends Champ>(_c: ContexteChamps, cle: string): T => { const ch = sectionToit().champs.find((x) => x.cle === cle); if (!ch) throw new Error(cle); return ch as T; };
 
 describe('Toit en 3D', () => {
   it('sans mesure ni corps, le choix ne se montre pas et le toit unique se regle', () => {

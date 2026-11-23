@@ -787,6 +787,32 @@
   .champsEnLigne input[type=text]{ width:90px; flex:1; }
   .champsEnLigne .champNombre input{ width:78px; }
   .champ-ligne .commande{ overflow:hidden; }
+  /* Une ligne repliee (un cote, un coin, le point d'un chemin ; decision B7 de l'audit de l'inspecteur) : le libelle, le resume
+     (nom, longueur ou angle) et un chevron ; un toucher deplie ses champs dessous, un par rangee. Un coin prenait 137 px au doigt. */
+  .champ.champ-ligne.repliable{ display:block; padding:0; min-height:0; }
+  .ligneResume{
+    display:flex; align-items:center; gap:8px; width:100%; min-height:30px; padding:2px 4px; margin:0; border:none; border-radius:6px;
+    background:transparent; color:var(--ink); font-family:var(--sans); font-size:0.76rem; text-align:left; cursor:pointer;
+  }
+  .ligneResume:hover, .ligneResume:focus-visible{ background:var(--accent-light); color:var(--on-accent-light); opacity:1; }
+  .ligneResume .texteLibelle{ flex:none; color:var(--ink-soft); }
+  .ligneResume:hover .texteLibelle, .ligneResume:focus-visible .texteLibelle{ color:inherit; }
+  .ligneResume .valeurResume{ flex:1; min-width:0; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .ligneResume svg{ flex:none; transition:transform .15s; }
+  .ligneResume[aria-expanded="true"] svg{ transform:rotate(180deg); }
+  .ligneDetail{ margin:0 0 6px 6px; padding-left:8px; border-left:2px solid var(--rule); }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ.champ-ligne.repliable{ padding:0; min-height:0; }
+  html:not([data-classe="large"]) .ligneResume{ min-height:44px; font-size:14px; padding:0 4px; border-radius:var(--r-champ); }
+  html:not([data-classe="large"]) .ligneResume .valeurResume{ font-weight:600; }
+  html:not([data-classe="large"]) #zoneInspecteur .inspecteurSection .ligneDetail.champs{ padding:0 0 0 10px; margin-left:4px; }
+  /* Le rappel des reglages que le mode simple cache, au pied d'une section (decision B1) : discret, et de quoi les montrer. */
+  .reglagesAvances{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0 0; padding-top:6px; border-top:1px dashed var(--rule);
+    font-family:var(--sans); font-size:0.7rem; color:var(--ink-soft);
+  }
+  .inspecteurPied .reglagesAvances{ width:100%; }
+  html:not([data-classe="large"]) .reglagesAvances{ font-size:13px; }
+  html:not([data-classe="large"]) #zoneInspecteur .reglagesAvances button{ min-height:44px; min-width:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); }
   /* Une liste aux options longues (une lame du commerce) passe sous son libelle, sur toute la largeur : coupee a droite du
      libelle, elle ne se lisait pas (audit de l'inspecteur, lot A5). */
   .champ:has(> .commande > select.long){ grid-template-columns:1fr; }
@@ -1534,14 +1560,14 @@
   html[data-classe="compact"] #zoneInspecteur .inspecteurPanneau{ display:flex; flex-direction:column; flex:1; min-height:0; }
   html[data-classe="compact"] #zoneInspecteur .corpsFeuille{ padding:0 16px 16px; }
   html[data-classe="compact"] #zoneInspecteur .inspecteurPied{ padding:12px 0 4px; }
-  /* Les trois familles (Objet, Geometrie, Construction) : une commande segmentee pleine largeur ;
+  /* Les trois familles (Reglages, Objet, Geometrie) : une commande segmentee pleine largeur ;
      l'onglet actif est une tuile claire en relief, comme dans la maquette. */
   .famillesSections{ flex:none; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0, 1fr); margin:0 16px 6px; }
   .famillesSections button{ color:var(--ink-soft); font-weight:500; }
   .famillesSections button.actif{ background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre); }
   #zoneInspecteur [data-famille-active="objet"] details.inspecteurSection:not([data-famille="objet"]),
   #zoneInspecteur [data-famille-active="geometrie"] details.inspecteurSection:not([data-famille="geometrie"]),
-  #zoneInspecteur [data-famille-active="construction"] details.inspecteurSection:not([data-famille="construction"]){ display:none; }
+  #zoneInspecteur [data-famille-active="reglages"] details.inspecteurSection:not([data-famille="reglages"]){ display:none; }
   .pastille{
     flex:none; min-height:36px; padding:0 12px; border:1px solid var(--border); border-radius:999px;
     background:var(--panel-bg); color:var(--ink); font-family:var(--sans); font-size:12.5px; white-space:nowrap;

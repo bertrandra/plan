@@ -18,6 +18,7 @@ import { lieuDeParcelle } from '../../model/lieu.js';
 import { egoutRendable } from '../../model/protections.js';
 import { aParticularite, estBatiment, estPointDeVue, estTerrain, estTerrasse as terrasseCalculable, fonctionAdmise } from '../../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
+import { nomDuCote } from '../nomCote.js';
 import { sectionsPergola } from './pergola.js';
 import { sectionsCloture } from './cloture.js';
 import { sectionRelief } from './relief.js';
@@ -343,7 +344,15 @@ function bornesIndicatives(s: Section): Section {
 const nomDe = (cle: string, libelle: string, lire: (c: ContexteChamps) => string, ecrire: (c: ContexteChamps, v: string) => void): ChampTexte =>
   ({ type: 'texte', cle, libelle, effets: ['rendu'], lire, ecrire });
 
-/** Les cotes (et, pour un chemin, ses points) : un champ par ligne, construits d'apres la forme. */
+/** Un nom donne par la personne, entre guillemets ; rien quand il redit le libelle de la ligne (« Côté 3 », « Coin 2 »). */
+const nomCite = (nom: string | null | undefined, libelle: string): string => (nom && nom !== libelle ? '« ' + nom + ' »' : '');
+const resumer = (...bouts: string[]): string => bouts.filter(Boolean).join(' · ');
+const fr = (v: number, d: number): string => (Number.isFinite(v) ? v.toFixed(d).replace('.', ',') : '—');
+
+/**
+ * Les cotes (et, pour un chemin, ses points) : un champ par ligne, construits d'apres la forme. Chaque ligne est repliee sur son
+ * nom et sa longueur ; un toucher la deplie sur ses champs (renommer, regler, supprimer : decision B7 de l'audit de l'inspecteur).
+ */
 function sectionCotes(c: ContexteChamps): Section {
   const obj = enPoints(c.obj);
   const n = obj.pts.length;
@@ -352,6 +361,7 @@ function sectionCotes(c: ContexteChamps): Section {
   if (obj.type === 'path') {
     (obj.vertexNames || []).forEach((_, i) => champs.push({
       type: 'ligne', cle: 'point' + i, libelle: 'Point ' + (i + 1),
+      resume: (cc) => nomCite(nomsSommetsDe(enPoints(cc.obj))[i], 'Point ' + (i + 1)),
       surbrillance: (cc) => cc.etat.highlight.type === 'vertex' && cc.etat.highlight.index === i,
       champs: [
         nomDe('nom', 'Nom', (cc) => nomsSommetsDe(enPoints(cc.obj))[i] || '', (cc, v) => { nomsSommetsDe(enPoints(cc.obj))[i] = v; }),
@@ -375,6 +385,7 @@ function sectionCotes(c: ContexteChamps): Section {
     };
     champs.push({
       type: 'ligne', cle: 'cote' + i, libelle: 'Côté ' + (i + 1),
+      resume: (cc) => resumer(nomCite(nomDuCote(nomsCotesDe(enPoints(cc.obj))[i], i), 'Côté ' + (i + 1)), fr(longueur.lire(cc), 2) + ' m'),
       surbrillance: (cc) => cc.etat.highlight.type === 'segment' && cc.etat.highlight.index === i,
       champs: [
         nomDe('nom', 'Nom', (cc) => nomsCotesDe(enPoints(cc.obj))[i] || '', (cc, v) => { nomsCotesDe(enPoints(cc.obj))[i] = v; }),
@@ -386,7 +397,7 @@ function sectionCotes(c: ContexteChamps): Section {
   return { id: 'cotes', titre: obj.type === 'path' ? 'Points et segments' : 'Côtés', repliee: true, champs };
 }
 
-/** Les coins d'un polygone : nom, angle, fige, supprimer. */
+/** Les coins d'un polygone : une ligne repliee sur le nom et l'angle ; depliee, nom, angle, fige, supprimer. */
 function sectionCoins(c: ContexteChamps): Section {
   const obj = enPoints(c.obj);
   const n = obj.pts.length;
@@ -394,6 +405,8 @@ function sectionCoins(c: ContexteChamps): Section {
     const fige = !!gelsDe(obj)[i];
     return {
       type: 'ligne', cle: 'coin' + i, libelle: 'Coin ' + (i + 1),
+      // « figé » s'ecrit : la couleur ne porte jamais seule une information.
+      resume: (cc) => resumer(nomCite(nomsSommetsDe(enPoints(cc.obj))[i], 'Coin ' + (i + 1)), fr(cc.interiorAngleDeg(cc.obj, i), 1) + '°', gelsDe(enPoints(cc.obj))[i] ? 'figé' : ''),
       surbrillance: (cc) => cc.etat.highlight.type === 'vertex' && cc.etat.highlight.index === i,
       champs: [
         nomDe('nom', 'Nom', (cc) => nomsSommetsDe(enPoints(cc.obj))[i] || '', (cc, v) => { nomsSommetsDe(enPoints(cc.obj))[i] = v; }),

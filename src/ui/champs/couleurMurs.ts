@@ -36,6 +36,9 @@ export function decrireCouleurMurs(o: ObjetPlan): string {
 export const champsCouleurMurs: Champ[] = [
   {
     type: 'choix', cle: 'sourceCouleurMurs', libelle: 'Murs en 3D', effets: ['scene3d', 'inspecteur'], visible: avecLecture,
+    // Du mode expert (audit de l'inspecteur, decision B1) : « Automatique » convient, et la couleur retenue se lit juste dessous.
+    // Un choix deja fait (photo, materiau, couleur du plan) reste montre.
+    expert: true, resteMontre: (c) => !!c.obj.batiment?.couleurMurs?.source,
     aide: 'Automatique : la couleur lue sur une photo de rue, sinon celle du matériau des murs (fichiers fonciers)',
     options: (c) => [
       { valeur: 'auto', libelle: 'Automatique' },

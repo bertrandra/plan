@@ -14,7 +14,8 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
-import { champsVisibles, sectionDArrivee } from '../ui/champs/types.js';
+import { champsVisibles, reglagesAvancesMasques, sectionDArrivee } from '../ui/champs/types.js';
+import { familleDeSection, type Famille } from '../ui/champs/sections.js';
 import type { ContexteChamps, Section } from '../ui/champs/types.js';
 import type { Magasin } from '../app/magasin.js';
 import { useCle, cleEtatEtObjets, cleCommandes } from './composants/abonnement.js';
@@ -29,7 +30,22 @@ import { resumerChiffrage, euros } from '../ui/chiffrage.js';
 
 export interface PropsInspecteur { magasin: Magasin; commandes: RegistreCommandes; inspecteur: ServiceInspecteur; tiroir?: Tiroir }
 
-function SectionVue({ section, c, inspecteur, ouverte }: { section: Section; c: ContexteChamps; inspecteur: ServiceInspecteur; ouverte: boolean }) {
+/**
+ * Le rappel des reglages que le mode simple cache (audit de l'inspecteur, decision B1) : leur nombre, et de quoi les montrer. Le
+ * bouton allume le mode expert, la meme preference de l'appareil que la case du menu Affichage (ni Ctrl+Z, ni « projet modifie »,
+ * permise en lecture seule) : une fois allume, plus rien n'est cache et la ligne disparait ; il s'eteint au menu Affichage.
+ */
+function ReglagesAvances({ nombre, quoi, montrer }: { nombre: number; quoi?: string; montrer: () => void }) {
+  if (nombre <= 0) return null;
+  return (
+    <p className="reglagesAvances" data-controle="inspecteur.reglagesAvances">
+      <span>{(quoi ? quoi + ' : ' : '') + nombre + (nombre > 1 ? ' réglages avancés' : ' réglage avancé')}</span>
+      <button type="button" className="secondary small" title="Montrer les réglages avancés : allume le mode expert, qui s’éteint au menu Affichage" onClick={montrer}>Mode expert</button>
+    </p>
+  );
+}
+
+function SectionVue({ section, c, inspecteur, ouverte, montrerAvances }: { section: Section; c: ContexteChamps; inspecteur: ServiceInspecteur; ouverte: boolean; montrerAvances: () => void }) {
   const champs = champsVisibles(section, c);
   if (!champs.length) return null;
   // Le pli n'est pose qu'au montage, par la reference : React ne le reimpose pas a chaque rendu, le
@@ -37,7 +53,7 @@ function SectionVue({ section, c, inspecteur, ouverte }: { section: Section; c: 
   // section reste montee. Une seule section est ouverte a la fois : ouvrir l'une replie les autres, et
   // une section montee pour l'objet suivant ne s'ouvre pas a cote de celle que l'utilisateur a laissee.
   return (
-    <details className="inspecteurSection" data-section={section.id} data-famille={familleDe(section.id)}
+    <details className="inspecteurSection" data-section={section.id} data-famille={familleDeSection(section.id)}
       data-repliee={section.repliee ? '' : undefined}
       ref={(d) => { if (d && d.dataset.monte === undefined) { d.dataset.monte = ''; d.open = ouverte && !sectionsDu(d).some(x => x !== d && x.open); } }}
       onToggle={(e) => { if (e.target === e.currentTarget && e.currentTarget.open) replierLesAutres(e.currentTarget); }}>
@@ -45,6 +61,7 @@ function SectionVue({ section, c, inspecteur, ouverte }: { section: Section; c: 
       {section.explication && <p className="hint">{section.explication}</p>}
       <div className="champs">
         <ListeChamps champs={champs} c={c} inspecteur={inspecteur} />
+        <ReglagesAvances nombre={reglagesAvancesMasques(section, c)} montrer={montrerAvances} />
       </div>
     </details>
   );
@@ -120,31 +137,21 @@ function BandeauChiffrage({ c, ouvrir }: { c: ContexteChamps; ouvrir: () => void
 }
 
 /**
- * Les trois familles de sections, en commande segmentee (maquette Inspecteur, 2.1.1) : l'objet, sa
- * geometrie, sa construction. Au doigt, une seule famille se montre a la fois. Les sections des
- * autres restent MONTEES (masquees par la feuille de style) : un champ ne disparait jamais selon la
- * classe, et un brouillon en cours survit au changement de famille.
+ * Les trois familles de sections, en commande segmentee (maquette Inspecteur, 2.1.1). Au doigt, une seule famille se montre a la
+ * fois. Les sections des autres restent MONTEES (masquees par la feuille de style) : un champ ne disparait jamais selon la classe,
+ * et un brouillon en cours survit au changement de famille.
+ *
+ * Une regle unique dit ou va une section (`familleDeSection`, ui/champs/sections.ts ; audit de l'inspecteur, decision B3) : ce qui
+ * est propre a l'ouvrage est toujours sous « Réglages », le premier onglet, celui sur lequel on arrive quand l'objet a une section
+ * a lui. « Relief » et « Fenêtres (3D) », rangees sous Objet, et la cloture et les portails d'une parcelle l'ont rejoint : sous
+ * « Construction », rien n'annoncait la cloture d'un terrain (d'ou son passage sous Objet a la 5.38) ; « Réglages » le dit, et
+ * l'outil « Clôture, portail » comme l'arrivee sur une parcelle cloturee y menent.
  */
-export type Famille = 'objet' | 'geometrie' | 'construction';
 const FAMILLES: { id: Famille; libelle: string }[] = [
+  { id: 'reglages', libelle: 'Réglages' },
   { id: 'objet', libelle: 'Objet' },
-  { id: 'geometrie', libelle: 'Géométrie' },
-  { id: 'construction', libelle: 'Construction' }
+  { id: 'geometrie', libelle: 'Géométrie' }
 ];
-const SECTIONS_GEOMETRIE = new Set(['cotes', 'coins']);
-// « Façades et toit » decrit la construction d'un batiment, comme les sections d'une terrasse. Le
-// metrage, les prix et l'optimisation d'un ouvrage sont des resultats : ils sont au tiroir (Z6).
-const SECTIONS_CONSTRUCTION = new Set(['implantation', 'fondation', 'appuis', 'structure', 'lames', 'finitions', 'parametres', 'releve', 'pergola',
-  'piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine', 'noteCalcul']);
-// « Cloture » et « Portails et portillons » restent dans la famille Objet, celle que la feuille montre en arrivant sur la parcelle :
-// rangees sous Construction, il fallait deviner un onglet que rien n'annonce sur un terrain, et le chemin s'etait perdu. La parcelle
-// n'est pas un ouvrage dont on regle la structure ; au doigt comme au bureau, ses sections se suivent dans le meme ordre.
-
-export function familleDe(idSection: string): Famille {
-  if (SECTIONS_GEOMETRIE.has(idSection)) return 'geometrie';
-  if (SECTIONS_CONSTRUCTION.has(idSection)) return 'construction';
-  return 'objet';
-}
 
 function Familles({ presentes, active, choisir }: { presentes: Famille[]; active: Famille; choisir: (f: Famille) => void }) {
   if (presentes.length < 2) return null;
@@ -198,7 +205,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
     if (!cible) return;
     montees.forEach(d => { if (d !== cible && d.open) d.open = false; });
     if (!cible.open) cible.open = true;
-    choisirFamille(familleDe(cible.dataset.section ?? ''));
+    choisirFamille(familleDeSection(cible.dataset.section ?? ''));
   });
   // Une commande a demande une section (« Clôture et portails ») : elle s'ouvre, les autres se replient, et au doigt sa famille
   // devient celle qu'on montre. Prise seulement quand la section est montee : repliee ou sans objet, la demande attend.
@@ -210,7 +217,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
     const voulue = id ? montees.find(d => d.dataset.section === id) : undefined;
     if (!voulue) return;
     montees.forEach(d => { d.open = d === voulue; });
-    choisirFamille(familleDe(id ?? ''));
+    choisirFamille(familleDeSection(id ?? ''));
     voulue.scrollIntoView?.({ block: 'nearest' });
   });
   const ouvrirChiffrage = () => {
@@ -245,11 +252,16 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
     );
   }
   if (!c) return null;
+  const montrerAvances = () => magasin.definirOption('modeExpert', true);
+  const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} ouverte={s.id === arrivee} montrerAvances={montrerAvances} />);
+  // Une section entiere du mode expert (« Paramètres de calcul » d'une terrasse) n'a pas de pied ou le dire : le pied du panneau le dit.
+  const sectionsAvancees = sections.filter(s => s.expert && reglagesAvancesMasques(s, c) > 0);
   const pied = (
     <div className="inspecteurPied">
       {/* « Réinitialiser la position » est un outil de la palette (rail, feuille Outils) : un geste n'existe qu'a un endroit. */}
       <BoutonPied commandes={commandes} id="projet.reinitialiser" libelle="Réinitialiser tout" />
       <RefusPied commandes={commandes} ids={['projet.reinitialiser']} tactile={tactile} />
+      {sectionsAvancees.map(s => <ReglagesAvances key={s.id} quoi={s.titre} nombre={reglagesAvancesMasques(s, c)} montrer={montrerAvances} />)}
       {/* Le rappel des gestes du plan, replie : plus de 400 caracteres sous chaque objet, qu'on ne lit qu'une fois (lot A5). */}
       <details className="plichamps gestesPlan" data-pli="gestes">
         <summary>Gestes sur le plan</summary>
@@ -259,8 +271,7 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
       </details>
     </div>
   );
-  const corps = sections.map(s => <SectionVue key={s.id} section={s} c={c} inspecteur={inspecteur} ouverte={s.id === arrivee} />);
-  const presentes = FAMILLES.map(f => f.id).filter(f => sections.some(s => familleDe(s.id) === f && champsVisibles(s, c).length));
+  const presentes = FAMILLES.map(f => f.id).filter(f => sections.some(s => familleDeSection(s.id) === f && champsVisibles(s, c).length));
   // La famille choisie peut manquer a l'objet suivant (une terrasse, puis un arbre) : on revient a la premiere.
   const active = presentes.includes(famille) ? famille : (presentes[0] ?? 'objet');
   const filtre = tactile && presentes.length > 1 ? active : undefined;

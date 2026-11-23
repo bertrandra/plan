@@ -335,7 +335,7 @@ feuilles existantes.
 |---|---|---|---|
 | Conteneur | feuille **Propriétés** (`mi` ou `plein`), ouverte par la barre de navigation ou la feuille de sélection | panneau flottant à droite, 340 px, repliable | colonne, inchangé |
 | En-tête | nom en serif, sous-titre (surface, dimensions), bouton fermer ; le titre garde « replier/déplier toutes les sections » | inchangé | inchangé |
-| Sections | **les 14 sections, dans le même ordre**, repliables ; en `compact`, une commande segmentée en tête (Objet · Géométrie · Construction · Apparence…) saute à la section, sans masquer les autres | sections repliables | inchangé |
+| Sections | **les 14 sections, dans le même ordre**, repliables ; au doigt (`compact` et `moyen`), trois onglets en tête, **Réglages · Objet · Géométrie**, ne montrent qu'une famille à la fois (les autres restent montées) : « Réglages » porte tout ce qui est propre à l'ouvrage, en premier et à l'arrivée (`familleDeSection`, audit de l'inspecteur du 22 novembre 2026, décision B3 ; « Construction » jusqu'à la 5.38.0, qui ne portait ni le relief, ni les fenêtres, ni la section d'un arbre ou d'un parasol) | sections repliables | inchangé |
 | Champs | même descripteur, forme tactile (§7) | forme tactile | inchangé |
 | Pied (Réinitialiser la position, Réinitialiser tout, aide aux gestes) | fin de la feuille | inchangé | inchangé |
 | **Bandeau de chiffrage** *(nouveau)* | en pied fixe quand une terrasse est sélectionnée : « 58 lames · 96 plots · total HT », qui ouvre Résultats › BOM. C'est la boucle réglage → chiffrage de `spec-ihm-zones.md` §7.1, rendue sur un seul écran | même bandeau en pied du panneau | inutile (le tiroir est visible) |
@@ -756,12 +756,12 @@ classes. Les clés entre crochets sont des lectures, alertes, boutons ou hôtes.
 |---|---|---|---|
 | 1 | Objet | toujours | name, [type], fonction (13 valeurs), priority, matiere, [elevationTerrasse], elevation, [surface], [longueur], width, curve, r, locked, rectangle |
 | 2 | Parcelle | parcelle ou terrain | [lieu], [cadastre] |
-| 2 bis | Clôture · Portails et portillons (famille Construction) | parcelle du projet | active, hauteurMaxRue, hauteurMaxSeparative, un côté par ligne, type et champs du type, soubassement ; accès par ligne, côté, position, dimensions, ouverture, forme, remplissage, matériau, piliers, retrait, ouvert (`MD/spec-cloture.md` §3) |
+| 2 bis | Clôture · Portails et portillons (onglet Réglages) | parcelle du projet | active, hauteurMaxRue, hauteurMaxSeparative, un côté par ligne, type et champs du type, soubassement ; accès par ligne, côté, position, dimensions, ouverture, forme, remplissage, matériau, piliers, retrait, ouvert (`MD/spec-cloture.md` §3) |
 | 3 | Apparence | toujours | fill, textureVerticale, textureHorizontale (avec « appliquer à tous les chemins »), diametreArbre, couleurArbre, textureArbre |
 | 4 | Parasol | parasol (cercle) | terrasseLieeKey, hauteurParasol, matSurPerimetre, matDeporte, matAngleDeg, ombreDate, ombreHeure, ombreAffichee, carteAffichee, [placerAuMieux] |
 | 5 | Point de vue | caméra (chemin) | altitude, direction, [aller] |
-| 6 | Côtés / Points et segments | polygone ou chemin, hors point de vue ; repliée | point{i} (nom, supprimer) ; cote{i} (nom, longueur, supprimer) |
-| 7 | Coins | polygone ; repliée | coin{i} (nom, angle, figé, supprimer) |
+| 6 | Côtés / Points et segments | polygone ou chemin, hors point de vue ; repliée | point{i} (nom, supprimer) ; cote{i} (nom, longueur, supprimer) — une ligne repliée par élément (nom, longueur), dépliée en place d'un toucher (décision B7) |
+| 7 | Coins | polygone ; repliée | coin{i} (nom, angle, figé, supprimer) — une ligne repliée par coin (nom, angle, « figé »), dépliée en place d'un toucher |
 | 8 | Alignement par rotation | polygone ou chemin ; repliée | [choisir], [info], distance, [aligner] |
 | 9 | Fondation et appuis | terrasse | typePose, hauteurVis, depassementVis, hauteurPlot, plotModele, plotAvecSolives, supportType, supportDecaissement, plotSurfaceAssise, chargeNormale, chargeSpa, visModeAuto, plotEntraxeAuto, visEntraxe, plotEntraxe, [chargeParPlot], visEntraxeZoneSpa, visMargeZoneSpa, [alerteEquipement], [alertePlot], [alerteVis] |
 | 10 | Structure porteuse | terrasse | soliveEntraxe, soliveSection, avecLambourde, lambourdeSection, lambourdeEntraxe |

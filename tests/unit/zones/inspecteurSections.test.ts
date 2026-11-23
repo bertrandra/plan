@@ -122,14 +122,14 @@ describe('les sections de l inspecteur', () => {
       const panneau = () => x.hote.querySelector<HTMLElement>('.inspecteurPanneau')!;
       const onglet = () => x.hote.querySelector('.famillesSections button[aria-selected="true"]')?.getAttribute('data-famille');
       expect(x.ouvertes()).toEqual(['lames']);
-      expect(panneau().dataset.familleActive).toBe('construction');
-      expect(onglet()).toBe('construction');
-      // Un objet sans construction : on revient a l'onglet Objet, sa section ouverte.
+      expect(panneau().dataset.familleActive).toBe('reglages');
+      expect(onglet()).toBe('reglages');
+      // Un objet sans reglages propres : on revient a l'onglet Objet, sa section ouverte.
       x.selectionner('b');
       expect(x.ouvertes()).toEqual(['objet']);
       expect(panneau().dataset.familleActive).toBe('objet');
       x.selectionner('a');
-      expect(panneau().dataset.familleActive).toBe('construction');
+      expect(panneau().dataset.familleActive).toBe('reglages');
       act(() => x.racine.unmount()); x.hote.remove();
     }
   });

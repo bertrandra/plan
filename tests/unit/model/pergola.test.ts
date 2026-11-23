@@ -97,8 +97,9 @@ describe('matiere', () => {
     if (materiau.type !== 'choix') throw new Error('choix attendu');
     materiau.ecrire(c, 'aluminium');
     expect(obj.pergola).toEqual({ debord: 0.2, materiau: 'aluminium', prixMl: { 'bois:120x120': 20 } });
-    const pergola = sectionsObjet(c).find(s => s.id === 'pergola')!;
-    expect(pergola.champs.find(ch => ch.cle === 'avecContrefiches')!.visible!(c)).toBe(false);
+    // Les contrefiches sont dans le groupe « Structure » (decision B2 de l'audit de l'inspecteur).
+    const structure = sectionsObjet(c).find(s => s.id === 'pergolaStructure')!;
+    expect(structure.champs.find(ch => ch.cle === 'avecContrefiches')!.visible!(c)).toBe(false);
   });
 });
 
@@ -112,8 +113,8 @@ describe('carport : le meme ouvrage que la pergola', () => {
     expect(fonctionAdmise('carport', 'circle')).toBe(false);
     const c = { obj, objets: [obj], elevationOf: () => 2.3 } as unknown as ContexteChamps;
     const sections = sectionsObjet(c);
-    expect(sections.find(s => s.id === 'pergola')!.titre).toBe('Carport');
-    expect(sections.map(s => s.id)).toEqual(expect.arrayContaining(['pergola', 'noteCalcul']));
+    expect(sections.find(s => s.id === 'pergola')!.titre).toBe('Carport · Forme et toit');
+    expect(sections.map(s => s.id)).toEqual(expect.arrayContaining(['pergola', 'pergolaStructure', 'pergolaCouleurs', 'noteCalcul']));
   });
 
   it('naît au centre de la parcelle, pas sur la terrasse', () => {

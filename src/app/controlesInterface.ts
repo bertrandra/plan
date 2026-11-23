@@ -162,7 +162,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'inspecteur.replierSections': { libelle: 'Replier ou déplier toutes les sections', zone: Z5, nature: 'navigation' },
   'inspecteur.famille.objet': { libelle: 'Sections de l’objet (au doigt)', zone: Z5, nature: 'navigation' },
   'inspecteur.famille.geometrie': { libelle: 'Sections de géométrie (au doigt)', zone: Z5, nature: 'navigation' },
-  'inspecteur.famille.construction': { libelle: 'Sections de construction (au doigt)', zone: Z5, nature: 'navigation' },
+  'inspecteur.famille.reglages': { libelle: 'Sections des réglages de l’ouvrage (au doigt)', zone: Z5, nature: 'navigation' },
+  'inspecteur.reglagesAvances': { libelle: 'Réglages avancés masqués (mode expert)', zone: Z5, nature: 'affichage', description: 'Au pied d’une section, le nombre de réglages que le mode simple cache, et le bouton qui allume le mode expert' },
   'inspecteur.chiffrage': { libelle: 'Bandeau du chiffrage recalculé', zone: Z5, nature: 'navigation', description: 'Résume le chiffrage de la terrasse ; ouvre son détail' },
 
   // ---- Z6 : le tiroir des resultats ----------------------------------------------------------------

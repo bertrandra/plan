@@ -13,7 +13,7 @@ import { createContext, useContext, useEffect, useId, useReducer, useRef, useSta
 import { champActif } from '../../app/administration/ecritures.js';
 import { champsVisibles, champVisible, groupesDeChamps } from '../../ui/champs/types.js';
 import { aLaBorne, horsBornes, messageRefus, phraseBornes, valeurApresPas } from '../../ui/champs/bornes.js';
-import type { Champ, ChampBouton, ChampNombre, ChampTexture, ContexteChamps } from '../../ui/champs/types.js';
+import type { Champ, ChampBouton, ChampLigne, ChampNombre, ChampTexture, ContexteChamps } from '../../ui/champs/types.js';
 import type { Inspecteur as ServiceInspecteur } from '../../app/inspecteur.js';
 import { CarteToit } from './CarteToit.js';
 import { Icone } from '../icones.js';
@@ -298,7 +298,48 @@ function Commande({ champ, c, inspecteur, inline }: PropsChamp) {
   }
 }
 
+/**
+ * Une ligne qui se replie (un cote, un coin, le point d'un chemin ; `ChampLigne.resume`, audit de l'inspecteur, decision B7) : elle
+ * ne montre que son libelle et son resume, et un toucher la deplie en place sur ses champs, un par rangee, avec leur libelle, leur
+ * aide et leurs cibles de 44 px au doigt. Un vrai bouton : Tab l'atteint, Entree ou Espace le bascule. Le depli appartient a l'objet
+ * sur lequel il a ete fait : le composant sert au suivant (memes cles), son depli non.
+ */
+function LigneRepliable({ champ, c, inspecteur }: PropsChamp<ChampLigne>) {
+  const tactile = useContext(Tactile);
+  const [deplieeSur, deplier] = useState<string | null>(null);
+  const idDetail = useId();
+  const ouverte = deplieeSur === c.obj.key;
+  const resume = champ.resume ? champ.resume(c) : '';
+  const classes = ['champ', 'champ-ligne', 'repliable', ouverte ? 'ouverte' : '', champ.surbrillance && champ.surbrillance(c) ? 'highlightRow' : ''].filter(Boolean).join(' ');
+  return (
+    <div className={classes} data-cle={champ.cle}>
+      <button type="button" className="ligneResume" aria-expanded={ouverte} aria-controls={idDetail} onClick={() => deplier(ouverte ? null : c.obj.key)}>
+        <span className="texteLibelle">{champ.libelle}</span>
+        <span className="valeurResume">{resume}</span>
+        <Icone nom="chevronBas" taille={16} />
+      </button>
+      {ouverte && (
+        <div className="ligneDetail champs" id={idDetail}>
+          {champsVisibles({ id: champ.cle, titre: '', champs: champ.champs }, c).map(sous => sous.type === 'bouton'
+            // Un bouton du detail prend toute la largeur : son libelle est deja son texte. Grise au doigt, il dit pourquoi dessous (§8).
+            ? (
+              <div key={sous.cle} className="champ champ-bouton pleineLargeur" data-cle={sous.cle}>
+                <Commande champ={sous} c={c} inspecteur={inspecteur} />
+                {tactile && sous.aide && !champActif(sous, c) && <div className="note">{sous.aide}</div>}
+              </div>
+            )
+            : <LigneChamp key={sous.cle} champ={sous} c={c} inspecteur={inspecteur} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function LigneChamp({ champ, c, inspecteur }: PropsChamp) {
+  return champ.type === 'ligne' && champ.resume ? <LigneRepliable champ={champ} c={c} inspecteur={inspecteur} /> : <LigneOuverte champ={champ} c={c} inspecteur={inspecteur} />;
+}
+
+function LigneOuverte({ champ, c, inspecteur }: PropsChamp) {
   const tactile = useContext(Tactile);
   const [aideOuverte, ouvrirAide] = useState(false);
   const idAide = useId();

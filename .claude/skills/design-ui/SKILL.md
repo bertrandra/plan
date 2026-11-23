@@ -66,9 +66,23 @@ Depuis la `2.1.0` (`MD/spec-ihm-mobile.md`), chaque zone a une forme par classe,
   réserves `--reserve-haut` / `--reserve-bas` (encoche comprise) ; le plan mesure `#zoneCadre`.
 - Vérifier à 390, 820 et 1 440 px, en clair et en sombre : `scripts/captures.mjs` (36 captures) et
   `scripts/fumee.mjs` (la liste de fumée pilotée).
-- **Au doigt, l'inspecteur range ses sections en trois familles** (Objet, Géométrie, Construction,
-  `familleDe` dans `zones/Inspecteur.tsx`). Une nouvelle section s'y inscrit ; les familles non
-  choisies sont masquées par la feuille de style, jamais démontées.
+- **Au doigt, l'inspecteur range ses sections en trois onglets** : « Réglages », « Objet »,
+  « Géométrie ». Une règle unique, tirée du rang de la section (`familleDeSection`,
+  `ui/champs/sections.ts`) : ce qui est propre à l'ouvrage (ses étapes, sa section, la clôture et le
+  relief d'une parcelle, le toit et les fenêtres d'un bâtiment) est toujours sous « Réglages », le
+  premier onglet et celui d'arrivée ; « Objet » porte ce qu'il est et son apparence ; « Géométrie »,
+  ses côtés et ses coins. Une nouvelle section n'a rien à inscrire : elle est propre à l'ouvrage, donc
+  sous « Réglages », sauf à entrer dans `rangDeSection`. Les onglets non choisis sont masqués par la
+  feuille de style, jamais démontés.
+- **Le mode simple cache les réglages techniques** (`expert: true` sur le descripteur) : cachés, ils
+  gardent leur valeur et le calcul la lit. Deux garde-fous : un réglage qu'une alerte demande de
+  toucher, ou dont le projet porte une valeur autre que celle par défaut, reste montré
+  (`resteMontre`) ; et le pied de la section dit combien de réglages sont cachés, avec le bouton
+  « Mode expert » (`reglagesAvancesMasques`). Critère pour en ajouter un : un particulier en a-t-il
+  besoin pour un dessin et un prix justes ? Dans le doute, il reste visible.
+- **Une longue liste de lignes se replie** (`ChampLigne.resume`) : un côté, un coin, le point d'un
+  chemin ne montrent que leur nom et leur longueur ou leur angle ; un toucher déplie les champs en
+  place, un par rangée.
 - **Comparer à la maquette, écran par écran**, avant de dire qu'un écran est fait
   (https://claude.ai/artifact/1HGs8FN1nB4T3HCr5n1VWt) : la `2.1.0` avait la structure mais pas le
   rendu de Propriétés, de Chiffrage ni du plan, et les tests ne le voyaient pas.
@@ -148,6 +162,8 @@ couleur hexadécimale ne traîne hors des blocs de jetons**.
   nombre (`.champNombre .unite`).
 - Tableaux : `table.attrTable`, en-têtes en capitales couleur accent, zébrure `--zebra`. Sur des
   tableaux de vingt à cent lignes, l'alternance n'est pas décorative.
+- Une section de plus d'un écran au téléphone se découpe en groupes, dans l'ordre où l'on décide
+  (la terrasse, la pergola, le carport : forme, structure, finitions ; un bâtiment : toit, façades).
 - Sections repliables : `<details>` avec chevron `›` qui pivote (voir `.inspecteurSection`). Dans
   l'inspecteur, **une seule section ouverte à la fois** : ouvrir l'une replie les autres
   (`zones/Inspecteur.tsx`, `replierLesAutres`).

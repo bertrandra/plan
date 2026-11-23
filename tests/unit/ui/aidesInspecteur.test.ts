@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { sectionsInspecteur } from '../../../src/ui/champs/sections.js';
+import { rangDeSection, sectionsInspecteur } from '../../../src/ui/champs/sections.js';
+import { clotureDe } from '../../../src/model/cloture.js';
 import { champsVisibles, sectionDArrivee, type Champ, type ContexteChamps } from '../../../src/ui/champs/types.js';
 import { DEMO_OBJECTS } from '../../../src/model/demo.js';
 import { ensureConstruction } from '../../../src/engine/construction.js';
@@ -72,28 +73,49 @@ describe('la section qui s ouvre a la selection, et l ordre des sections', () =>
   const parNom = (nom: string) => { const o = objets.find(x => x.name === nom); if (!o) throw new Error('absent : ' + nom); return o; };
   const arrivee = (nom: string) => { const c = contexte(parNom(nom)); return sectionDArrivee(sectionsInspecteur(c), c); };
 
-  it('ouvre les lames d une terrasse, le parasol, l arbre, les facades d un batiment, la piscine, la pergola', () => {
+  it('ouvre les lames d une terrasse, le parasol, l arbre, le toit d un batiment, la piscine, la pergola', () => {
     expect(arrivee('Terrasse')).toBe('lames');
     expect(arrivee('Parasol 1')).toBe('parasol');
     expect(arrivee('Chêne')).toBe('arbre');
-    expect(arrivee('Maison')).toBe('releve');
+    expect(arrivee('Maison')).toBe('toit');
     expect(arrivee('Piscine 1')).toBe('piscine');
     expect(arrivee('Pergola 1')).toBe('pergola');
     expect(arrivee('Spa')).toBe('equipement');
   });
 
-  it('reste sur « Objet » pour ce qui n a pas de section propre : une dalle, un chemin, une parcelle', () => {
+  it('reste sur « Objet » pour ce qui n a pas de section propre : une dalle, un chemin, une parcelle sans cloture', () => {
     expect(arrivee('Dalle beton')).toBe('objet');
     expect(arrivee('Chemin Arrière')).toBe('objet');
-    // La cloture et les portails, repris par ailleurs, ne sont pas (encore) la section d'arrivee de la parcelle.
-    expect(arrivee('Parcelle AE 101')).toBe('objet');
+    // Une parcelle cloturee s'ouvre sur sa cloture ; sans cloture, sur « Objet » (la case a cocher ne vaut pas une section d'arrivee).
+    expect(arrivee('Parcelle AE 101')).toBe('cloture');
+    const cloture = clotureDe(parNom('Parcelle AE 101'), true);
+    cloture.active = false;
+    try { expect(arrivee('Parcelle AE 101')).toBe('objet'); } finally { cloture.active = true; }
   });
 
   it('range les sections dans le meme ordre pour tous : l objet, ce qui lui est propre, l apparence, la geometrie', () => {
-    const rang = (id: string) => id === 'objet' ? 0 : id === 'apparence' ? 2 : (id === 'cotes' || id === 'coins') ? 3 : 1;
     for (const obj of objets) {
-      const rangs = sectionsInspecteur(contexte(obj)).map(s => rang(s.id));
+      const rangs = sectionsInspecteur(contexte(obj)).map(s => rangDeSection(s.id));
       expect(rangs, obj.name).toEqual([...rangs].sort((a, b) => a - b));
     }
+  });
+});
+
+describe('les restes de l audit : la cloture s explique, les coefficients disent ce qu ils sont', () => {
+  const parNom = (nom: string) => { const o = objets.find(x => x.name === nom); if (!o) throw new Error('absent : ' + nom); return o; };
+
+  it('les cinq reglages de la cloture ont leur phrase', () => {
+    const c = contexte(parNom('Parcelle AE 101'));
+    const cloture = sectionsInspecteur(c).find(s => s.id === 'cloture')!;
+    for (const cle of ['active', 'type', 'hauteur', 'couleur', 'lames']) {
+      const aide = cloture.champs.find(ch => ch.cle === cle)?.aide ?? '';
+      expect(aide.length, cle).toBeGreaterThan(20);
+    }
+  });
+
+  it('« K portée » et « Coefficient raideur lame » disent qu ils n ont pas d unite, et ce qu ils sont', () => {
+    const c = contexte(parNom('Terrasse'));
+    const tous = sectionsInspecteur(c).flatMap(s => s.champs);
+    for (const cle of ['kPortee', 'coefRaideurLame']) expect(tous.find(ch => ch.cle === cle)?.aide, cle).toMatch(/sans unité/);
   });
 });

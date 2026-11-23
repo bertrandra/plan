@@ -19,8 +19,13 @@ import {
 import type { AffichageRelief, ObjetPlan, Relief } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 
-/** Le pli des reglages techniques de la grille : sa finesse, le maillage du voisinage, le plafond, le zero. */
+/**
+ * Le pli des reglages techniques de la grille : sa finesse, le maillage du voisinage, le plafond, le zero. Ils servent a la lire,
+ * pas a concevoir : du mode expert (audit de l'inspecteur, decision B1). « Points max » reste montre tant que le projet porte un
+ * plafond regle, puisqu'il pese sur la prochaine lecture.
+ */
 const TECHNIQUE = 'Réglages techniques';
+const technique = (ch: Champ): Champ => ({ ...ch, repli: TECHNIQUE, expert: true });
 
 /** La parcelle du projet, celle qui porte le relief — pas une parcelle voisine (cloture.ts). */
 const estParcellePrincipale = (c: ContexteChamps) => !!c.parcelle && c.parcelle.key === c.obj.key;
@@ -113,25 +118,25 @@ export function sectionRelief(c: ContexteChamps): Section | null {
     { type: 'lecture', cle: 'denivele', libelle: 'Dénivelé', visible: avec, valeur: (cc) => { const x = r(cc); return x ? texteDenivele(x, cc.obj) : ''; } },
 
     // Les reglages techniques de la grille se replient : ils servent a la lire, pas a concevoir.
-    { type: 'lecture', cle: 'grille', libelle: 'Grille', visible: avec, repli: TECHNIQUE,
+    technique({ type: 'lecture', cle: 'grille', libelle: 'Grille', visible: avec,
       aide: 'La grille de la parcelle et de ses abords : la pente, le dénivelé et les quantités la lisent',
       valeur: (cc) => { const x = r(cc); return x ? texteGrille(x) : ''; },
-      note: (cc) => { const x = r(cc); return x ? regleGrille(plafondRelief(x)) : ''; } },
-    { type: 'lecture', cle: 'paysage', libelle: 'Maillage secondaire', visible: avec, repli: TECHNIQUE,
+      note: (cc) => { const x = r(cc); return x ? regleGrille(plafondRelief(x)) : ''; } }),
+    technique({ type: 'lecture', cle: 'paysage', libelle: 'Maillage secondaire', visible: avec,
       aide: 'La grille du voisinage, plus large et moins fine (« Relief sur toutes les parcelles ») : elle ne porte que le sol de la Vue 3D et les courbes au-delà de la parcelle',
       valeur: (cc) => { const q = r(cc)?.paysage; return q ? 'Actif · ' + texteGrille(q) : 'Inactif'; },
       note: (cc) => {
         const x = r(cc);
         if (x?.paysage) return 'Sol 3D du voisinage ; les quantités lisent la grille de la parcelle.';
         return x && grilleSurParcelleSeule(x, cc.obj, cc.etat.objects) ? 'Le sol 3D est plat au-delà de la parcelle.' : '';
-      } },
-    { type: 'nombre', cle: 'pointsMax', libelle: 'Points max', visible: avec, repli: TECHNIQUE, min: POINTS_MAX_MIN, max: POINTS_MAX_MAX, pas: 10000, decimales: 0, unite: 'points',
+      } }),
+    technique({ type: 'nombre', cle: 'pointsMax', libelle: 'Points max', visible: avec, resteMontre: (cc) => plafondRelief(r(cc)) !== plafondRelief(null), min: POINTS_MAX_MIN, max: POINTS_MAX_MAX, pas: 10000, decimales: 0, unite: 'points',
       aide: 'Le plafond de points de chaque grille, appliqué à la prochaine lecture (« Actualiser », actualisation IGN) : plus haut, le pas est plus fin et le projet plus lourd',
       note: () => 'Appliqué à « Actualiser ».',
       lire: (cc) => plafondRelief(r(cc)),
-      ecrire: (cc, v) => { const x = r(cc); if (!x || !Number.isFinite(v)) return false; x.maxCellules = plafondRelief({ maxCellules: v }); } },
-    { type: 'lecture', cle: 'zRef', libelle: 'Zéro du plan', visible: avec, repli: TECHNIQUE, aide: 'L’altitude du sol au point de référence de la terrasse, fixée à la lecture : toutes les hauteurs du plan se comptent depuis elle',
-      valeur: (cc) => { const x = r(cc); return x ? fr(x.zRef) + ' m ' + x.systemeAltimetrique : ''; } },
+      ecrire: (cc, v) => { const x = r(cc); if (!x || !Number.isFinite(v)) return false; x.maxCellules = plafondRelief({ maxCellules: v }); } }),
+    technique({ type: 'lecture', cle: 'zRef', libelle: 'Zéro du plan', visible: avec, aide: 'L’altitude du sol au point de référence de la terrasse, fixée à la lecture : toutes les hauteurs du plan se comptent depuis elle',
+      valeur: (cc) => { const x = r(cc); return x ? fr(x.zRef) + ' m ' + x.systemeAltimetrique : ''; } }),
     // ---- Preferences d'affichage : ni annulation, ni projet modifie ------------------------------
     // Le relief (le sol en 3D) et les courbes de niveau (le plan) se basculent au menu Affichage, et
     // la seulement : un geste n'existe qu'a un endroit. L'equidistance des courbes, montrees, reste ici.

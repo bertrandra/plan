@@ -74,29 +74,22 @@ const DECIDE: Record<string, { sections: string[]; plis?: Record<string, Record<
   },
   'Piscine 1': { sections: ['objet', 'piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine', 'apparence', 'cotes*', 'coins*'] },
   'Pergola 1': {
-    sections: ['objet', 'pergola', 'noteCalcul', 'apparence', 'cotes*', 'coins*'],
+    // Trois groupes comme la terrasse (decision B2) : plus de pli dans l'abri ; neige, vent et altitude sortent de celui de la note.
+    sections: ['objet', 'pergola', 'pergolaStructure', 'pergolaCouleurs', 'noteCalcul', 'apparence', 'cotes*', 'coins*'],
     plis: {
-      pergola: {
-        'Contrefiches et chevrons': ['avecContrefiches', 'longueurContrefiche', 'sectionContrefiche', 'sectionChevron', 'entraxeChevrons'],
-        'Couleurs et longueurs achetables': ['couleurBois', 'couleurToile', 'longueursBois']
-      },
-      noteCalcul: { 'Hypothèses et vérifications': ['zoneNeige', 'zoneVent', 'altitude', 'terrain', 'obstruction', 'poidsCouverture', 'classeBois', 'classeService', 'calcul-urbanisme'] }
+      noteCalcul: { 'Hypothèses et vérifications': ['terrain', 'obstruction', 'poidsCouverture', 'classeBois', 'classeService', 'calcul-urbanisme'] }
     }
   },
   'Carport 1': {
-    sections: ['objet', 'pergola', 'noteCalcul', 'apparence', 'cotes*', 'coins*'],
+    sections: ['objet', 'pergola', 'pergolaStructure', 'pergolaCouleurs', 'noteCalcul', 'apparence', 'cotes*', 'coins*'],
     plis: {
-      pergola: {
-        'Contrefiches et chevrons': ['avecContrefiches', 'longueurContrefiche', 'sectionContrefiche', 'sectionChevron', 'entraxeChevrons'],
-        'Couleurs et longueurs achetables': ['couleurBois', 'couleurCouverture', 'longueursBois']
-      },
-      noteCalcul: { 'Hypothèses et vérifications': ['zoneNeige', 'zoneVent', 'altitude', 'terrain', 'obstruction', 'poidsCouverture', 'classeBois', 'classeService', 'calcul-urbanisme'] }
+      noteCalcul: { 'Hypothèses et vérifications': ['terrain', 'obstruction', 'poidsCouverture', 'classeBois', 'classeService', 'calcul-urbanisme'] }
     }
   },
   // La maison de la demonstration est dessinee a la main : verrouillee, elle garde ses cotes et ses coins, replies.
-  'Maison': { sections: ['objet', 'fenetres3d*', 'releve', 'apparence', 'cotes*', 'coins*'] },
-  'Maison IGN': { sections: ['objet', 'fenetres3d*', 'releve', 'apparence'] },
-  'Abri de jardin': { sections: ['objet', 'fenetres3d*', 'releve', 'apparence', 'cotes*', 'coins*'] },
+  'Maison': { sections: ['objet', 'toit', 'releve', 'fenetres3d*', 'apparence', 'cotes*', 'coins*'] },
+  'Maison IGN': { sections: ['objet', 'toit', 'releve', 'fenetres3d*', 'apparence'] },
+  'Abri de jardin': { sections: ['objet', 'toit', 'releve', 'fenetres3d*', 'apparence', 'cotes*', 'coins*'] },
   'Parasol 1': {
     sections: ['objet', 'parasol', 'apparence'],
     plis: { parasol: { 'Date, heure et carte des ombres': ['ombreDate', 'ombreHeure', 'carteAffichee'] } }

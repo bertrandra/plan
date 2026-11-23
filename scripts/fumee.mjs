@@ -373,7 +373,19 @@ async function saisirNombre(page, cle, valeur) {
   await page.waitForTimeout(150);
 }
 /** Ecrit un sous-champ d'une ligne de l'inspecteur (la longueur d'un cote, l'angle d'un coin). */
+/**
+ * Deplie une ligne de l'inspecteur (un cote, un coin), repliee sur son resume depuis la decision B7 de l'audit de l'inspecteur : d'un
+ * toucher sur elle, comme le fait la personne. Deja depliee, rien.
+ */
+async function deplierLigne(page, ligne) {
+  const resume = page.locator('#zoneInspecteur [data-cle="' + ligne + '"] > button.ligneResume[aria-expanded="false"]');
+  if (!(await resume.count())) return;
+  await resume.first().scrollIntoViewIfNeeded();
+  await resume.first().click();
+  await page.waitForTimeout(120);
+}
 async function saisirSousChamp(page, ligne, libelle, valeur) {
+  await deplierLigne(page, ligne);
   const champ = page.locator('#zoneInspecteur [data-cle="' + ligne + '"] input[aria-label="' + libelle + '"]').first();
   await champ.scrollIntoViewIfNeeded();
   await champ.click();
@@ -1543,6 +1555,7 @@ const POINTS = {
     await selectionner(page, TERRASSE);
     await inspecteur(page);
     await ouvrirSection(page, 'cotes');
+    await deplierLigne(page, 'cote0');
     const champ = page.locator('#zoneInspecteur [data-cle="cote0"] input[inputmode="decimal"], #zoneInspecteur [data-cle="cote0"] input[type="number"]').first();
     await champ.scrollIntoViewIfNeeded();
     await champ.click();
@@ -1745,21 +1758,25 @@ const POINTS = {
     await inspecteur(page);
     await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
     await page.waitForTimeout(200);
+    // Les cotes et les coins sont une ligne repliee chacun (decision B7 de l'audit de l'inspecteur) : on les deplie tous, ce que la
+    // lecture seule permet (deplier n'ecrit rien), pour compter leurs champs et leurs boutons « Supprimer » comme avant.
+    const lignes = await page.evaluate(() => { const l = [...document.querySelectorAll('#zoneInspecteur [data-cle^="co"] > button.ligneResume')]; l.forEach((b) => b.click()); return l.length; });
+    await page.waitForTimeout(250);
     const r = await page.evaluate(() => {
       const actifs = (sel) => [...document.querySelectorAll(sel)].filter((e) => !e.disabled);
       return {
         champs: document.querySelectorAll('#zoneInspecteur [data-cle] input, #zoneInspecteur [data-cle] select').length,
         champsActifs: actifs('#zoneInspecteur [data-cle] input, #zoneInspecteur [data-cle] select').map((e) => e.closest('[data-cle]').getAttribute('data-cle')),
-        supprimer: document.querySelectorAll('#zoneInspecteur [data-cle^="co"] button').length,
-        supprimerActifs: actifs('#zoneInspecteur [data-cle^="cote"] button, #zoneInspecteur [data-cle^="coin"] button').length,
+        supprimer: document.querySelectorAll('#zoneInspecteur [data-cle^="co"] .ligneDetail .champBouton button').length,
+        supprimerActifs: actifs('#zoneInspecteur [data-cle^="cote"] .ligneDetail .champBouton button, #zoneInspecteur [data-cle^="coin"] .ligneDetail .champBouton button').length,
         saisies: document.querySelectorAll('#zoneResultats input[data-controle]').length,
         saisiesActives: actifs('#zoneResultats input[data-controle]').length
       };
     });
     // Seul un reglage d'affichage peut rester actif (« Distance au segment » de l'alignement).
     const libres = r.champsActifs.filter((k) => k !== 'distance');
-    const ok = r.champs > 0 && !libres.length && r.supprimerActifs === 0 && r.saisies > 0 && r.saisiesActives === 0;
-    return { ok, mesure: `${r.champs - r.champsActifs.length}/${r.champs} champs grisés (actifs : ${r.champsActifs.join(', ') || 'aucun'}), boutons supprimer actifs : ${r.supprimerActifs}, saisies du tiroir ${r.saisies - r.saisiesActives}/${r.saisies} grisées` };
+    const ok = r.champs > 0 && !libres.length && lignes > 0 && r.supprimer === lignes && r.supprimerActifs === 0 && r.saisies > 0 && r.saisiesActives === 0;
+    return { ok, mesure: `${r.champs - r.champsActifs.length}/${r.champs} champs grisés (actifs : ${r.champsActifs.join(', ') || 'aucun'}), ${lignes} côtés et coins dépliés, boutons supprimer actifs : ${r.supprimerActifs} sur ${r.supprimer}, saisies du tiroir ${r.saisies - r.saisiesActives}/${r.saisies} grisées` };
   },
   53: async (page) => {
     // La decouverte des controleurs, dans les trois classes d'ecran : rien hors registre, rien hors
@@ -3634,7 +3651,7 @@ const POINTS = {
   },
   193: async (page, f) => {
     // L'inspecteur plus simple (audit de l'inspecteur, 22 novembre 2026, lots A1 a A7) : la terrasse de la demonstration choisie,
-    // mode expert eteint. A la selection, « Lames et finitions » est ouverte (au doigt, sous l'onglet Construction), et les sections
+    // mode expert eteint. A la selection, « Lames et finitions » est ouverte (au doigt, sous l'onglet Réglages), et les sections
     // vont de l'objet a ce qui lui est propre, a l'apparence, a la geometrie. Dans « Structure et appuis », un entraxe de solives de
     // 3 puis de −10 cm est refuse au clavier, avec la phrase des bornes sous le champ, et le projet ne bouge pas ; le « i » du champ
     // ecrit son aide sous lui, un second toucher la referme ; deux fleches du clavier changent l'entraxe tout de suite, et un seul
@@ -3653,7 +3670,7 @@ const POINTS = {
     if (arrivee.ouvertes.join() !== 'lames') echecs.push('section ouverte à la sélection : ' + (arrivee.ouvertes.join() || 'aucune'));
     if (!arrivee.visible) echecs.push('« Lames et finitions » ne se voit pas');
     if (arrivee.ordre.join() !== 'objet,implantation,lames,structure,apparence,cotes,coins') echecs.push('ordre : ' + arrivee.ordre.join());
-    if (tactile && arrivee.famille !== 'construction') echecs.push('onglet d’arrivée : ' + arrivee.famille);
+    if (tactile && arrivee.famille !== 'reglages') echecs.push('onglet d’arrivée : ' + arrivee.famille);
     await ouvrirSection(page, 'structure');
     const entraxe = () => page.evaluate(() => window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse')?.construction?.soliveEntraxe);
     const ligne = '#zoneInspecteur [data-cle="soliveEntraxe"]';
@@ -3711,6 +3728,143 @@ const POINTS = {
       + `à la sélection « ${arrivee.ouvertes.join()} »${tactile ? ' (onglet ' + arrivee.famille + ')' : ''} ; 3 et −10 cm : « ${refus[0]} » ; « i » : « ${aide.slice(0, 34)}… » ; flèches ${depart} → ${apresUne} → ${apresDeux}, un Ctrl+Z → ${apresAnnulation}`
       + (tactile ? ` ; « − » grisé à 20 : ${moinsGrise ? 'oui' : 'non'} ; ${petites} cible sous 44 px` : '') };
   },
+  194: async (page, f) => {
+    // L'inspecteur a moins de champs (audit de l'inspecteur du 22 novembre 2026, decisions B1, B2, B3 et B7), mode expert eteint.
+    // Une pergola posee par son outil : ses reglages tiennent en trois groupes (« Forme et toit », ouvert a l'arrivee, « Structure »,
+    // « Couleurs ») puis « Note de calcul », au doigt sous l'onglet « Réglages », le premier ; « Structure » ne montre pas la section
+    // des chevrons, et dit a son pied combien de reglages avances sont caches ; son bouton « Mode expert » les montre (la case du menu
+    // Affichage suit), le menu les recache, et le projet n'a pas change. Sur la terrasse, « Coins » : une ligne par coin, sans champ
+    // de saisie ; un toucher la deplie, le coin se renomme (un Ctrl+Z defait le nom), Entree au clavier la replie. La parcelle
+    // cloturee s'ouvre sur « Clôture », la maison sur « Toit », et « Relief » comme « Fenêtres (3D) » sont sous « Réglages ».
+    const echecs = [];
+    const tactile = f.nom !== 'large';
+    await modeExpert(page, false);
+    const sections = () => page.evaluate(() => {
+      const p = document.querySelector('#zoneInspecteur .inspecteurPanneau');
+      const s = [...p.querySelectorAll('details.inspecteurSection')];
+      return { ouvertes: s.filter((d) => d.open).map((d) => d.dataset.section), famille: p.dataset.familleActive ?? null,
+        onglets: [...p.querySelectorAll('.famillesSections button')].map((b) => b.textContent.trim()),
+        reglages: s.filter((d) => d.dataset.famille === 'reglages').map((d) => d.dataset.section),
+        titres: Object.fromEntries(s.map((d) => [d.dataset.section, d.querySelector(':scope > summary')?.textContent.trim() ?? ''])) };
+    });
+    const arriver = async (cle) => {
+      // Sans objet d'abord, le temps d'un rendu, panneau ouvert (ferme, il ne se redessine pas) : une section ouverte a la main sur
+      // l'objet d'avant resterait ouverte sur le suivant (c'est voulu, point 193), et ce n'est pas l'arrivee qu'on lirait.
+      await inspecteur(page);
+      await page.evaluate(() => window.__plan.selectionnerCle(null));
+      await page.waitForTimeout(200);
+      await page.evaluate((cle) => window.__plan.selectionnerCle(cle), cle);
+      await page.waitForTimeout(250);
+      await inspecteur(page);
+      return sections();
+    };
+    const plan = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+
+    // ---- 1. La pergola : trois groupes, « Réglages » en premier ---------------------------------------
+    await page.evaluate(() => window.__plan.executer('objet.ajouter.pergola'));
+    await page.waitForTimeout(400);
+    const pergola = await page.evaluate(() => { const e = window.__plan.etat(); const o = e.objects.find((x) => x.key === e.selectedKey); return o && o.fonction === 'pergola' ? o.key : null; });
+    if (!pergola) return { ok: false, mesure: 'ÉCHEC : la pergola n’a pas été posée' };
+    const p = await arriver(pergola);
+    if (p.reglages.join() !== 'pergola,pergolaStructure,pergolaCouleurs,noteCalcul') echecs.push('groupes de la pergola : ' + p.reglages.join());
+    if ([p.titres.pergola, p.titres.pergolaStructure, p.titres.pergolaCouleurs].join(' | ') !== 'Pergola · Forme et toit | Structure | Couleurs') echecs.push('titres : ' + JSON.stringify(p.titres));
+    if (p.ouvertes.join() !== 'pergola') echecs.push('pergola, section d’arrivée : ' + p.ouvertes.join());
+    if (tactile && (p.onglets[0] !== 'Réglages' || p.famille !== 'reglages')) echecs.push('onglets : ' + p.onglets.join(' · ') + ' (arrivée sur ' + p.famille + ')');
+    if (!tactile && p.onglets.length) echecs.push('des onglets au bureau');
+
+    // ---- 2. Un reglage du mode expert, et la ligne qui le dit -----------------------------------------
+    await ouvrirSection(page, 'pergolaStructure');
+    const structure = () => page.evaluate(() => {
+      const d = document.querySelector('#zoneInspecteur details[data-section="pergolaStructure"]');
+      const r = d.querySelector('.reglagesAvances'), b = r?.querySelector('button')?.getBoundingClientRect();
+      return { cles: [...d.querySelectorAll('.champ[data-cle]')].map((e) => e.dataset.cle), rappel: r?.querySelector('span')?.textContent ?? null, bouton: b ? [Math.round(b.width), Math.round(b.height)] : null,
+        expert: window.__plan.magasin().options.modeExpert };
+    });
+    const avantPlan = await plan();
+    const simple = await structure();
+    if (simple.cles.join() !== 'sectionPoteau,entraxePoteaux,sectionPoutre') echecs.push('« Structure » en mode simple : ' + simple.cles.join());
+    if (simple.rappel !== '6 réglages avancés') echecs.push('rappel : « ' + simple.rappel + ' »');
+    if (tactile && (!simple.bouton || simple.bouton[0] < 43.5 || simple.bouton[1] < 43.5)) echecs.push('bouton « Mode expert » de ' + (simple.bouton ?? []).join(' × ') + ' px');
+    const bouton = page.locator('#zoneInspecteur details[data-section="pergolaStructure"] .reglagesAvances button');
+    await bouton.scrollIntoViewIfNeeded();
+    if (tactile) await bouton.tap(); else await bouton.click();
+    await page.waitForTimeout(300);
+    const expert = await structure();
+    if (!expert.expert) echecs.push('le bouton n’allume pas le mode expert');
+    for (const k of ['avecContrefiches', 'sectionChevron', 'entraxeChevrons', 'longueursBois']) if (!expert.cles.includes(k)) echecs.push(k + ' absent en mode expert');
+    if (expert.rappel !== null) echecs.push('le rappel reste en mode expert');
+    // La case du menu Affichage suit, et c'est elle qui eteint.
+    if (await modeExpert(page, false)) echecs.push('le menu Affichage n’éteint pas le mode expert');
+    await inspecteur(page);
+    await ouvrirSection(page, 'pergolaStructure');
+    const retour = await structure();
+    if (retour.cles.includes('sectionChevron') || retour.rappel !== '6 réglages avancés') echecs.push('retour au mode simple : ' + retour.cles.join() + ' / ' + retour.rappel);
+    if ((await plan()) !== avantPlan) echecs.push('le projet a changé en passant d’un mode à l’autre');
+
+    // ---- 3. Un coin replie, deplie, renomme -----------------------------------------------------------
+    await page.evaluate((src) => { const o = window.__plan.etat().objects.find(new Function('o', 'return ' + src)); window.__plan.selectionnerCle(o.key); }, TERRASSE);
+    await page.waitForTimeout(250);
+    await inspecteur(page);
+    await ouvrirSection(page, 'coins');
+    const coins = () => page.evaluate(() => {
+      const l = [...document.querySelectorAll('#zoneInspecteur details[data-section="coins"] .champ.repliable')];
+      const h = l.filter((e) => e.querySelector(':scope > .ligneResume')?.getAttribute('aria-expanded') === 'false').map((e) => Math.round(e.getBoundingClientRect().height));
+      return { n: l.length, saisies: document.querySelectorAll('#zoneInspecteur details[data-section="coins"] :is(input, select)').length, hauteurMax: Math.max(0, ...h), hauteurMin: Math.min(...h),
+        resume: l[0]?.querySelector('.ligneResume')?.textContent ?? '', deplie: l[0]?.querySelector('.ligneResume')?.getAttribute('aria-expanded') };
+    });
+    const nomCoin = () => page.evaluate((src) => window.__plan.etat().objects.find(new Function('o', 'return ' + src)).vertexNames[0], TERRASSE);
+    const replies = await coins();
+    if (replies.n < 3 || replies.saisies !== 0) echecs.push('coins repliés : ' + replies.n + ' lignes, ' + replies.saisies + ' champs de saisie');
+    if (replies.hauteurMax > 60 || (tactile && replies.hauteurMin < 43.5)) echecs.push('hauteur d’un coin replié : de ' + replies.hauteurMin + ' à ' + replies.hauteurMax + ' px');
+    if (!/°/.test(replies.resume)) echecs.push('le résumé ne dit pas l’angle : « ' + replies.resume + ' »');
+    const ligne = '#zoneInspecteur details[data-section="coins"] .champ[data-cle="coin0"]';
+    const resume = page.locator(ligne + ' > button.ligneResume');
+    await resume.scrollIntoViewIfNeeded();
+    if (tactile) await resume.tap(); else await resume.click();
+    await page.waitForTimeout(200);
+    const detail = await page.evaluate((ligne) => {
+      const d = document.querySelector(ligne + ' .ligneDetail');
+      const petites = d ? [...d.querySelectorAll('input, select, button')].map((el) => el.closest('label.interrupteur, label.pasValeur') ?? el)
+        .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && (r.width < 43.5 || r.height < 43.5); }).length : -1;
+      return { cles: d ? [...d.querySelectorAll(':scope > .champ')].map((e) => e.dataset.cle) : [], petites };
+    }, ligne);
+    if (detail.cles.join() !== 'nom,angle,fige,supprimer') echecs.push('coin déplié : ' + detail.cles.join());
+    if (tactile && detail.petites) echecs.push(detail.petites + ' cible(s) sous 44 px dans le coin déplié');
+    const avantNom = await nomCoin();
+    const champNom = page.locator(ligne + ' .ligneDetail [data-cle="nom"] input');
+    await champNom.click(); await champNom.press('End');
+    await champNom.pressSequentially(' test', { delay: 50 });
+    await page.waitForTimeout(150);
+    const renomme = await nomCoin();
+    const resumeRenomme = (await coins()).resume;
+    if (renomme !== avantNom + ' test' || !resumeRenomme.includes('« ' + avantNom + ' test »')) echecs.push('renommer : « ' + renomme + ' », résumé « ' + resumeRenomme + ' »');
+    await champNom.blur();
+    // Au clavier : la ligne est un bouton, Entree la replie.
+    await resume.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(150);
+    if ((await coins()).deplie !== 'false') echecs.push('Entrée ne replie pas la ligne');
+    if (f.nom === 'compact') await feuille(page, null);
+    await annuler(page);
+    const apresAnnulation = await nomCoin();
+    if (apresAnnulation !== avantNom) echecs.push('un Ctrl+Z après le renommage : « ' + apresAnnulation + ' »');
+
+    // ---- 4. Les arrivees, et ce qui a rejoint « Réglages » --------------------------------------------
+    const parcelle = await arriver('parcelle');
+    if (parcelle.ouvertes.join() !== 'cloture') echecs.push('parcelle clôturée, section d’arrivée : ' + parcelle.ouvertes.join());
+    for (const id of ['cloture', 'portails', 'relief']) if (!parcelle.reglages.includes(id)) echecs.push('« ' + (parcelle.titres[id] ?? id) + ' » hors de l’onglet Réglages');
+    if (tactile && parcelle.famille !== 'reglages') echecs.push('parcelle, onglet d’arrivée : ' + parcelle.famille);
+    const maison = await arriver('maison');
+    if (maison.ouvertes.join() !== 'toit') echecs.push('maison, section d’arrivée : ' + maison.ouvertes.join());
+    if ([maison.titres.toit, maison.titres.releve].join(' | ') !== 'Toit | Façades') echecs.push('titres du bâtiment : ' + maison.titres.toit + ' | ' + maison.titres.releve);
+    if (maison.reglages.join() !== 'toit,releve,fenetres3d') echecs.push('réglages du bâtiment : ' + maison.reglages.join());
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    if (deborde) echecs.push('débordement');
+    if (f.nom === 'compact') await feuille(page, null);
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `pergola : ${p.reglages.length} sections${tactile ? ', onglets ' + p.onglets.join(' · ') : ''} ; « Structure » : ${simple.cles.length} réglages, « ${simple.rappel} », ${expert.cles.length} en mode expert ; `
+      + `${replies.n} coins de ${replies.hauteurMin} à ${replies.hauteurMax} px, déplié : ${detail.cles.join(', ')} ; « ${avantNom} » → « ${renomme} » → Ctrl+Z → « ${apresAnnulation} » ; parcelle : « ${parcelle.ouvertes.join()} », maison : « ${maison.ouvertes.join()} »` };
+  },
   178: async (page) => {
     // L'inspecteur de la terrasse en trois groupes (lot 3 de la simplification, 16 novembre 2026) : la terrasse de la demonstration
     // choisie, mode expert eteint, ses reglages de construction tiennent en « Forme et niveau », « Lames et finitions », « Structure
@@ -3723,7 +3877,7 @@ const POINTS = {
       await inspecteur(page);
       const r = await page.evaluate(() => {
         const sections = [...document.querySelectorAll('#zoneInspecteur details.inspecteurSection')];
-        const construction = sections.filter((d) => d.dataset.famille === 'construction');
+        const construction = sections.filter((d) => d.dataset.famille === 'reglages');
         const cles = (id) => [...(document.querySelector('#zoneInspecteur details[data-section="' + id + '"]')?.querySelectorAll('[data-cle]') ?? [])].map((e) => e.getAttribute('data-cle'));
         return { ids: construction.map((d) => d.dataset.section), titres: construction.map((d) => d.querySelector('summary')?.textContent ?? ''),
           structure: cles('structure'), lames: cles('lames'), total: document.getElementById('terrasseBomTotals')?.textContent ?? '',
@@ -3738,10 +3892,12 @@ const POINTS = {
     if (simple.titres.join(' | ') !== 'Terrasse · Forme et niveau | Lames et finitions | Structure et appuis') echecs.push('titres : ' + simple.titres.join(' | '));
     // La terrasse de la demonstration est sur vis ou sur plots : les champs attendus suivent.
     const plots = await page.evaluate(() => window.__plan.etat().objects.find((o) => o.fonction === 'terrasse' && o.name === 'Terrasse')?.construction?.typePose === 'plots');
-    const fins = ['chargeNormale', 'chargeSpa', 'visMargeZoneSpa', ...(plots ? ['plotEntraxeAuto', 'plotSurfaceAssise'] : ['visModeAuto', 'visEntraxeZoneSpa'])];
+    // « Portée max entre vis » suit la case « Portée vis automatique » qui la libere (decision B1 de l'audit de l'inspecteur) : en mode
+    // simple elle se montrait grisee, sans rien pour la regler.
+    const fins = ['chargeNormale', 'chargeSpa', 'visMargeZoneSpa', ...(plots ? ['plotEntraxeAuto', 'plotSurfaceAssise'] : ['visModeAuto', 'visEntraxeZoneSpa', 'visEntraxe'])];
     for (const k of fins) if (simple.structure.includes(k)) echecs.push(k + ' visible en mode simple');
     if (simple.lames.includes('coefRaideurLame')) echecs.push('raideur visible en mode simple');
-    for (const k of ['typePose', 'soliveSection', ...(plots ? ['hauteurPlot', 'plotEntraxe'] : ['hauteurVis', 'visEntraxe'])]) if (!simple.structure.includes(k)) echecs.push(k + ' absent de « Structure et appuis »');
+    for (const k of ['typePose', 'soliveSection', ...(plots ? ['hauteurPlot', 'plotEntraxe'] : ['hauteurVis', 'depassementVis'])]) if (!simple.structure.includes(k)) echecs.push(k + ' absent de « Structure et appuis »');
     for (const k of ['lameCommerce', 'sensPose', 'avecLameRive']) if (!simple.lames.includes(k)) echecs.push(k + ' absent de « Lames et finitions »');
     await modeExpert(page, true);
     const expert = await lire();
@@ -4960,7 +5116,7 @@ const POINTS = {
       return { sel: window.__plan.etat().selectedKey, panneau: m.classe === 'compact' ? m.feuille === 'proprietes' : m.inspecteurOuvert,
         clotureOuverte: !!c && c.open && vu(c), portailsVus: vu(p), familles: [c?.dataset.famille, p?.dataset.famille].join('/') };
     });
-    if (chemin.sel !== 'parcelle' || !chemin.panneau || !chemin.clotureOuverte || !chemin.portailsVus || chemin.familles !== 'objet/objet') echecs.push('« Clôture, portail » : ' + JSON.stringify(chemin));
+    if (chemin.sel !== 'parcelle' || !chemin.panneau || !chemin.clotureOuverte || !chemin.portailsVus || chemin.familles !== 'reglages/reglages') echecs.push('« Clôture, portail » : ' + JSON.stringify(chemin));
     // La cloture de la demonstration est cochee : on la decoche, comme la personne, par sa case.
     // Au doigt la case est un interrupteur : c'est sa piste qu'on touche.
     const pisteCloture = page.locator('.inspecteurPanneau details[data-section="cloture"] [data-cle="active"] .piste').first();
@@ -8888,7 +9044,8 @@ const POINTS = {
     await page.waitForTimeout(400);
     await page.evaluate(() => window.__plan.selectionnerCle('maison'));
     await inspecteur(page);
-    await ouvrirSection(page, 'releve');
+    // « Modifier la toiture en 3D » est dans la section « Toit », separee de « Façades » (decision B2 de l'audit de l'inspecteur).
+    await ouvrirSection(page, 'toit');
     await etape('Modifier la toiture en 3D', () => page.locator('#zoneInspecteur [data-cle="toit3d"] button').first().click({ timeout: 15000 }));
     if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille(null));
     await etape('le mode ouvert depuis le plan', () => page.locator('.panneauToit').waitFor({ timeout: 60000 }));
@@ -10730,7 +10887,9 @@ function pointsPour(nomClasse) {
   //       « Clôture, portail » et le portail ajoute cloture decochee, la vitrine sans selection ni modification.
   // 193 : l'inspecteur plus simple : la section propre ouverte a la selection, une valeur hors bornes refusee avec sa phrase, l'aide
   //       par le « i », les fleches immediates et leur seul Ctrl+Z, les cibles de 44 px.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193];
+  // 194 : l'inspecteur a moins de champs : pergola en trois groupes sous « Réglages », un reglage du mode expert absent puis montre
+  //       par la ligne « réglages avancés », un coin replie, deplie et renomme, les arrivees de la parcelle et de la maison.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

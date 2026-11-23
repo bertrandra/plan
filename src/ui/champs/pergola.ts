@@ -1,10 +1,12 @@
 // Les sections de l'inspecteur pour une pergola (ui/champs/).
 //
-// Trois sections : « Pergola », les reglages (matiere, toit, hauteur, mur, debord, sections,
-// entraxes, couleurs), dans l'inspecteur ; « Metrage et chiffrage », ce que le moteur en tire
+// Les reglages, dans l'inspecteur, en trois groupes comme ceux d'une terrasse, dans l'ordre ou l'on decide (audit de
+// l'inspecteur, decision B2 ; un seul bloc de dix-sept lignes jusque-la) : la forme et le toit (matiere, toit, hauteur, pente,
+// mur, debord), la structure (poteaux, poutres, puis contrefiches, chevrons et longueurs achetables, du mode expert), les
+// couleurs. Puis « Metrage et chiffrage », ce que le moteur en tire
 // (engine/abri/pergola.ts) : pour chaque section, les pieces qu'on y taille, les metres lineaires, les
 // barres a acheter et leur cout, debitees dans les longueurs achetables comme les lames d'une
-// terrasse ; et « Prix », les prix unitaires. Ces deux dernieres sont des resultats : elles se
+// terrasse ; et « Prix », les prix unitaires. Ces deux dernieres sections sont des resultats : elles se
 // montrent dans l'onglet de l'abri du tiroir. Les reglages ne sont ecrits dans l'objet que lorsqu'on les touche :
 // `pergolaDe` comble le reste a la lecture.
 
@@ -15,8 +17,9 @@ import {
 } from '../../engine/abri/pergola.js';
 import { solDuProjet } from '../../engine/sol.js';
 import { euros } from '../chiffrage.js';
+import { noteDeCalcul } from '../../engine/abri/noteCalcul.js';
 import { sectionNoteCalcul } from './noteCalcul.js';
-import type { MateriauPergola, Pergola, ToitPergola } from '../../model/types.js';
+import type { MateriauPergola, ObjetPlan, Pergola, ToitPergola } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
 import { nomDuCote } from '../nomCote.js';
 
@@ -46,22 +49,58 @@ function choixSection(cle: CleSection, libelle: string, liste: (c: ContexteChamp
 }
 
 /**
- * Ce qui se replie dans la section de l'abri : ce qui sert rarement a le concevoir. Materiau, toit,
- * hauteur, cote de reference, mur, debord, poteaux et poutres restent ouverts.
+ * Le projet porte-t-il pour ce reglage une valeur qui n'est pas celle par defaut ? Lue comme le moteur la lit (`pergolaDe`), avec
+ * et sans la valeur ecrite : la valeur par defaut depend de la matiere et de l'ouvrage.
  */
-const PLIS: Record<string, string> = {
-  avecContrefiches: 'Contrefiches et chevrons', longueurContrefiche: 'Contrefiches et chevrons', sectionContrefiche: 'Contrefiches et chevrons',
-  sectionChevron: 'Contrefiches et chevrons', entraxeChevrons: 'Contrefiches et chevrons',
-  couleurBois: 'Couleurs et longueurs achetables', couleurToile: 'Couleurs et longueurs achetables', couleurCouverture: 'Couleurs et longueurs achetables',
-  longueursBois: 'Couleurs et longueurs achetables'
+const regle = (cle: keyof Pergola & keyof ReglagesPergola) => (c: ContexteChamps): boolean => {
+  const p = c.obj.pergola;
+  if (!p || p[cle] === undefined) return false;
+  const sans: Pergola = { ...p };
+  delete sans[cle];
+  return JSON.stringify(pergolaDe({ ...c.obj, pergola: sans } as ObjetPlan)[cle]) !== JSON.stringify(reglages(c)[cle]);
 };
-const replier = (champs: Champ[]): Champ[] => champs.map(ch => { const repli = PLIS[ch.cle]; return repli ? { ...ch, repli } : ch; });
 
-const sectionPergola: Section = {
-  // Le titre suit l'ouvrage (sectionsPergola) : « Pergola » ou « Carport », mêmes réglages.
-  id: 'pergola', titre: 'Pergola', principale: true,
-  explication: 'Le contour est le nu extérieur des poteaux : un poteau à chaque coin, des poteaux intermédiaires selon l\'entraxe, une poutre sur chaque côté.',
-  champs: replier([
+/** Ce que les alertes de l'abri disent, calcule une fois par rendu : les pieces insuffisantes de la note, les avertissements du metrage. */
+const diagnostics = new WeakMap<ContexteChamps, { insuffisants: Set<RolePiece>; avertissements: string[] }>();
+function diagnostic(c: ContexteChamps) {
+  let d = diagnostics.get(c);
+  if (!d) {
+    d = {
+      insuffisants: new Set((noteDeCalcul(c.obj)?.verifs ?? []).filter(v => v.taux > 1).map(v => v.role)),
+      avertissements: calculerPergola(c.obj, solDuProjet(c.objets))?.avertissements ?? []
+    };
+    diagnostics.set(c, d);
+  }
+  return d;
+}
+/** La note de calcul juge ces pieces insuffisantes : son alerte demande d'en changer la section ou l'entraxe. */
+const insuffisant = (...roles: RolePiece[]) => (c: ContexteChamps) => roles.some(r => diagnostic(c).insuffisants.has(r));
+/** Le metrage avertit a ce sujet (contrefiches trop longues, poutre plus longue que les longueurs achetables). */
+const averti = (motif: RegExp) => (c: ContexteChamps) => diagnostic(c).avertissements.some(t => motif.test(t));
+const ou = (...f: ((c: ContexteChamps) => boolean)[]) => (c: ContexteChamps) => f.some(x => x(c));
+
+/**
+ * Les reglages du mode expert (audit de l'inspecteur, decision B1) : ce qui regle la charpente plutot que l'ouvrage. Caches, ils
+ * gardent leur valeur et le calcul la lit ; chacun reste montre tant que le projet en porte une valeur reglee, ou qu'une alerte
+ * (note de calcul, metrage) demande d'y toucher.
+ */
+const AVANCES: Record<string, (c: ContexteChamps) => boolean> = {
+  avecContrefiches: ou(regle('avecContrefiches'), insuffisant('contrefiche'), averti(/contrefiche/i)),
+  longueurContrefiche: ou(regle('longueurContrefiche'), insuffisant('contrefiche'), averti(/contrefiche/i)),
+  sectionContrefiche: ou(regle('sectionContrefiche'), insuffisant('contrefiche')),
+  sectionChevron: ou(regle('sectionChevron'), insuffisant('chevron')),
+  entraxeChevrons: ou(regle('entraxeChevrons'), insuffisant('chevron')),
+  longueursBois: ou(regle('longueursBois'), averti(/longueur achetable/i))
+};
+const avances = (champs: Champ[]): Champ[] => champs.map(ch => { const resteMontre = AVANCES[ch.cle]; return resteMontre ? { ...ch, expert: true, resteMontre } : ch; });
+
+/** Les trois groupes, par cle de reglage, dans l'ordre ou chacun se montre. */
+const FORME = ['materiau', 'toit', 'hauteur', 'coteReference', 'pente', 'adossee', 'coteMur', 'debord'];
+const STRUCTURE = ['sectionPoteau', 'entraxePoteaux', 'sectionPoutre', 'avecContrefiches', 'longueurContrefiche', 'sectionContrefiche', 'sectionChevron', 'entraxeChevrons', 'longueursBois'];
+const COULEURS = ['couleurBois', 'couleurToile', 'couleurCouverture'];
+
+/** Tous les reglages d'un abri ; `sectionsPergola` les range en trois groupes. */
+const CHAMPS_PERGOLA: Champ[] = avances([
     {
       type: 'choix', cle: 'materiau', libelle: 'Matériau', effets: EFFETS,
       aide: 'Bois : poteaux, poutres et contrefiches. Aluminium : profilés thermolaqués, sans contrefiches',
@@ -157,8 +196,7 @@ const sectionPergola: Section = {
       aide: 'Les longueurs vendues (bois ou profilés), en mètres : le métrage débite chaque section dedans',
       lire: (c) => longueursPergola(reglages(c)).join(', '), ecrire: (c, v) => poser(c, 'longueursBois', v)
     }
-  ])
-};
+]);
 
 /** `'4 poteaux, 8 contrefiches'`. */
 function pieces(m: MetrageSection): string {
@@ -234,10 +272,21 @@ export function sectionPrixPergola(c: ContexteChamps): Section {
 }
 
 /**
- * Les sections propres a une pergola ou a un carport dans l'inspecteur, dans l'ordre : ses reglages,
- * puis sa note de calcul. Le metrage et les prix sont des resultats : ils se lisent et se reglent dans
- * l'onglet de l'abri du tiroir (zones/resultats/Abri.tsx), qui rend les deux sections ci-dessus.
+ * Les sections propres a une pergola ou a un carport dans l'inspecteur, dans l'ordre : ses reglages en trois groupes (la forme et
+ * le toit, la structure, les couleurs), puis sa note de calcul. Le metrage et les prix sont des resultats : ils se lisent et se
+ * reglent dans l'onglet de l'abri du tiroir (zones/resultats/Abri.tsx), qui rend les deux sections ci-dessus.
  */
 export function sectionsPergola(c: ContexteChamps): Section[] {
-  return [{ ...sectionPergola, titre: libelleAbri(c.obj) }, sectionNoteCalcul(c)];
+  const groupe = (cles: string[]) => cles.flatMap(cle => CHAMPS_PERGOLA.filter(ch => ch.cle === cle));
+  return [
+    {
+      // Le titre suit l'ouvrage : « Pergola » ou « Carport », memes reglages. Ce qu'on vient regler : la section d'arrivee.
+      id: 'pergola', titre: libelleAbri(c.obj) + ' · Forme et toit', principale: true,
+      explication: 'Le contour est le nu extérieur des poteaux : un poteau à chaque coin, des poteaux intermédiaires selon l\'entraxe, une poutre sur chaque côté.',
+      champs: groupe(FORME)
+    },
+    { id: 'pergolaStructure', titre: 'Structure', champs: groupe(STRUCTURE) },
+    { id: 'pergolaCouleurs', titre: 'Couleurs', champs: groupe(COULEURS) },
+    sectionNoteCalcul(c)
+  ];
 }
