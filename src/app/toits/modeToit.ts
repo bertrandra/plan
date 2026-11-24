@@ -125,6 +125,21 @@ const chezUnVoisin = estChezUnVoisin;
  */
 export const estRetouchable = (o: ObjetPlan | undefined): o is ObjetPlan => !!o && estBatiment(o) && o.type === 'polygon' && !chezUnVoisin(o);
 
+/** Les batiments du projet que le mode retouche (ceux de la parcelle, pas ceux des voisins), dans l'ordre du plan. */
+export const batimentsRetouchables = (objets: readonly ObjetPlan[]): ObjetPlan[] => objets.filter((x) => estRetouchable(x));
+
+/**
+ * Le batiment que vise l'entree du mode : celui qui est choisi ; sinon, quand rien n'est choisi ou que la selection n'est pas un
+ * batiment, le seul batiment retouchable du projet s'il n'y en a qu'un (« la maison » : inutile de la designer). Avec plusieurs
+ * batiments, il faut en choisir un ; un batiment voisin choisi reste la selection (le bouton dit pourquoi il refuse).
+ */
+export function batimentVise(objets: readonly ObjetPlan[], selection: string | null): ObjetPlan | undefined {
+  const o = objets.find((x) => x.key === selection);
+  if (o && estBatiment(o) && o.type === 'polygon') return o;
+  const retouchables = batimentsRetouchables(objets);
+  return retouchables.length === 1 ? retouchables[0] : o;
+}
+
 /** Ce qui ferme le mode Toit sur le batiment `o`, a dire a la personne ; null : rien a dire (il s'ouvre, ou ce n'est pas un batiment). */
 export function raisonNonRetouchable(o: ObjetPlan | undefined): string | null {
   if (!o || !estBatiment(o) || o.type !== 'polygon' || !chezUnVoisin(o)) return null;
@@ -431,7 +446,7 @@ export function retourDuNavigateur(): boolean {
 let focusDemande = 0;
 const FOCUS_DE_SORTIE_MS = 1500;
 
-/** Vrai une fois, juste apres la sortie du mode : le bouton qui l'ouvre reprend le focus (zones/vue3d/BoutonModifierToit.tsx). */
+/** Vrai une fois, juste apres la sortie du mode : le bouton qui l'ouvre reprend le focus (zones/vue3d/EntreeMaison.tsx). */
 export function prendreFocusDeSortie(): boolean {
   const oui = focusDemande > 0 && Date.now() - focusDemande < FOCUS_DE_SORTIE_MS;
   focusDemande = 0;

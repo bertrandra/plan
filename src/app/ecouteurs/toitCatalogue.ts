@@ -10,7 +10,7 @@
 
 import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
-import { estRetouchable, raisonDOuvrir, creerModeToit, etatToit, poserEntreeHistorique, quitterLaSessionPuis, retourDuNavigateur, sessionToit } from '../toits/modeToit.js';
+import { batimentVise, batimentsRetouchables, estRetouchable, raisonDOuvrir, creerModeToit, etatToit, poserEntreeHistorique, quitterLaSessionPuis, retourDuNavigateur, sessionToit } from '../toits/modeToit.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
 import { corpsAFusionner, fusionnerCorps, retourDAngle, scinderCorps } from '../../facade/modeToit/decroche.js';
@@ -28,6 +28,7 @@ import type { ChampsBatiment, ObjetPlan } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { brancherDecroche, decrocheArme, type GesteDecroche } from './decroche.js';
 import { libellesDesElements } from '../../facade/modeToit/elements.js';
+import { estIntentionToit, poserIntentionToit, type IntentionToit } from '../toits/intention.js';
 
 export interface ContexteToitCatalogue {
   /** Redessine le batiment `cle` dans la Vue 3D ouverte (la scene entiere s'il le faut, autour de la terrasse courante). */
@@ -130,6 +131,7 @@ function touchesDuMode(e: KeyboardEvent, d: DepsClavier): void {
   if (y || e.shiftKey) d.mode.retablir(); else d.mode.annuler();
 }
 
+type CommandeToit = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void, ecrit?: boolean, raisonInactive?: () => string | null) => void;
 type Declarer = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void) => void;
 type Choisi = () => { t: { type: TypeElement; rang: number; i: number }; corps: NonNullable<ChampsBatiment['corpsToit']> } | null;
 
@@ -205,6 +207,47 @@ function declarerReglage(commande: Declarer, choisi: Choisi, corpsDuBatiment: ()
   });
 }
 
+/**
+ * Les deux entrees du mode (« Modifier la maison », « Ajouter a la maison ») et le commutateur du panneau entre les deux intentions
+ * (app/toits/intention.ts). Rend le batiment vise : celui que les entrees ouvrent.
+ */
+function declarerEntrees(a: Atelier, cmd: RegistreCommandes, ctx: ContexteToitCatalogue, commande: CommandeToit, mode: ReturnType<typeof creerModeToit>): void {
+  // Le batiment vise : le choisi, sinon la seule maison du projet (app/toits/modeToit.ts::batimentVise).
+  const selection = (): ObjetPlan | undefined => batimentVise(a.etat.objects, a.etat.selectedKey), enSession = () => !!sessionToit();
+  // Ouvre la session sur le batiment vise, dans l'intention dite. Le batiment vise sans etre choisi le devient : la session lit la selection.
+  const ouvrirEn = (intention: IntentionToit, cle?: string) => {
+    const ouvrir = () => {
+      const o = cle ? a.etat.objects.find((x) => x.key === cle) : selection();
+      if (enSession() || !estRetouchable(o)) return;
+      if (a.etat.selectedKey !== o.key) { a.etat.selectedKey = o.key; a.etat.highlight = { type: null, index: null }; }
+      poserIntentionToit(intention);
+      mode.ouvrir();
+    };
+    // Le catalogue d'abord : la session s'ouvre avec lui (deja charge, tout de suite).
+    if (gestes) { ouvrir(); return; }
+    chargerGestesToits().then(ouvrir, (e: unknown) => {
+      showToast(phraseReseau(e, 'Le serveur de Plan', 'Le mode Toit n’a pas pu se charger : vérifiez votre connexion, puis réessayez.') ?? 'Le mode Toit n’a pas pu se charger (' + detailTechnique(e) + ').');
+    });
+  };
+  // Le batiment d'un voisin : le bouton reste, grise, et dit pourquoi (une autre selection : il s'efface, rien a expliquer).
+  commande('toit.modifier', 'Modifier la maison',
+    () => !enSession() && estRetouchable(selection()), () => { ouvrirEn('modifier'); }, true, () => (enSession() ? null : raisonDOuvrir(selection())));
+  // Plusieurs batiments sur la parcelle, aucun choisi : l'entree les nomme, et un toucher sur un nom ouvre le mode sur lui (`data-cle`).
+  commande('toit.modifierCe', 'Modifier ce bâtiment',
+    () => !enSession() && batimentsRetouchables(a.etat.objects).length > 0, (source) => { if (source?.dataset.cle) ouvrirEn('modifier', source.dataset.cle); });
+  // La meme session, ouverte sur le catalogue des pieces a poser : « Ajouter » ne se confond jamais avec « Modifier ».
+  commande('toit.ajouter', 'Ajouter à la maison',
+    () => !enSession() && estRetouchable(selection()), () => { ouvrirEn('ajouter'); }, true, () => (enSession() ? null : raisonDOuvrir(selection())));
+  // Le commutateur du panneau : `data-intention` sur le bouton. Quitter « Ajouter » lache la piece armee (rien n'attend plus de toucher).
+  commande('toit.intention', 'Modifier ou ajouter', enSession, (source) => {
+    const i = source?.dataset.intention;
+    if (!estIntentionToit(i)) return;
+    if (i === 'modifier' && insertionToit()?.commande === 'toit.decrocher') cmd.executer('toit.quitterInsertion');
+    poserIntentionToit(i);
+    ctx.rafraichir();
+  }, false);
+}
+
 export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes): void {
   const mode = creerModeToit(a, { rebatir: ctx.rebatirBatiment, rafraichir: ctx.rafraichir });
   const batiment = (): ObjetPlan | undefined => { const s = sessionToit(); return s ? a.etat.objects.find((o) => o.key === s.cle) : undefined; };
@@ -216,17 +259,10 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     raisonInactive?: () => string | null) =>
     cmd.declarer({ id, libelle, groupe: 'toit', ...(ecrit ? { permission: PERMISSION_ECRITURE } : {}), ...(raisonInactive ? { raisonInactive } : {}), actif, executer });
 
-  const selection = (): ObjetPlan | undefined => a.etat.objects.find((o) => o.key === a.etat.selectedKey);
-  // Le batiment d'un voisin : le bouton reste, grise, et dit pourquoi (une autre selection : il s'efface, rien a expliquer).
-  commande('toit.modifier', 'Modifier la toiture',
-    () => !enSession() && estRetouchable(selection()), () => {
-      // Le catalogue d'abord : la session s'ouvre avec lui (deja charge, tout de suite).
-      if (gestes) { mode.ouvrir(); return; }
-      chargerGestesToits().then(() => { if (!enSession()) mode.ouvrir(); }, (e: unknown) => {
-        showToast(phraseReseau(e, 'Le serveur de Plan', 'Le mode Toit n’a pas pu se charger : vérifiez votre connexion, puis réessayez.') ?? 'Le mode Toit n’a pas pu se charger (' + detailTechnique(e) + ').');
-      });
-    }, true, () => (enSession() ? null : raisonDOuvrir(selection())));
-  declarerEntreeEn3d(commande, cmd, ctx, () => !enSession() && estRetouchable(selection()), () => (enSession() ? null : raisonDOuvrir(selection())));
+  declarerEntrees(a, cmd, ctx, commande, mode);
+  // Depuis l'inspecteur du plan, l'entree ne parle que du batiment dont on lit les proprietes : le choisi, jamais un batiment devine.
+  const choisiSurLePlan = (): ObjetPlan | undefined => a.etat.objects.find((o) => o.key === a.etat.selectedKey);
+  declarerEntreeEn3d(commande, cmd, ctx, () => !enSession() && estRetouchable(choisiSurLePlan()), () => (enSession() ? null : raisonDOuvrir(choisiSurLePlan())));
   commande('toit.valider', 'Valider le toit',
     enSession, () => { mode.valider(); });
   commande('toit.abandonner', 'Abandonner les changements',
@@ -301,6 +337,8 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
       const cible = cibleAjoutee(avant, batiment()?.batiment?.corpsToit ?? []), mur = cible ? facadeDeLElement(batiment()?.batiment?.corpsToit ?? [], cible) : null;
       mode.selectionner(cible);
       if (mur) mode.choisirFacade(mur.rang, mur.mur);
+      // Une piece nouvelle posee (pas une forme de toit, qui est deja une modification) : on regle ce qu'on vient d'ajouter.
+      poserIntentionToit('modifier');
     });
 
   // Le decroche au point (piece « Decroche » du catalogue) : le prochain toucher sur l'egout ou le mur donne son point.

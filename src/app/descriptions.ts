@@ -153,7 +153,10 @@ export const DESCRIPTIONS: Record<string, string> = {
   'visionneuse.pleinePage': 'Affiche la visionneuse sur toute la page',
 
   // ---- Mode Toit (Vue 3D) ----------------------------------------------------------------------------
-  'toit.modifier': 'Ouvre le mode Toit sur le bâtiment sélectionné : choisir une façade, poser des éléments sur le toit et la façade, tout annuler ; rien ne touche au projet avant la validation',
+  'toit.modifier': 'Ouvre le mode Toit sur le bâtiment sélectionné (ou sur la seule maison du projet), pour modifier ce qui existe : la forme du toit, ses réglages, ses murs ; rien n’est créé, tout s’annule, rien ne touche au projet avant la validation',
+  'toit.ajouter': 'Ouvre le mode Toit sur le catalogue des pièces à poser (lucarne, cheminée, aile, bow-window…) : on ajoute à la maison, rien d’existant n’est touché ; rien ne touche au projet avant la validation',
+  'toit.modifierCe': 'Ouvre le mode Toit sur le bâtiment nommé par le bouton, quand la parcelle en porte plusieurs et qu’aucun n’est choisi',
+  'toit.intention': 'Dans le mode Toit, choisit entre modifier ce qui existe et ajouter un élément : le panneau ne montre que les gestes de l’intention choisie',
   'toit.valider': 'Écrit le toit retouché dans le projet, en une seule étape que Ctrl+Z défait d’un coup, et quitte le mode Toit',
   'toit.abandonner': 'Quitte le mode Toit en rendant le toit comme il était à l’entrée ; une question d’abord s’il y a des changements',
   'toit.annuler': 'Défait la dernière retouche du mode Toit (Ctrl+Z)',

@@ -18,7 +18,7 @@ import { controleMontre } from '../../app/modeExpert.js';
 import { promenadeActive } from '../../three/presentation.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
-import { BoutonModifierToit } from './BoutonModifierToit.js';
+import { EntreeMaison } from './EntreeMaison.js';
 import { BoutonPhotographierFacade } from './BoutonPhotographierFacade.js';
 
 // Le panneau du mode Toit et le catalogue des toits (three/gestesToits.ts) se chargent a l'ouverture de la Vue 3D (AD-10).
@@ -129,7 +129,7 @@ function EtiquettesDeuxVues({ vues }: { vues: DeuxVues }) {
 }
 
 // Les commandes dont la vue montre l'etat elle-meme (les boutons de camera suivent chacun la leur, s'ils le font).
-const COMMANDES_VUE3D = ['3d.enregistrerPointDeVue', 'audit.suivre', '3d.heureDoree', '3d.promenade', '3d.captureHd', 'terrasse.isoler', 'toit.modifier', 'facade.photographier', '3d.photomontage'];
+const COMMANDES_VUE3D = ['3d.enregistrerPointDeVue', 'audit.suivre', '3d.heureDoree', '3d.promenade', '3d.captureHd', 'terrasse.isoler', 'toit.modifier', 'toit.ajouter', 'toit.modifierCe', 'facade.photographier', '3d.photomontage'];
 
 /**
  * La cle de la Vue 3D (zones/composants/abonnement.ts). Montree, elle suit ce qu'elle lit du plan : les attributs des objets (la
@@ -149,9 +149,10 @@ function useCleVue3d(magasin: Magasin, commandes: RegistreCommandes, vues: Servi
 }
 
 /**
- * Les boutons de la camera, en colonne sur la scene (Z4, la navigation seule). En tete, la maison choisie : « Modifier la toiture »
- * puis « Photographier une façade » (decision du proprietaire, 14 novembre 2026) ; derniers d'une colonne de treize, ils tombaient
- * sous la barre de Safari sur iPhone et iPad. Sans maison, les deux s'effacent et leur separateur, alors premier, aussi (app.css).
+ * Les boutons de la camera, en colonne sur la scene (Z4, la navigation seule). En tete, la maison choisie : « Photographier une façade »
+ * (decision du proprietaire, 14 novembre 2026) ; dernier d'une colonne de treize, il tombait sous la barre de Safari sur iPhone et
+ * iPad. « Modifier la maison » et « Ajouter » sont dits en mots au bas de la scene (zones/vue3d/EntreeMaison.tsx). Sans maison, le
+ * bouton s'efface et son separateur, alors premier, aussi (app.css).
  * Trop haute pour l'ecran, la colonne defile au doigt.
  */
 function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: RegistreCommandes; magasin: Magasin; pleinePage: boolean }) {
@@ -159,7 +160,6 @@ function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: Regist
   const libIsoler = libelleIsoler(etatPlan.isolement !== null ? etatPlan.objects.find(o => o.key === etatPlan.isolement) : objetAIsoler(etatPlan));
   return (
     <div id="terrasse3dZoomControls" className="commandes3d">
-      <BoutonModifierToit commandes={commandes} />
       <BoutonPhotographierFacade commandes={commandes} />
       <div className="separateur3d"></div>
       <Bouton3d commandes={commandes} id="3d.pleinePage" domId="terrasse3dFullPageBtn" icone="pleinEcran" libelle={pleinePage ? 'Format normal' : 'Plein écran'}
@@ -321,6 +321,8 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
           </div>
           {/* En photomontage, la camera est celle de la photo : ses commandes sont dans le panneau du mode, sous l'image. */}
           {!enPhotomontage && <CommandesCamera commandes={commandes} magasin={magasin} pleinePage={pleinePage} />}
+          {/* L'entree du mode Toit, en mots : hors du photomontage (sa camera est celle de la photo) et de l'avant/apres d'un audit ; pas sous le plan (la vue cachee reste montee). */}
+          {visible && !enPhotomontage && !affichage3d.comparaison && affichage3d.vue3d === 'pret' && <EntreeMaison commandes={commandes} magasin={magasin} />}
         </div>
         {enPhotomontage && <Suspense fallback={null}><Photomontage magasin={magasin} commandes={commandes} redimensionner={vues.redimensionner3d} /></Suspense>}
       </div>

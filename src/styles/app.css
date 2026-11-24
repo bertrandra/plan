@@ -251,6 +251,54 @@
   .panneauToit .toitPiece.armee .libelle{ color:var(--insertion); font-weight:700; }
   .panneauToit .toitPiece.armee .libelle::after{ content:" · à poser"; }
   .panneauToit .boutonToit.arme{ background:var(--insertion-bg); border:2px solid var(--insertion); color:var(--insertion); }
+  /* Modifier ou ajouter (retour du proprietaire, 24 novembre 2026 : « on ne sait pas ce qui modifie et ce qui cree ») : deux
+     intentions, chacune son mot, son icone et sa couleur, partout les memes. Modifier ce qui existe porte l'accent (la selection, ce
+     qui est en place) ; ajouter porte la couleur d'insertion (la piece armee, le cadre de la scene). Le panneau ne montre que les
+     gestes de l'intention choisie ; son filet haut et l'indicateur d'etat en prennent la couleur. */
+  .panneauToit{ border-top:3px solid var(--accent); }
+  .panneauToit[data-intention="ajouter"]{ border-top-color:var(--insertion); }
+  .panneauToit .cibleToit{ gap:4px; }
+  .panneauToit .intentionToit{ display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; background:var(--segment-bg); border-radius:var(--r-bouton); }
+  .panneauToit .boutonIntention{ min-height:48px; display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; column-gap:8px; align-items:center; justify-items:start;
+    padding:4px 10px; font:inherit; text-align:left; color:var(--ink); background:transparent; border:2px solid transparent; border-radius:var(--r-champ); cursor:pointer; transition:background .15s, color .15s; }
+  .panneauToit .boutonIntention svg{ grid-row:1 / span 2; }
+  .panneauToit .boutonIntention .verbeIntention{ font-family:var(--serif); font-size:.95rem; font-weight:700; line-height:1.1; }
+  .panneauToit .boutonIntention .quoiIntention{ font-size:.7rem; color:var(--ink-soft); line-height:1.1; }
+  .panneauToit .boutonIntention:hover{ background:var(--panel-bg); }
+  .panneauToit .boutonIntention[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); box-shadow:var(--ombre); }
+  .panneauToit .boutonIntention[data-intention="ajouter"][aria-pressed="true"]{ background:var(--insertion); color:var(--on-insertion); border-color:var(--insertion); }
+  .panneauToit .boutonIntention[aria-pressed="true"] .quoiIntention{ color:inherit; opacity:.9; }
+  .panneauToit .voletToit{ display:flex; flex-direction:column; gap:8px; }
+  .panneauToit .blocageToit{ display:flex; flex-direction:column; align-items:flex-start; gap:6px; padding:8px 10px; font-size:.8rem; color:var(--ink); background:var(--insertion-bg); border-left:3px solid var(--insertion); border-radius:var(--r-champ); }
+  .panneauToit .blocageToit p{ margin:0; }
+  .panneauToit .blocageToit .boutonToit{ background:var(--panel-bg); font-weight:600; }
+  .panneauToit .voletToit[data-volet="ajouter"] .toitOnglet[aria-selected="true"]{ background:var(--insertion-bg); border-color:var(--insertion); color:var(--ink); }
+  .panneauToit .voletToit[data-volet="ajouter"] .titrePlateau{ color:var(--insertion); font-family:var(--serif); font-size:.95rem; }
+  .panneauToit .voletToit[data-volet="ajouter"] .toitPiece:not(:disabled):hover{ border-color:var(--insertion); }
+  .etatToit[data-etat="ajout"]{ border-color:var(--insertion); background:var(--insertion-bg); }
+  .etatToit[data-etat="ajout"] .badgeEtatToit{ color:var(--on-insertion); background:var(--insertion); }
+  .etatToit[data-etat="ajout"] .texteEtatToit{ color:var(--ink); }
+  .etatToit[data-etat="modification"]{ border-color:var(--accent); }
+  /* L'entree du mode, en mots, au bas de la scene : « Modifier la maison » (l'accent) et « Ajouter » (l'insertion). Au telephone et
+     a la tablette, au-dessus de la barre de navigation (la reserve du bas). */
+  .entreeMaison{ position:absolute; z-index:3; left:50%; bottom:14px; transform:translateX(-50%); display:flex; gap:6px; padding:6px; max-width:calc(100% - 140px);
+    background:var(--panel-bg); border:1px solid var(--rule); border-radius:999px; box-shadow:var(--ombre-flottante); }
+  .boutonEntreeMaison{ min-height:44px; display:inline-flex; align-items:center; gap:8px; padding:4px 18px 4px 14px; font-family:var(--serif); font-size:.95rem; font-weight:700; white-space:nowrap;
+    color:var(--on-accent); background:var(--accent); border:2px solid var(--accent); border-radius:999px; cursor:pointer; transition:filter .15s, transform .15s; }
+  .boutonEntreeMaison[data-intention="ajouter"]{ color:var(--on-insertion); background:var(--insertion); border-color:var(--insertion); }
+  .boutonEntreeMaison:hover{ filter:brightness(1.08); }
+  .boutonEntreeMaison:active{ transform:scale(.97); }
+  .boutonEntreeMaison[aria-disabled="true"]{ color:var(--ink-soft); background:transparent; border-color:var(--rule); cursor:not-allowed; }
+  .entreeMaison{ align-items:center; }
+  .boutonEntreeMaison .nomEntreeMaison{ font-weight:400; max-width:16ch; overflow:hidden; text-overflow:ellipsis; }
+  .entreeMaison .titreEntreeMaison{ display:inline-flex; align-items:center; gap:6px; padding:0 4px 0 10px; font-family:var(--sans); font-size:.8rem; font-weight:700; color:var(--ink-soft); white-space:nowrap; }
+  .entreeMaison.inviteEntreeMaison{ margin:0; gap:8px; padding:10px 16px; font-size:.85rem; color:var(--ink); }
+  html:not([data-classe="large"]) .entreeMaison{ bottom:calc(var(--reserve-bas, 0px) + 14px); max-width:calc(100% - 24px); }
+  html[data-classe="compact"] .boutonEntreeMaison{ padding:4px 14px 4px 10px; font-size:.9rem; }
+  html[data-mode-toit] .entreeMaison, html[data-vitrine] .entreeMaison{ display:none; }
+  /* Un message ne couvre pas l'entree : tant qu'elle est sur la scene, les messages passent en haut de l'ecran, comme pendant une
+     session du mode au telephone (un message au bas de la fenetre tombait sur « Modifier » et prenait son toucher ; point 160 de la fumee). */
+  html:has(.entreeMaison) .notificationsToasts{ bottom:auto; top:calc(var(--reserve-haut, 0px) + 72px); flex-direction:column; }
   .panneauToit .toitPiece .glyphe svg.chaineVignette{ width:100%; max-width:56px; height:auto; }
   .panneauToit .toitPiece .libelle{ font-size:.68rem; line-height:1.1; text-align:center; }
   /* Une piece a variantes (le quatre-pans et ses trois pans) : la vignette, puis ses options en dessous, de la meme largeur. */

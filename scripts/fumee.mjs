@@ -29,6 +29,23 @@ import { ouvrirDemo, simulerPlateforme, FORMATS, BASE, CONTEXTE } from './captur
 import { choisirModeReseau, reseau, servirThreeLocal } from './fumee-reseau.mjs';
 import { avecExif } from '../tests/fixtures/photomontage/exif.mjs';
 
+/**
+ * Le mode Toit ne montre que les gestes d'une intention : « Modifier » (les formes de toit, les reglages, les gestes) ou « Ajouter »
+ * (les pieces a poser, par onglet). Amene le panneau sur ce que le point veut toucher : « Toit » (les formes) est du cote de la
+ * modification, les autres familles sont des onglets de l'ajout. Une piece posee ramene d'elle-meme a « Modifier ».
+ */
+async function voletToit(page, onglet) {
+  const nom = onglet instanceof RegExp ? onglet.source.replace(/^\^|\$$/g, '') : onglet;
+  const intention = nom === 'Toit' ? 'modifier' : 'ajouter';
+  const b = page.locator('.panneauToit [data-commande="toit.intention"][data-intention="' + intention + '"]');
+  await b.waitFor({ state: 'attached', timeout: 20000 });
+  if ((await b.getAttribute('aria-pressed')) !== 'true') await b.dispatchEvent('click');
+  if (intention === 'modifier') { await page.locator('.voletToit[data-volet="modifier"]').waitFor({ state: 'attached', timeout: 10000 }); return; }
+  const t = page.locator('.toitOnglet', { hasText: new RegExp('^' + nom + '$') });
+  await t.waitFor({ state: 'attached', timeout: 10000 });
+  await t.dispatchEvent('click');
+}
+
 const require = createRequire(import.meta.url);
 let chromium;
 try { ({ chromium } = require('playwright')); }
@@ -238,15 +255,19 @@ async function glisser(page, de, dx, dy, pas = 8) {
  * entiers dans la fenetre sans que la page ni la colonne aient defile (decision du proprietaire, 14 novembre 2026).
  */
 function boutonsEnTete3d() {
+  // L'entree du mode Toit est dite en mots au bas de la scene (« Modifier <nom> », « Ajouter ») depuis le 24 novembre 2026 ; l'appareil
+  // photo reste en tete de la colonne. Tous entiers dans la fenetre, et prenables : sous leur milieu, c'est eux (pas la barre du bas).
   const col = document.querySelector('#terrasse3dZoomControls');
   const boutons = col ? [...col.querySelectorAll('button')].filter((b) => b.offsetParent !== null) : [];
-  const boite = (id) => { const b = document.getElementById(id); if (!b) return null; const r = b.getBoundingClientRect(); return { haut: Math.round(r.top), bas: Math.round(r.bottom), r }; };
-  const toit = boite('terrasse3dModifierToit'), photo = boite('terrasse3dPhotographier');
+  const boite = (id) => { const b = document.getElementById(id); if (!b) return null; const r = b.getBoundingClientRect(); return { haut: Math.round(r.top), bas: Math.round(r.bottom), r, b }; };
+  const toit = boite('terrasse3dModifierToit'), ajout = boite('terrasse3dAjouterMaison'), photo = boite('terrasse3dPhotographier');
   const entier = (x) => !!x && x.r.top >= 0 && x.r.bottom <= innerHeight && x.r.left >= 0 && x.r.right <= innerWidth;
-  const ordre = boutons[0]?.id === 'terrasse3dModifierToit' && boutons[1]?.id === 'terrasse3dPhotographier';
-  const ok = ordre && entier(toit) && entier(photo) && scrollY === 0 && (col?.scrollTop ?? 0) === 0;
+  const prenable = (x) => !!x && x.b.contains(document.elementFromPoint(x.r.left + x.r.width / 2, x.r.top + x.r.height / 2));
+  const ordre = boutons[0]?.id === 'terrasse3dPhotographier';
+  const visibles = entier(toit) && entier(ajout) && entier(photo) && prenable(toit) && prenable(ajout);
+  const ok = ordre && visibles && scrollY === 0 && (col?.scrollTop ?? 0) === 0;
   const dit = (x) => (x ? `y ${x.haut}–${x.bas}` : 'ABSENT');
-  return { ok, mesure: `toiture ${dit(toit)}, appareil photo ${dit(photo)} / fenêtre ${innerHeight} px${ordre ? '' : ', PAS EN TÊTE'}${entier(toit) && entier(photo) ? '' : ', HORS FENÊTRE'}` };
+  return { ok, mesure: `modifier ${dit(toit)}, ajouter ${dit(ajout)}, appareil photo ${dit(photo)} / fenêtre ${innerHeight} px${ordre ? '' : ', PHOTO PAS EN TÊTE'}${visibles ? '' : ', HORS FENÊTRE OU COUVERT'}` };
 }
 async function selectionner(page, pred) {
   await page.evaluate((src) => {
@@ -3206,8 +3227,9 @@ const POINTS = {
   160: async (page, f) => {
     // La colonne de la camera a des hauteurs d'iOS (decision du proprietaire, 14 novembre 2026 : « Bouton visible en haut ») : la
     // fenetre reduite de la barre de Safari, iPhone 390 x 664 (compact), iPad en portrait 820 x 1100 et en paysage 1180 x 740 (moyen,
-    // au doigt), iPad en paysage 1180 x 740 (large). Sans maison choisie, la toiture grisee en tete (sa raison), pas d'appareil photo ; la
-    // maison choisie, « Modifier la toiture » puis « Photographier une façade » en tete, entiers dans la fenetre sans defilement ; au
+    // au doigt), iPad en paysage 1180 x 740 (large). Sans maison choisie, l'entree du bas nomme les batiments de la parcelle, pas
+    // d'appareil photo ; la maison choisie, « Modifier Maison » et « Ajouter » au bas de la scene, « Photographier une façade » en tete
+    // de la colonne, entiers dans la fenetre et prenables, sans defilement ; au
     // bout du defilement de la colonne, chaque bouton entier dans la colonne et dans la fenetre ; rien ne deborde en largeur.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     const tailles = { compact: [[390, 664]], moyen: [[820, 1100], [1180, 740]], large: [[1180, 740]] }[f.nom];
@@ -3217,11 +3239,13 @@ const POINTS = {
       await page.setViewportSize({ width: l, height: h });
       await page.evaluate(() => window.__plan.selectionnerCle(null));
       await page.waitForTimeout(600);
+      // Sans batiment choisi, la parcelle de la demonstration en porte deux : l'entree les nomme, entiers dans la fenetre.
       const sans = await page.evaluate(() => {
-        const col = document.querySelector('#terrasse3dZoomControls'), premier = col?.firstElementChild;
-        return { toit: premier?.id === 'terrasse3dModifierToit' && premier.getAttribute('aria-disabled') === 'true', photo: !!document.querySelector('#terrasse3dPhotographier') };
+        const noms = [...document.querySelectorAll('.entreeMaison [data-commande="toit.modifierCe"]')];
+        const entiers = noms.every((b) => { const r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth && b.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); });
+        return { toit: noms.length >= 2 && entiers, noms: noms.map((b) => b.textContent.trim()), photo: !!document.querySelector('#terrasse3dPhotographier') };
       });
-      if (!sans.toit || sans.photo) echecs.push(`${l}×${h} sans maison : ${sans.toit ? '' : 'toiture PAS GRISÉE EN TÊTE '}${sans.photo ? 'appareil photo PRÉSENT' : ''}`);
+      if (!sans.toit || sans.photo) echecs.push(`${l}×${h} sans maison : ${sans.toit ? '' : 'bâtiments PAS NOMMÉS dans la fenêtre (' + sans.noms.join(', ') + ') '}${sans.photo ? 'appareil photo PRÉSENT' : ''}`);
       await page.evaluate(() => window.__plan.selectionnerCle('maison'));
       await page.locator('#terrasse3dPhotographier').waitFor({ timeout: 10000 });
       await page.waitForTimeout(600);
@@ -7048,8 +7072,8 @@ const POINTS = {
     await page.locator('#terrasse3dModifierToit').click({ timeout: 30000 });
     await page.locator('.panneauToit').waitFor({ timeout: 20000 });
     const vues = await page.locator('.panneauToit [data-commande^="toit.vue"], .panneauToit [data-commande="toit.isolerCorps"]').count();
+    await voletToit(page, 'Sur le toit');
     const onglets = await page.locator('.toitOnglet').count();
-    await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click();
     await page.locator('[data-piece="sur:solaire"]').click({ timeout: 30000 });
     await page.waitForFunction(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[0]?.elementsToit?.length, null, { timeout: 60000 });
     const pastilles = await page.locator('.puceToit').count();
@@ -7077,7 +7101,7 @@ const POINTS = {
     await page.evaluate(() => window.__plan.executer('objet.annuler'));
     const retire = await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.key === 'maison'); return !o.batiment?.corpsToit?.length && o.elevation === 4 && !o.batiment?.egoutChoisi; });
     const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
-    const ok = aucunAvant && vues === 4 && onglets === 4 && egoutTire && pastilles >= 1 && !historiqueAvant && historiqueApres && retire && sans;
+    const ok = aucunAvant && vues === 4 && onglets === 3 && egoutTire && pastilles >= 1 && !historiqueAvant && historiqueApres && retire && sans;
     return { ok, mesure: `panneau absent avant : ${aucunAvant}, ${vues} vues, ${onglets} onglets ; poignée de l’égout : ${nEgout}, égout ${avantEgout.e} → ${apresEgout.e} m, élévation ${apresEgout.elevation} (${apresEgout.choisi ?? 'non choisie'}) ; ${pastilles} pastille(s) ; historique ${historiqueAvant} → ${historiqueApres} ; un Ctrl+Z ${retire ? 'retire tout' : 'LAISSE le toit ou la hauteur'} ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   98: async (page, f) => {
@@ -7101,7 +7125,7 @@ const POINTS = {
     await page.locator('#terrasse3dModifierToit').click({ timeout: 30000 });
     await page.locator('.panneauToit').waitFor({ timeout: 20000 });
     const corps = () => page.evaluate(() => window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit ?? []);
-    await page.locator('.toitOnglet', { hasText: 'Corps' }).click();
+    await voletToit(page, 'Corps');
     await page.locator('[data-piece="corps:aile"]').click({ timeout: 30000 });
     await page.waitForFunction(() => (window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.length ?? 0) >= 2, null, { timeout: 60000 });
     const rang = (await corps()).length - 1;
@@ -7118,7 +7142,7 @@ const POINTS = {
     const indice = (await page.locator('.panneauToit .indiceToit').allTextContents()).join(' ');
     // La ligne « Corps · Façade » nomme le corps choisi (audit de la navigation, lot B) : le nom de sa pastille.
     const nomAile = ((await page.locator('.puceToit[data-type="corps"][data-rang="' + rang + '"]').textContent()) || '').trim();
-    await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click();
+    await voletToit(page, 'Sur le toit');
     await page.locator('[data-piece="sur:cheminee"]').click({ timeout: 30000 });
     await page.waitForFunction((r) => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[r]?.cheminees?.length, rang, { timeout: 60000 });
     const apres = await corps();
@@ -7610,7 +7634,7 @@ const POINTS = {
     const modification = async (quand) => {
       await page.waitForTimeout(300);
       const i = await indicateur();
-      verifier(i.etat === 'modification' && /Modification/.test(i.texte) && i.visible, quand + ' : indicateur ' + JSON.stringify(i));
+      verifier(((i.etat === 'modification' && /Modification/.test(i.texte)) || (i.etat === 'ajout' && /Ajout/.test(i.texte))) && i.visible, quand + ' : indicateur ' + JSON.stringify(i));
       verifier(!(await enfoncee()), quand + ' : vignette encore enfoncée');
     };
     const insertion = async (quand, vue) => {
@@ -7631,7 +7655,7 @@ const POINTS = {
     const prises = await poignees();
     verifier(prises.length > 0 && prises.some((q) => q.prise && q.dessous), 'modification : aucune poignée prenable');
     await photo('modification-libre');
-    await page.locator('.toitOnglet', { hasText: 'Façade' }).click();
+    await voletToit(page, 'Façade');
     // La vue de la facade du corps principal (la piece « Décroché » agit sur la facade regardee : sans elle, elle est grisee).
     await page.evaluate(() => document.querySelector('path.murNav[data-rang="0"][data-mur="0"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     await page.waitForTimeout(1000);
@@ -7739,7 +7763,7 @@ const POINTS = {
     const lignes = [], echecs = [];
     await choisir();
     for (const forme of FORMES) {
-      await page.getByRole('tab', { name: 'Toit', exact: true }).click({ timeout: 10000 });
+      await voletToit(page, 'Toit');
       const piece = page.locator('[data-piece="forme:' + forme + '"]');
       if (!(await piece.count())) { echecs.push(forme + ' : pièce absente'); continue; }
       if ((await piece.getAttribute('aria-pressed')) !== 'true') await etape('forme ' + forme, () => piece.click({ timeout: 10000 }));
@@ -7769,7 +7793,7 @@ const POINTS = {
       else lignes.push(forme + ' ' + a.axe + '°→' + b.axe + '° ✓');
     }
     // Le dernier essai sur une forme a sens, garde : valider, puis un Ctrl+Z du projet rend le toit d'avant la session.
-    await page.getByRole('tab', { name: 'Toit', exact: true }).click({ timeout: 10000 });
+    await voletToit(page, 'Toit');
     await page.locator('[data-piece="forme:mansart"]').click({ timeout: 10000 });
     await page.waitForTimeout(400);
     await choisir();
@@ -7850,7 +7874,7 @@ const POINTS = {
       await page.waitForTimeout(300);
     };
     const poser = async (onglet, id) => {
-      await page.getByRole('tab', { name: onglet, exact: true }).click({ timeout: 10000 });
+      await voletToit(page, onglet);
       await page.locator('[data-piece="' + id + '"]').click({ timeout: 10000 });
       await page.waitForTimeout(500);
     };
@@ -8017,7 +8041,7 @@ const POINTS = {
     await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
     await page.locator('.panneauToit').waitFor({ timeout: 60000 });
     if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille?.(null));
-    await page.getByRole('tab', { name: 'Façade', exact: true }).click({ timeout: 10000 });
+    await voletToit(page, 'Façade');
     await page.locator('[data-piece="facade:bow-window"]').click({ timeout: 10000 });
     await page.waitForTimeout(500);
     const pose = await lire();
@@ -8143,7 +8167,7 @@ const POINTS = {
       await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
       await page.locator('.panneauToit').waitFor({ timeout: 60000 });
       if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille?.(null));
-      await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click({ timeout: 10000 });
+      await voletToit(page, 'Sur le toit');
       await page.locator('[data-piece="sur:solaire"]').click({ timeout: 30000 });
       await page.waitForFunction(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[0]?.elementsToit?.length, null, { timeout: 60000 });
       await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
@@ -8528,7 +8552,7 @@ const POINTS = {
     await page.evaluate(() => document.querySelector('path.murNav[data-rang="0"][data-mur="0"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     await page.waitForTimeout(1200);
     if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille?.(null));
-    await page.getByRole('tab', { name: 'Façade', exact: true }).click({ timeout: 10000 });
+    await voletToit(page, 'Façade');
     await page.locator('[data-piece="facade:bow-window"]').click({ timeout: 10000 });
     await page.waitForTimeout(600);
     const puceBow = page.locator('.puceToit[data-type="saillie"]').first();
@@ -8688,7 +8712,7 @@ const POINTS = {
     await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
     await page.locator('.panneauToit').waitFor({ timeout: 60000 });
     if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille?.(null));
-    await page.getByRole('tab', { name: 'Façade', exact: true }).click({ timeout: 10000 });
+    await voletToit(page, 'Façade');
     await page.locator('[data-piece="facade:bow-window"]').click({ timeout: 10000 });
     await page.waitForTimeout(500);
     const puce = page.locator('.puceToit[data-type="saillie"]').first();
@@ -8848,7 +8872,7 @@ const POINTS = {
         await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
         await page.locator('.panneauToit').waitFor({ timeout: 60000 });
       });
-      await page.locator('.toitOnglet', { hasText: 'Façade' }).click();
+      await voletToit(page, 'Façade');
     };
     // Le plus long mur d'un corps (0 ou 2) dont la piece « Décroché » s'allume une fois sa facade regardee.
     const choisirLeMur = async () => {
@@ -8965,11 +8989,11 @@ const POINTS = {
     const sansCorps = await page.evaluate(() => !window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.length);
     if (sansCorps) {
       await etape('forme deux pans', async () => {
-        await page.getByRole('tab', { name: 'Toit', exact: true }).click({ timeout: 10000 });
+        await voletToit(page, 'Toit');
         await page.locator('[data-piece="forme:deux-pans"]').click({ timeout: 10000 });
       });
       await page.waitForTimeout(800);
-      await page.locator('.toitOnglet', { hasText: 'Façade' }).click();
+      await voletToit(page, 'Façade');
     }
     const demo = await jouer('démonstration');
     if (sansCorps) demo.dit = 'sans corps, la pièce dit « ' + (raisonDemo ?? '').replace(/^Décroché — /, '') + ' » ; après « Deux pans » : ' + demo.dit;
@@ -8997,7 +9021,7 @@ const POINTS = {
       await page.locator('#terrasse3dModifierToit:not([aria-disabled])').click({ timeout: 30000 });
       await page.locator('.panneauToit').waitFor({ timeout: 60000 });
     });
-    await page.locator('.toitOnglet', { hasText: 'Façade' }).click();
+    await voletToit(page, 'Façade');
     const ae = await jouer('AE 101');
     return { ok: demo.ok && ae.ok, mesure: demo.dit + ' — ' + ae.dit };
   },
@@ -9208,7 +9232,7 @@ const POINTS = {
     const depuisLePlan = (await page.evaluate(() => window.__plan.magasin().vue)) === 'vue3d';
     // Deux pignons et un bow-window.
     const poser = async (onglet, piece) => etape('pièce ' + piece, async () => {
-      await page.locator('.toitOnglet', { hasText: new RegExp('^' + onglet + '$') }).dispatchEvent('click');
+      await voletToit(page, new RegExp('^' + onglet + '$'));
       await page.locator('[data-piece="' + piece + '"]').dispatchEvent('click', {}, { timeout: 20000 });
       await page.waitForTimeout(400);
       await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
@@ -9217,7 +9241,7 @@ const POINTS = {
     });
     await poser('Sur le toit', 'sur:pignon');
     await page.evaluate(() => document.querySelector('path.murNav[data-rang="0"][data-mur="2"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    await page.locator('.toitOnglet', { hasText: /^Sur le toit$/ }).dispatchEvent('click');
+    await voletToit(page, /^Sur le toit$/);
     await page.locator('[data-piece="sur:pignon"]').dispatchEvent('click');
     await page.waitForTimeout(400);
     await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
@@ -9252,7 +9276,7 @@ const POINTS = {
     // Au doigt : sous le catalogue, la raison de chaque vignette grisee.
     let raisons = true;
     if (f.nom !== 'large') {
-      await page.locator('.toitOnglet', { hasText: /^Sur le toit$/ }).dispatchEvent('click');
+      await voletToit(page, /^Sur le toit$/);
       await page.waitForTimeout(200);
       raisons = await page.evaluate(() => {
         const grises = [...document.querySelectorAll('.toitCatalogue .toitPiece[disabled]')].map((b) => (b.getAttribute('title') || '').split(' — ')[1]).filter(Boolean);
@@ -9351,7 +9375,7 @@ const POINTS = {
     await page.locator('.puceToit', { hasText: 'Bâtiment entier' }).dispatchEvent('click');
     await page.waitForTimeout(400);
     await page.evaluate(() => { const sc = window.__plan.scene3d(); sc.camera.position.x += 15; sc.controls.update(); });
-    await page.locator('.panneauToit .titrePlateau').click();
+    await page.locator('.panneauToit .designationToit').click();
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(500);
     const annule = (await puce(1).getAttribute('aria-pressed')) === 'true' && ecart(camReglage, await camera()) < 0.5;
@@ -9440,7 +9464,7 @@ const POINTS = {
     await etape('Rester', () => page.locator('[data-controle="dialogue.tertiaire"]').click({ timeout: 10000 }));
     const reste = (await page.evaluate(() => window.__plan.magasin().vue)) === 'vue3d' && (await enSession()) && !(await dialogue());
     // Echap : la question d'abandon s'ouvre et reste ; un second Echap la referme, la session reste.
-    await etape('toucher le titre', () => page.locator('.panneauToit .titrePlateau').click({ timeout: 10000 }));
+    await etape('toucher le titre', () => page.locator('.panneauToit .designationToit').click({ timeout: 10000 }));
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
     const echapOuvre = await dialogue();
@@ -9516,7 +9540,7 @@ const POINTS = {
     const nChoix = await choix.count();
     const aucunEnfonce = (await page.locator('.inspecteurToit [data-groupe="ouvert"][aria-pressed="true"]').count()) === 0;
     // L'onglet « Toit » dit la forme du corps choisi : la vignette « Un pan » est enfoncee.
-    await page.locator('.toitOnglet', { hasText: /^Toit$/ }).click();
+    await voletToit(page, /^Toit$/);
     const formeEnfoncee = await page.locator('.toitPiece[data-piece="forme:appentis"]').getAttribute('aria-pressed');
     const autresEnfoncees = await page.locator('.toitPiece[aria-pressed="true"]').count();
     await etape('ouvert sur poteaux', () => page.locator('.inspecteurToit [data-groupe="ouvert"][data-valeur="poteaux"]').click({ timeout: 10000 }));
@@ -9654,7 +9678,7 @@ const POINTS = {
     const cdg = await lire();
     await photo('4-cul-de-geai-debord-faitage');
     // 3. Un pignon pose sur le corps choisi, sa pointe en cul de geai, Ctrl+Z puis Ctrl+Y.
-    await page.locator('.toitOnglet', { hasText: /^Sur le toit$/ }).click();
+    await voletToit(page, /^Sur le toit$/);
     await etape('poser un pignon', () => page.locator('.toitPiece[data-piece="sur:pignon"]').click({ timeout: 10000 }));
     await page.waitForFunction((r) => (window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit[r]?.pignons.length ?? 0) > 0, depart.rang, { timeout: 10000 });
     const i = (await lire()).pignons - 1;
@@ -9738,7 +9762,7 @@ const POINTS = {
       await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: capture + '-' + f.nom + '-' + nom + '.png' }).catch(() => {});
     };
     await etape('pastille du corps', () => page.locator('.puceToit[data-type="corps"][data-rang="' + depart.rang + '"]').click({ timeout: 20000 }));
-    await page.locator('.toitOnglet', { hasText: /^Sur le toit$/ }).click();
+    await voletToit(page, /^Sur le toit$/);
     await etape('poser un pignon', () => page.locator('.toitPiece[data-piece="sur:pignon"]').click({ timeout: 10000 }));
     await page.waitForFunction((r) => (window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit[r]?.pignons.length ?? 0) > 0, depart.rang, { timeout: 10000 });
     const pose = await lire();
@@ -9845,7 +9869,7 @@ const POINTS = {
     });
     const lacher = () => page.evaluate(() => window.__plan.executer('toit.selection'));
     const poser = async (onglet, piece) => {
-      await etape('onglet ' + onglet, () => page.locator('.toitOnglet', { hasText: new RegExp('^' + onglet + '$') }).dispatchEvent('click', {}, { timeout: 20000 }));
+      await etape('onglet ' + onglet, () => voletToit(page, new RegExp('^' + onglet + '$')));
       await etape('pièce ' + piece, () => page.locator('[data-piece="' + piece + '"]').dispatchEvent('click', {}, { timeout: 20000 }));
       await page.waitForTimeout(500);
     };
@@ -9997,7 +10021,7 @@ const POINTS = {
     const murRue = await page.evaluate((r) => { const c = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment.corpsToit[r]; return c.posFaitage <= 0.01 ? 2 : 0; }, depart.rang);
     await page.evaluate(([r, m]) => document.querySelector('path.murNav[data-rang="' + r + '"][data-mur="' + m + '"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })), [depart.rang, murRue]);
     await page.waitForTimeout(600);
-    await etape('onglet Façade', () => page.locator('.toitOnglet', { hasText: /^Façade$/ }).dispatchEvent('click', {}, { timeout: 20000 }));
+    await etape('onglet Façade', () => voletToit(page, /^Façade$/));
     await etape('pièce Travée', () => page.locator('[data-piece="facade:travee"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await page.waitForTimeout(500);
     await etape('ouvert sur poteaux', () => page.locator('.inspecteurToit [data-groupe="nature"][data-valeur="poteaux"]').dispatchEvent('click', {}, { timeout: 20000 }));
@@ -10457,7 +10481,7 @@ const POINTS = {
     await image3dStable(page, 3000);
     await page.locator('#terrasse3dModifierToit').click({ timeout: 30000 });
     await page.locator('.panneauToit').waitFor({ timeout: 20000 });
-    await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click();
+    await voletToit(page, 'Sur le toit');
     const pieces = await page.locator('.toitPiece[data-piece^="sur:"]').count();
     const vignettes = await page.locator('.toitPiece[data-piece^="sur:"] .glyphe svg.chaineVignette').count();
     const cotes = await page.locator('.toitPiece[data-piece^="sur:"] .glyphe').evaluateAll((l) => l.map((e) => { const r = e.getBoundingClientRect(); return Math.round(Math.min(r.width, r.height)); }));

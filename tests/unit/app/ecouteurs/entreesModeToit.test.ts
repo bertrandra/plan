@@ -3,7 +3,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { creerRegistre, PHRASE_PERMISSION, type Droits } from '../../../../src/app/commandes.js';
 import { creerMagasin } from '../../../../src/app/magasin.js';
 import { brancherToitCatalogue, chargerGestesToits } from '../../../../src/app/ecouteurs/toitCatalogue.js';
-import { modeToitCourant, prendreFocusDeSortie, sessionToit } from '../../../../src/app/toits/modeToit.js';
+import { batimentVise, batimentsRetouchables, modeToitCourant, prendreFocusDeSortie, sessionToit } from '../../../../src/app/toits/modeToit.js';
+import { intentionToit, poserIntentionToit } from '../../../../src/app/toits/intention.js';
 import { saillieArmee, desarmerSaillie } from '../../../../src/interaction/choixSaillie.js';
 import { appliquerPiece } from '../../../../src/three/gestesToits.js';
 import type { Atelier } from '../../../../src/app/atelier.js';
@@ -30,12 +31,13 @@ function monter(droits?: Droits) {
   return { etat, cmd };
 }
 
-afterEach(() => { modeToitCourant()?.abandonner(true); desarmerSaillie(); });
+afterEach(() => { modeToitCourant()?.abandonner(true); desarmerSaillie(); poserIntentionToit('modifier'); });
 
 describe('les entrees du mode Toit', () => {
-  it('sans batiment choisi, ou une terrasse : le bouton dit quoi faire ; un batiment du projet : il s ouvre', () => {
+  it('plusieurs batiments, aucun choisi, ou une terrasse : le bouton dit quoi faire ; un batiment du projet : il s ouvre', () => {
     const { etat, cmd } = monter();
-    for (const id of ['toit.modifier', 'toit.modifierEn3d']) {
+    etat.objects.push({ ...maison(), key: 'abri', name: 'Abri de jardin' });
+    for (const id of ['toit.modifier', 'toit.ajouter', 'toit.modifierEn3d']) {
       const e = cmd.etat(id);
       expect(e.utilisable).toBe(false);
       expect('message' in e && e.message).toMatch(/Choisissez d’abord un bâtiment/);
@@ -45,7 +47,55 @@ describe('les entrees du mode Toit', () => {
     expect('message' in t && t.message).toMatch(/retouche un bâtiment/);
     etat.selectedKey = 'm';
     expect(cmd.etat('toit.modifier').utilisable).toBe(true);
+    expect(cmd.etat('toit.ajouter').utilisable).toBe(true);
     expect(cmd.etat('toit.modifierEn3d').utilisable).toBe(true);
+  });
+
+  it('une seule maison sur la parcelle : inutile de la designer, l entree la vise et la choisit en ouvrant', async () => {
+    const { etat, cmd } = monter();
+    expect(batimentVise(etat.objects, null)?.key).toBe('m');
+    expect(batimentVise(etat.objects, 't')?.key).toBe('m');
+    expect(cmd.etat('toit.modifier').utilisable).toBe(true);
+    // Depuis l'inspecteur du plan, on ne devine pas : il parle du batiment dont on lit les proprietes.
+    expect(cmd.etat('toit.modifierEn3d').utilisable).toBe(false);
+    await chargerGestesToits();
+    cmd.executer('toit.modifier');
+    expect(sessionToit()?.cle).toBe('m');
+    expect(etat.selectedKey).toBe('m');
+    expect(intentionToit()).toBe('modifier');
+  });
+
+  it('« Ajouter » ouvre la meme session sur le catalogue ; le commutateur change d intention, une piece posee ramene a « Modifier »', async () => {
+    const { etat, cmd } = monter();
+    await chargerGestesToits();
+    cmd.executer('toit.ajouter');
+    expect(sessionToit()?.cle).toBe('m');
+    expect(intentionToit()).toBe('ajouter');
+    const bouton = (d: Record<string, string>) => { const b = document.createElement('button'); Object.assign(b.dataset, d); return b; };
+    cmd.executer('toit.intention', bouton({ intention: 'modifier' }));
+    expect(intentionToit()).toBe('modifier');
+    cmd.executer('toit.intention', bouton({ intention: 'nimporte' }));
+    expect(intentionToit()).toBe('modifier');
+    cmd.executer('toit.intention', bouton({ intention: 'ajouter' }));
+    // Un panneau solaire se pose d'un coup sur le toit : on revient regler ce qu'on vient d'ajouter.
+    cmd.executer('toit.poser', bouton({ piece: 'sur:solaire' }));
+    expect((etat.objects[0] as ObjetPlan).batiment?.corpsToit?.[0]?.elementsToit?.length ?? 0).toBeGreaterThan(0);
+    expect(intentionToit()).toBe('modifier');
+  });
+
+  it('plusieurs batiments : l entree les nomme, « Modifier ce batiment » ouvre sur celui qu on touche ; un voisin ne se vise pas', async () => {
+    const { etat, cmd } = monter();
+    etat.objects.push({ ...maison(), key: 'abri', name: 'Abri de jardin' });
+    expect(batimentsRetouchables(etat.objects).map((o) => o.key)).toEqual(['m', 'abri']);
+    expect(batimentVise(etat.objects, null)).toBeUndefined();
+    expect(cmd.etat('toit.modifierCe').utilisable).toBe(true);
+    await chargerGestesToits();
+    const b = document.createElement('button'); b.dataset.cle = 'abri';
+    cmd.executer('toit.modifierCe', b);
+    expect(sessionToit()?.cle).toBe('abri');
+    expect(etat.selectedKey).toBe('abri');
+    // En session, les entrees n'ont plus rien a offrir.
+    expect(cmd.etat('toit.modifierCe').utilisable).toBe(false);
   });
 
   it('en lecture seule, les deux entrees restent visibles, grisees avec la raison du droit', () => {

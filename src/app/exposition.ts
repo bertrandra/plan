@@ -168,6 +168,10 @@ export const EXPOSITION: Record<string, Ligne> = {
   'facade.creerCas': partout('parcours'),
   // Le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : le bouton « Modifier la toiture », puis la barre de session et le catalogue, sur la scene.
   'toit.modifier': partout('vue3d'),
+  // « Ajouter a la maison » (l'entree, a cote de « Modifier la maison ») et le commutateur Modifier / Ajouter du panneau.
+  'toit.ajouter': partout('vue3d'),
+  'toit.modifierCe': partout('vue3d'),
+  'toit.intention': partout('vue3d'),
   'toit.valider': partout('vue3d'),
   'toit.abandonner': partout('vue3d'),
   'toit.annuler': partout('vue3d'),

@@ -224,7 +224,7 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 ### Étape 1 — Le mode Toit et le choix de façade  *(livrée : PR « mode Toit, étape 1 »)*
 
 > Écarts de mise en œuvre : la caméra de façade est l'**oblique orthographique** de la maquette (`three/poseFacade.ts::cadreOblique`, `three/vueFacadeToit.ts`, posée en `cameraRendu` sur la scène de la Vue 3D) — elle a d'abord été une perspective en élévation dans la scène de la terrasse, ce qui était faux (§4.1) ; les **contours en pointillé** des bâtiments qui cachent passent à l'étape 2 (l'étape 1 ne fournit que « Isoler ») ; entrer dans le mode demande le droit d'écrire. Code : `src/app/toits/modeToit.ts` (session), `src/facade/modeToit/sessionToit.ts` (pile d'annulation pure), `facadesDesCorps.ts` (façades), `src/app/ecouteurs/toitCatalogue.ts` (commandes `toit.*`), `src/zones/vue3d/ModeToit.tsx` (panneau).
-**Livrable :** un bouton « Modifier la toiture » dans les commandes de la Vue 3D, actif sur un bâtiment **du projet** sélectionné (les voisins : cadenas, infobulle « Maison voisine, non modifiable »).
+**Livrable :** un bouton « Modifier la toiture » dans les commandes de la Vue 3D (depuis le 24 novembre 2026 : l'entrée en mots au bas de la scène, voir « Modifier ou ajouter »), actif sur un bâtiment **du projet** sélectionné (les voisins : cadenas, infobulle « Maison voisine, non modifiable »).
 - Écran A de la maquette : surlignage du bâtiment choisi, barre d'action (Modifier · Isoler), contours en pointillé pour ce qui cache le bâtiment choisi (`setGhost` : maille masquée + `LineSegments`/`EdgesGeometry` en `LineDashedMaterial`),
   œil « Isoler ce bâtiment » (réutiliser `terrasse.isoler`), indice « main ».
 - Choix de la façade : toucher un mur (`facadeProche` : le côté de corps le plus proche du point touché ; calculer sur **tous** les corps, façades de biais comprises).
@@ -446,6 +446,34 @@ de vache (coyau) »**, le bas de pan adouci qui déborde plus loin pour jeter l'
   sont mal formés. Seul un bâtiment qui en porte s'écrit au 15 ; migration 14 → 15 identité.
 - Le moteur ne change pas (AE 101 : `identite.ts` identique) : ce sont des décisions figées (`toitFige`).
 - Tests : `tests/unit/facade/modeToit/bouts.test.ts`, `tests/unit/model/migrations.test.ts`. Fumée : point 134.
+
+### Modifier ou ajouter : une intention à la fois  *(24 novembre 2026, retour du propriétaire)*
+« En 3D, modifier la maison : c'est trop difficile à utiliser, on ne sait pas ce qui modifie et ce qui crée. Je veux le plus simple
+possible. » La maquette (https://claude.ai/artifact/Q5iPiswvBeuBqJdBPeNZgj) pose le principe : **toucher ce qui existe le modifie,
+« + Ajouter » crée** ; deux mots, deux icônes, deux couleurs, partout les mêmes.
+- **L'entrée, en mots, au bas de la scène** (`zones/vue3d/EntreeMaison.tsx`) : « Modifier *nom* » (`toit.modifier`) et « Ajouter »
+  (`toit.ajouter`), à la place de l'icône de la colonne des commandes de caméra. Le bâtiment visé est le choisi, sinon la seule
+  maison de la parcelle (`modeToit.ts::batimentVise`) ; avec plusieurs bâtiments et aucun choisi, l'entrée les nomme et un toucher
+  ouvre sur lui (`toit.modifierCe`, `data-cle`) ; au-delà de trois, elle invite à toucher le bâtiment dans la scène. L'entrée de
+  l'inspecteur du plan (`toit.modifierEn3d`) ne devine pas : elle parle du bâtiment choisi.
+- **L'intention** (`app/toits/intention.ts`, `toit.intention`) : `modifier` ou `ajouter`, un état d'interface (ni Ctrl+Z, ni
+  « projet modifié », rien d'enregistré). Une session s'ouvre en `modifier`, sauf par « Ajouter ». Une pièce posée d'un coup
+  (`toit.poser`) ramène à `modifier`, l'élément posé choisi.
+- **Le panneau, dans l'ordre où l'on décide** : (1) *Vous travaillez sur* — les pastilles, la même cible pour les deux intentions ;
+  (2) le commutateur « Modifier — ce qui existe » / « Ajouter — un élément » ; (3) le volet de l'intention. **Modifier** : « Forme
+  du toit » (les vignettes de la famille `toit`, celle en place enfoncée ; montrées sur le bâtiment entier ou un corps), les
+  réglages de la cible, ses gestes, l'interrupteur des Règles. **Ajouter** : « Que voulez-vous ajouter ? », trois onglets (Sur le
+  toit, Façade, Corps). Les formes de toit ne sont plus dans le plateau d'ajout : changer une forme ne crée rien.
+- **Les couleurs** : modifier porte l'accent, ajouter la couleur d'insertion (les jetons existants ; aucune couleur nouvelle, les
+  palettes de l'admin restent valables). Le filet haut du panneau et l'indicateur d'état les reprennent ; l'indicateur dit
+  « Modification … rien n'est créé », « Ajout … rien d'existant n'est touché », ou « Insertion : <pièce> » quand une pièce attend
+  son toucher. Jamais la couleur seule : le mot et l'icône (crayon, plus) l'accompagnent.
+- **Un blocage se dit** : quand toutes les vignettes d'un onglet sont grisées pour la même raison, elle s'écrit au-dessus, et, si
+  le toit n'est pas encore découpé en corps, avec le bouton « Choisir la forme du toit » (retour au volet Modifier).
+- Rien ne change dans le modèle, le moteur ni les exports. Tests : `tests/unit/app/ecouteurs/entreesModeToit.test.ts`,
+  `tests/unit/app/toits/intention.test.ts`. Fumée : `voletToit(page, onglet)` amène le panneau sur le volet qu'un point veut toucher.
+- **Pas encore fait de la maquette** : poser un objet du jardin (piscine, terrasse, arbre) directement dans la 3D avec un fantôme,
+  et « tirer un mur » depuis l'entrée (les poignées du corps le font déjà dans le volet Modifier). Ces objets se créent sur le plan.
 
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.
