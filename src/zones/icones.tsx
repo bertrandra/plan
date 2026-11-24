@@ -9,6 +9,7 @@
 // Pas de bibliotheque : une trentaine de traces, c'est moins que le code pour en charger une.
 
 export type NomIcone =
+  | 'crayon'
   | 'annuler' | 'retablir' | 'polygone' | 'rectangle' | 'chemin' | 'cercle' | 'terrasse' | 'parasol' | 'pergola' | 'carport' | 'piscine' | 'piscineRonde' | 'pointDeVue' | 'cloture'
   | 'dupliquer' | 'supprimer' | 'reculer' | 'positionInitiale' | 'cote' | 'aligner'
   | 'grille' | 'ajuster' | 'recadrer' | 'tournerDroite' | 'tournerCorps' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
@@ -81,6 +82,8 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   reglages: <><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></>,
   resultats: <><path d="M9 6h11M9 12h11M9 18h11" /><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeWidth="2.5" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  // Le crayon : modifier ce qui existe (mode Toit), a cote du « plus » de l'ajout.
+  crayon: <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />,
   moins: <path d="M5 12h14" />,
   cadenas: <><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></>,
   info: <><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 8h.01" /></>,

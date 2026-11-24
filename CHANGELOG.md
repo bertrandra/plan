@@ -5,8 +5,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Vue 3D, « Modifier » ou « Ajouter » : on sait toujours ce que l'on fait** (retour du propriétaire, 24 novembre 2026 : « on ne
+  sait pas ce qui modifie et ce qui crée »). Le mode Toit ne montre plus qu'une intention à la fois, choisie par un commutateur à
+  deux boutons : **« Modifier — ce qui existe »** (la forme du toit, les réglages, les gestes : rien n'est créé) ou
+  **« Ajouter — un élément »** (lucarnes, cheminée, façade, corps : rien d'existant n'est touché). Chacune a son mot, son icône et
+  sa couleur (l'accent pour modifier, la couleur d'insertion pour ajouter), les mêmes sur le commutateur, le filet du panneau et
+  l'indicateur d'état, qui dit maintenant « Modification », « Ajout » ou « Insertion ». Une pièce posée ramène d'elle-même à
+  « Modifier », sur elle : on règle ce que l'on vient d'ajouter. Quand rien ne peut encore s'ajouter (toit pas encore découpé en
+  corps), la raison s'écrit en clair avec le bouton « Choisir la forme du toit », au lieu de quinze vignettes grises.
+- **L'entrée du mode, en mots, au bas de la scène** : « Modifier *Maison* » et « Ajouter », à la place de l'icône « Modifier la
+  toiture » de la colonne des commandes de caméra. Avec une seule maison sur la parcelle, inutile de la sélectionner d'abord ;
+  avec plusieurs bâtiments, l'entrée les nomme (« Modifier : Maison · Abri de jardin ») et un toucher ouvre le mode sur celui
+  qu'on nomme. Commandes nouvelles : `toit.ajouter`, `toit.modifierCe`, `toit.intention`.
+
 ### Modifié
 
+- **Mode Toit, les formes de toit sont une modification** : elles quittent l'onglet « Toit » du plateau « Ajouter un élément »
+  (changer la forme d'un toit ne crée rien) pour le volet « Modifier », sous « Forme du toit », avec celle en place enfoncée. Le
+  plateau d'ajout garde trois onglets : « Sur le toit », « Façade », « Corps ». Les pastilles des éléments passent en tête, sous
+  « Vous travaillez sur » : la même cible sert aux deux intentions. Aucun calcul ne change, aucun export, aucun champ de fichier ;
+  AE 101 identique.
 - **Banc** : une clé d'entraînement vit maintenant 72 h par défaut, au lieu de 24 h, pour qu'un entraînement long sur le
   Mac (Intel surtout) dépose son modèle sans geste à la main. 72 h reste le plus long permis ; `jetonHeures` dans
   `banc-config.php` la raccourcit (de 1 à 72). Une clé déjà créée garde sa durée.

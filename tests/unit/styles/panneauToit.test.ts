@@ -37,6 +37,7 @@ describe('le panneau du mode Toit sur la scene 3D', () => {
     // Le premier element ouvert apres la languette est le defilement ; la barre et le catalogue sont apres lui.
     expect(apresLanguette.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').trimStart().startsWith('<div className="defilementToit">')).toBe(true);
     expect(panneau.indexOf('defilementToit')).toBeLessThan(panneau.indexOf('barreToit'));
-    expect(panneau.indexOf('defilementToit')).toBeLessThan(panneau.indexOf('toitCatalogue'));
+    // Le catalogue (les formes de toit quand on modifie, les pieces quand on ajoute) est un composant pose dans les volets du panneau.
+    expect(panneau.indexOf('<CatalogueToit')).toBeGreaterThan(panneau.indexOf('defilementToit'));
   });
 });
