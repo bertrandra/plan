@@ -25,8 +25,8 @@ export const themeSombre =
 
 /** Les encres d'origine, par theme : les valeurs de `styles/jetons.ts`. */
 const ORIGINE = themeSombre
-  ? { ink: '#F1E7D0', rule: '#4A3F30', paper: '#1C1610', accent: '#E0B564', panel: '#262017', onInk: '#1C1610', relief: '#C9A97A', ecart: '#F2A65A' }
-  : { ink: '#2B2117', rule: '#D9CDB2', paper: '#F7F2E7', accent: '#7A5C31', panel: '#FFFDF8', onInk: '#FFFDF8', relief: '#8C6B3F', ecart: '#A34A08' };
+  ? { ink: '#F1E7D0', rule: '#4A3F30', paper: '#1C1610', accent: '#E0B564', panel: '#262017', onInk: '#1C1610', relief: '#C9A97A', ecart: '#F2A65A', chaussee: '#B8862B', chausseeBord: '#0F0B06' }
+  : { ink: '#2B2117', rule: '#D9CDB2', paper: '#F7F2E7', accent: '#7A5C31', panel: '#FFFDF8', onInk: '#FFFDF8', relief: '#8C6B3F', ecart: '#A34A08', chaussee: '#F2C14E', chausseeBord: '#6B4A12' };
 
 export let SVG_INK = ORIGINE.ink;
 export let SVG_GRID_MAJOR = ORIGINE.rule;
@@ -43,6 +43,10 @@ export let SVG_PASTILLE_TEXTE = ORIGINE.onInk;
 /** Les courbes de niveau du relief (render/relief.ts) : un brun discret, sous les objets. */
 export let SVG_RELIEF = ORIGINE.relief;
 
+/** Les rues dessinees (option « Rues », render/chaussees.ts) : la chaussee et son bord, jetons `--chaussee` et `--chaussee-bord`. */
+export let SVG_CHAUSSEE = ORIGINE.chaussee;
+export let SVG_CHAUSSEE_BORD = ORIGINE.chausseeBord;
+
 /** Un ecart au PLU signale sur le plan (render/pluOverlay.ts) : le jeton `--ecart-plu`, et le texte pose dessus (`--paper`). */
 export let SVG_ECART_PLU = ORIGINE.ecart;
 export let SVG_ECART_PLU_TEXTE = ORIGINE.paper;
@@ -51,7 +55,7 @@ export let SVG_ECART_PLU_TEXTE = ORIGINE.paper;
 export const EVENEMENT_ENCRES = 'plan:encres';
 
 /** Les jetons dont le plan tire ses encres, dans le theme affiche. */
-export type JetonsEncres = Record<'ink' | 'rule' | 'paper' | 'accent' | 'panel-bg' | 'on-ink' | 'relief' | 'ecart-plu', string>;
+export type JetonsEncres = Record<'ink' | 'rule' | 'paper' | 'accent' | 'panel-bg' | 'on-ink' | 'relief' | 'ecart-plu' | 'chaussee' | 'chaussee-bord', string>;
 
 /**
  * Reprend les encres du plan dans une palette (les couleurs d'un theme, `#RRGGBB`) ; sans
@@ -68,6 +72,8 @@ export function poserEncres(j?: JetonsEncres): void {
   SVG_RELIEF = j?.relief ?? ORIGINE.relief;
   SVG_ECART_PLU = j?.['ecart-plu'] ?? ORIGINE.ecart;
   SVG_ECART_PLU_TEXTE = j?.paper ?? ORIGINE.paper;
+  SVG_CHAUSSEE = j?.chaussee ?? ORIGINE.chaussee;
+  SVG_CHAUSSEE_BORD = j?.['chaussee-bord'] ?? ORIGINE.chausseeBord;
 }
 
 /** Les decimales a l'ecran s'ecrivent a la francaise ; les exports gardent le point (empreintes). */

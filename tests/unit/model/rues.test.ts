@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { rabouter, longueur, pointA, angleLisible, etiquettesDesRues, decouper, LONGUEUR_MIN_ETIQUETTE_M, PAS_ETIQUETTE_M } from '../../../src/model/rues.js';
+import { rabouter, longueur, pointA, angleLisible, etiquettesDesRues, decouper, ruesTracees, tracerRues, chausseesAffichees, LONGUEUR_MIN_ETIQUETTE_M, PAS_ETIQUETTE_M } from '../../../src/model/rues.js';
+import { voisinage3dDe, reglerVoisinage3d } from '../../../src/model/voisinage3d.js';
+import type { ObjetPlan } from '../../../src/model/types.js';
 
 const p = (x: number, y: number) => ({ x, y });
 
@@ -66,5 +68,42 @@ describe('decouper et cadre', () => {
     expect(etiquettesDesRues(rues)[0]!.x).not.toBeGreaterThan(0);
     const vus = etiquettesDesRues(rues, cadre);
     expect(vus).toEqual([{ nom: 'Longue', x: 30, y: 50, angleDeg: 0 }]);
+  });
+});
+
+describe('option « Rues »', () => {
+  const chaussees = [{ nature: 'Chemin', largeurM: 2.5, pts: [p(0, 0), p(10, 0)] }];
+  const parcelle = (extra: Record<string, unknown> = {}) => ({ key: 'parcelle', ...extra }) as unknown as ObjetPlan;
+  it('est decochee par defaut, et n ecrit que sa valeur cochee', () => {
+    const o = parcelle();
+    expect(ruesTracees(o)).toBe(false);
+    tracerRues(o, true);
+    expect(ruesTracees(o)).toBe(true);
+    expect(o.voisinage3d).toEqual({ rues: { afficher: false, tracer: true } });
+    // Decochee, une parcelle qui n'avait aucun reglage retrouve exactement sa forme d'avant.
+    tracerRues(o, false);
+    expect(o).toEqual(parcelle());
+    expect('voisinage3d' in o).toBe(false);
+  });
+  it('garde les autres reglages du voisinage, et la case du nom des rues', () => {
+    const o = parcelle();
+    reglerVoisinage3d(o, (r) => { r.rues.afficher = true; r.maisons.couleur = '#123456'; });
+    tracerRues(o, true);
+    expect(voisinage3dDe(o).rues).toEqual({ afficher: true, tracer: true });
+    expect(voisinage3dDe(o).maisons.couleur).toBe('#123456');
+    // Le reglage d'un autre champ de la section garde l'option.
+    reglerVoisinage3d(o, (r) => { r.cloture.afficher = false; });
+    expect(ruesTracees(o)).toBe(true);
+    tracerRues(o, false);
+    expect(o.voisinage3d?.rues).toEqual({ afficher: true });
+    expect(o.voisinage3d?.maisons?.couleur).toBe('#123456');
+  });
+  it('donne les chaussees lues seulement quand elle est cochee', () => {
+    const o = parcelle({ ruesVoisinage: { recupereLe: '', rayonM: 250, rues: [], chaussees } });
+    expect(chausseesAffichees(o)).toEqual([]);
+    tracerRues(o, true);
+    expect(chausseesAffichees(o)).toBe(chaussees);
+    expect(chausseesAffichees(parcelle({ voisinage3d: { rues: { afficher: false, tracer: true } } }))).toEqual([]);
+    expect(chausseesAffichees(null)).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 // La surface du plan : l'element qui le porte, sa racine SVG et ses calques (app/assemblage/).
 //
 // L'ordre des calques est l'ordre de lecture du plan, du fond vers l'avant : le fond orthophoto, la
-// grille, les courbes de niveau du relief, le nom des rues, les objets (dans leur calque, qui porte le repere du dessin :
+// grille, les rues dessinees (option « Rues »), les courbes de niveau du relief, le nom des rues, les objets (dans leur calque, qui porte le repere du dessin :
 // render/objects.ts), puis les ombres des parasols (remises devant a chaque rendu), la toile des
 // parasols et leurs mats — et, par-dessus, la fleche du
 // nord, l'echelle, les cotes et les couches de la terrasse. Ces quatre-la ne sont poses qu'une fois
@@ -19,7 +19,9 @@ export interface Surface {
   svg: SVGSVGElement;
   ortho: SVGGElement;
   grille: SVGGElement;
-  /** Les courbes de niveau du relief (render/relief.ts) : sous les objets, juste au-dessus de la grille. */
+  /** Les rues dessinees a la largeur de leur chaussee (render/chaussees.ts) : au-dessus du fond et de la grille, sous tout le reste. */
+  chaussees: SVGGElement;
+  /** Les courbes de niveau du relief (render/relief.ts) : sous les objets, juste au-dessus des rues dessinees. */
   relief: SVGGElement;
   /** Le nom des rues (render/rues.ts) : sous les objets, au-dessus du relief. */
   rues: SVGGElement;
@@ -78,6 +80,8 @@ export function creerSurface(etat: EtatApp): Surface {
     stage, svg,
     // Le fond orthophoto est un calque de reference : il ne doit jamais masquer le trace du plan.
     ortho: groupe(true), grille: groupe(),
+    // Les rues dessinees aussi : elles situent le projet, elles ne se cliquent pas.
+    chaussees: groupe(true, 'chausseesGroup'),
     // Le relief est un calque de reference comme le fond : les clics le traversent.
     relief: groupe(true, 'reliefGroup'),
     // Le nom des rues aussi : il situe, il ne se clique pas.
@@ -98,7 +102,7 @@ export function creerSurface(etat: EtatApp): Surface {
       const boite = -dx + ' ' + -dy + ' ' + etat.scene.W + ' ' + etat.scene.H;
       if (svg.getAttribute('viewBox') !== boite) svg.setAttribute('viewBox', boite);
       const t = dx || dy ? 'translate(' + -dx + ',' + -dy + ')' : null;
-      for (const g of [s.ortho, s.grille, s.rues, s.nord, s.echelle]) {
+      for (const g of [s.ortho, s.grille, s.chaussees, s.rues, s.nord, s.echelle]) {
         if (g.getAttribute('transform') === t) continue;
         if (t) g.setAttribute('transform', t); else g.removeAttribute('transform');
       }
@@ -113,6 +117,6 @@ export function creerSurface(etat: EtatApp): Surface {
   s.appliquerTaille();
   s.poserRepere(etat.scene);
   stage.appendChild(svg);
-  svg.append(defs, s.ortho, s.grille, s.relief, s.rues, s.objets, s.piscines, s.parasols, s.pergolas, s.mats, s.plu, s.releves);
+  svg.append(defs, s.ortho, s.grille, s.chaussees, s.relief, s.rues, s.objets, s.piscines, s.parasols, s.pergolas, s.mats, s.plu, s.releves);
   return s;
 }

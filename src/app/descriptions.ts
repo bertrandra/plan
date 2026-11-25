@@ -81,6 +81,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'affichage.grille': 'Montre ou cache la grille du plan ; le réglage s’enregistre avec le projet',
   'affichage.relief': 'Montre ou cache le sol en relief dans la 3D',
   'affichage.courbes': 'Montre ou cache les courbes de niveau sur le plan',
+  'affichage.chaussees': 'Dessine les rues à la largeur de leur chaussée, sur le plan et sur le relief de la Vue 3D ; la première fois, elles sont lues à l’IGN',
   'affichage.rues': 'Montre ou cache le nom des rues sur le plan et au sol de la Vue 3D ; la première fois, les rues sont lues à l’IGN',
   'affichage.nord': 'Montre ou cache la flèche du Nord sur le plan',
   'affichage.voisinage': 'Montre ou cache les objets importés des parcelles voisines, sans les supprimer',

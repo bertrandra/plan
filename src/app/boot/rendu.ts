@@ -5,6 +5,7 @@ import { synchroniserContexteTerrasse } from '../../core/contexteTerrasse.js';
 import { rendreScene, rendreObjets, type ContexteRendu } from '../../render/pipeline.js';
 import { dessinerCourbesRelief } from '../../render/relief.js';
 import { dessinerNomsDesRues } from '../../render/rues.js';
+import { dessinerChaussees } from '../../render/chaussees.js';
 import { redessinerEcartsPlu } from '../plu/calquePlu.js';
 import { creerApercuVue } from '../../render/apercuVue.js';
 import { dessinerReleves } from '../../render/releve.js';
@@ -119,8 +120,14 @@ export function creerRendu(d: DependancesRendu) {
         dessinerCourbesRelief(surface.relief, etat.objects, dessin.sceneDessin(), etat.voisinageVisible)),
       // Les ecarts au PLU sur le plan : un marqueur sur l'ouvrage, le recul mesure (app/plu/calquePlu.ts).
       dessinerEcartsPlu: () => redessinerEcartsPlu(surface.plu, dessin.etatDessin(), etat),
-      // Le nom des rues, si la case de la section « Voisinage » est cochee (render/rues.ts).
-      dessinerRues: () => { if (etat.voisinageVisible) dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque); else surface.rues.innerHTML = ''; },
+      // Les rues dessinees, si l'option « Rues » est cochee (render/chaussees.ts), et leur nom, si la case de la section « Voisinage »
+      // l'est (render/rues.ts) : le voisinage masque les emporte, comme le paysage.
+      dessinerRues: () => {
+        if (etat.voisinageVisible) {
+          dessinerChaussees(surface.chaussees, etat.objects, etat.scene, affichage.objetMasque);
+          dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque);
+        } else { surface.chaussees.innerHTML = ''; surface.rues.innerHTML = ''; }
+      },
       // Les ouvertures relevees puis la cloture, dans le meme groupe : le premier le vide. Dessinees en metres, sous la
       // transformation du groupe (render/repere.ts) : un zoom ne les refait pas, sauf la poignee d'un acces, dont la marge se compte
       // en pixels (`margeAcces`). Refaites seulement si ce qu'elles lisent a change (render/calquesGardes.ts).

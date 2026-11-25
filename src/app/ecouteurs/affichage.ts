@@ -12,6 +12,8 @@ import { showToast } from '../../shell/dialogs.js';
 import { vue3d } from '../../three/etat3d.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import { voisinage3dDe, reglerVoisinage3d } from '../../model/voisinage3d.js';
+import { ruesTracees, tracerRues } from '../../model/rues.js';
+import { toucher } from '../../core/controleurObjets.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetPlan } from '../../model/types.js';
@@ -69,6 +71,25 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
       const montrer = !voisinage3dDe(p).rues.afficher;
       reglerVoisinage3d(p, (x) => { x.rues.afficher = montrer; });
       if (montrer && !p.ruesVoisinage && cmd.etat(LIRE_RUES).utilisable) cmd.executer(LIRE_RUES);
+      a.render();
+      if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
+    } });
+
+  // Les rues dessinees a la largeur de leur chaussee, sur le plan et sur le relief de la Vue 3D (MD/spec-rues.md §7). Comme « Relief »
+  // et « Courbes de niveau » : une preference d'affichage, ni Ctrl+Z, permise en lecture seule, rangee sur la parcelle du projet
+  // (seule la valeur cochee s'ecrit) ; elle marque le projet a enregistrer, pour etre retrouvee a la reouverture. La premiere fois,
+  // les chaussees se lisent a l'IGN (la meme lecture que le nom des rues, qui les garde alors).
+  cmd.declarer({ id: 'affichage.chaussees', libelle: 'Rues', groupe: 'affichage', ecrit: 'affichage',
+    actif: () => !!parcelleDuProjet(a.etat.objects),
+    executer: () => {
+      const p = parcelleDuProjet(a.etat.objects);
+      if (!p) return;
+      const montrer = !ruesTracees(p);
+      tracerRues(p, montrer);
+      // L'ecriture nomme la parcelle (core/controleurObjets.ts), en lecture seule aussi : le plan la redessine.
+      toucher(p);
+      if (!a.etat.lectureSeule) a.markDirty(p);
+      if (montrer && !p.ruesVoisinage?.chaussees && cmd.etat(LIRE_RUES).utilisable) cmd.executer(LIRE_RUES);
       a.render();
       if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
     } });

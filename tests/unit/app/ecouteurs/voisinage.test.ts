@@ -80,11 +80,24 @@ describe('projet.lireRues', () => {
     const { a, cmd, lire } = monterRues(calee());
     cmd.executer('projet.lireRues');
     await vi.waitFor(() => expect(ui.toasts).toHaveLength(1));
-    expect(lire).toHaveBeenCalledWith({ lat: 48.9, lon: 2.13 }, expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) }));
+    // Les seuls noms : l'option « Rues » n'est pas cochee, les chaussees ne se gardent pas.
+    expect(lire).toHaveBeenCalledWith({ lat: 48.9, lon: 2.13 }, expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) }), 250, undefined, { chaussees: false });
     expect(a.pushHistory).toHaveBeenCalledTimes(1);
     expect(a.etat.objects[0]!.ruesVoisinage).toEqual(rues);
     expect(a.markDirty).toHaveBeenCalled();
     expect(ui.toasts[0]).toBe('1 rue lue à moins de 250 m.');
+  });
+  it('garde les chaussees quand l option « Rues » est cochee, ou qu elles l ont deja ete', async () => {
+    const coche = { ...calee(), voisinage3d: { rues: { afficher: false, tracer: true } } } as unknown as ObjetPlan;
+    const { cmd, lire } = monterRues(coche);
+    cmd.executer('projet.lireRues');
+    await vi.waitFor(() => expect(ui.toasts).toHaveLength(1));
+    expect(lire.mock.calls[0]).toContainEqual({ chaussees: true });
+    const deja = { ...calee(), ruesVoisinage: { ...rues, chaussees: [] } } as unknown as ObjetPlan;
+    const relu = monterRues(deja);
+    relu.cmd.executer('projet.lireRues');
+    await vi.waitFor(() => expect(ui.toasts).toHaveLength(1));
+    expect(relu.lire.mock.calls[0]).toContainEqual({ chaussees: true });
   });
   it('un echec ne laisse ni etape ni rues, et le dit', async () => {
     const { a, cmd } = monterRues(calee(), true, vi.fn(async () => { throw new Error('Le service ne repond pas (8 s). Reessaie.'); }));

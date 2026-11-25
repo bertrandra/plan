@@ -5,6 +5,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Option « Rues » : les rues dessinées par Plan, sur le plan et posées sur le relief de la Vue 3D** (retour du propriétaire :
+  les rues restent difficiles à lire ; en 3D, celles du Plan IGN sont des bandes gris pâle et les petites rues blanches sur blanc).
+  Menu Affichage (feuille Projet au téléphone), décochée par défaut. Chaque tronçon de la BD TOPO (`troncon_de_route`, la même
+  lecture que le nom des rues) devient un ruban à la largeur de sa chaussée (`largeur_de_chaussee`, sinon 3 m par voie, sinon
+  selon la nature), ambre cerné de brun (jetons `--chaussee`, `--chaussee-bord`), sous les objets et le nom des rues, au-dessus du
+  fond ; en 3D, le même ruban drapé sur le relief par mailles de 2 m, mat, dans la couche des chemins, et les noms couchés sur lui
+  dans le sens de la pente. Préférence d'affichage comme « Relief » : ni Ctrl+Z, permise en lecture seule, projet à enregistrer ;
+  seule la valeur cochée s'écrit (`voisinage3d.rues.tracer`), un ancien fichier s'ouvre comme avant. Sentiers, escaliers, pistes
+  cyclables, tronçons fictifs ou souterrains ne sont pas dessinés. **Aucun export ne change** (le GLB écarte le ruban) ; empreintes
+  inchangées. `MD/spec-rues.md` §7, point de fumée 197.
+
 ## [5.40.0] — 2026-11-25
 
 Version **mineure** au sens de `MD/RELEASE.md` : le fond « Plan IGN », à côté de la photo aérienne, en 2D et drapé sur le relief

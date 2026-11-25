@@ -12,7 +12,7 @@
 
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
-  | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
+  | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'chaussee' | 'chaussee-bord' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
   | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'ecart-plu' | 'insertion' | 'on-insertion' | 'insertion-bg' | 'toast-bg' | 'on-toast' | 'fond-3d' | 'trait-3d'
   | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte' | 'serie-1' | 'serie-2' | 'serie-3'
   | 'claude-angles' | 'claude-pointe' | 'claude-forme' | 'claude-appentis' | 'claude-corps' | 'claude-element' | 'claude-cache'
@@ -35,6 +35,10 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'hairline': '#EFE6D3',
     // Les courbes de niveau du relief : un brun discret, lisible sur le canevas sans peser sur les objets.
     'relief': '#8C6B3F',
+    // Les rues dessinees (option « Rues », render/chaussees.ts, three/chaussees3d.ts) : un ambre franc cerne de brun, comme sur une
+    // carte routiere. Il se detache de la photo aerienne (gris, verts, tuiles) comme du Plan IGN, ou les petites rues sont blanches.
+    'chaussee': '#F2C14E',
+    'chaussee-bord': '#6B4A12',
     'accent': '#7A5C31',
     'on-accent': '#FFFDF8',
     'accent-light': '#EFE3C8',
@@ -100,6 +104,8 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'rule': '#4A3F30',
     'hairline': '#332A1F',
     'relief': '#C9A97A',
+    'chaussee': '#B8862B',
+    'chaussee-bord': '#0F0B06',
     'accent': '#E0B564',
     'on-accent': '#1C1610',
     'accent-light': '#4A3B22',
@@ -172,6 +178,8 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'rule': { famille: 'traits', role: 'Contour des commandes, filets de titre' },
   'hairline': { famille: 'traits', role: 'Filets entre les lignes' },
   'relief': { famille: 'traits', role: 'Courbes de niveau' },
+  'chaussee': { famille: 'traits', role: 'Chaussée des rues dessinées (plan et Vue 3D)' },
+  'chaussee-bord': { famille: 'traits', role: 'Bord des chaussées sur le plan' },
   'accent': { famille: 'accent', role: 'Sélection, état actif, bouton Créer, total' },
   'on-accent': { famille: 'accent', role: 'Texte sur l’accent' },
   'accent-light': { famille: 'accent', role: 'Actif doux, pastilles, survol' },
@@ -272,6 +280,7 @@ export const PAIRES_CONTRASTE: [NomJeton, NomJeton, number][] = [
   ['danger', 'panel-bg', 4.5],
   ['on-toast', 'toast-bg', 4.5],
   ['relief', 'stage-bg', 3],
+  ['chaussee-bord', 'chaussee', 3],
   ['ok', 'panel-bg', 3],
   ['alerte', 'panel-bg', 3],
   ['ecart-plu', 'stage-bg', 4.5],

@@ -7,7 +7,8 @@
 
 import type * as THREE_NS from 'three';
 import { etiquettesDesRues } from '../model/rues.js';
-import { SANS_OMBRE, type VersLocal } from './primitives.js';
+import { SANS_OMBRE, poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
+import { DECALAGE_CHAUSSEE_M } from './chaussees3d.js';
 import type { RueVoisine, PtBrut } from '../model/types.js';
 import type { Emprise } from '../model/relief.js';
 
@@ -47,18 +48,28 @@ export interface OptionsRues3d {
   /** Le sol dessine, dans le repere du plan : les rues y sont decoupees, un nom hors du sol flotterait dans le vide. */
   cadre?: Emprise | undefined;
   doc?: Document;
+  /**
+   * Les rues sont dessinees (option « Rues », three/chaussees3d.ts) : chaque plaque se couche sur le ruban, inclinee dans le sens de
+   * la pente (le sol lu aux deux bouts du nom), au-dessus de lui et devant lui au test de profondeur.
+   */
+  surChaussees?: boolean;
 }
+
+/** La couche de profondeur des noms poses sur les rues dessinees : juste au-dessus de celle des chemins, ou est le ruban. */
+const COUCHE_NOM_SUR_CHAUSSEE = COUCHES_SOL.chemin + 1;
 
 /** Pose le nom des rues dans `scene`. Rend le nombre d'etiquettes posees. */
 export function ajouterNomsDesRues3d(scene: THREE_NS.Object3D, versLocal: VersLocal, rues: readonly RueVoisine[], options: OptionsRues3d = {}): number {
-  const { hauteurSol, cadre } = options;
+  const { hauteurSol, cadre, surChaussees } = options;
   const doc = options.doc ?? document;
   const images = new Map<string, { materiau: THREE_NS.MeshBasicMaterial; rapport: number } | null>();
   let posees = 0;
   for (const e of etiquettesDesRues(rues, cadre)) {
     if (!images.has(e.nom)) {
       const img = imageDuNom(doc, e.nom);
-      images.set(e.nom, img ? { materiau: new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(img.canvas), transparent: true, depthWrite: false }), rapport: img.rapport } : null);
+      const materiau = img ? new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(img.canvas), transparent: true, depthWrite: false }) : null;
+      if (materiau && surChaussees) poserEnCouche(materiau, COUCHE_NOM_SUR_CHAUSSEE);
+      images.set(e.nom, img && materiau ? { materiau, rapport: img.rapport } : null);
     }
     const im = images.get(e.nom);
     if (!im) continue;
@@ -66,9 +77,22 @@ export function ajouterNomsDesRues3d(scene: THREE_NS.Object3D, versLocal: VersLo
     plaque.name = NOM_RUE_3D;
     plaque.userData[SANS_OMBRE] = true;
     const l = versLocal(e);
-    plaque.position.set(l.x, (hauteurSol ? hauteurSol(e) : 0) + AU_DESSUS_DU_SOL_M, l.z);
-    // Couchee face au ciel, puis tournee dans le sens de la voie (le plan a son y vers le nord, la scene son z vers le sud).
-    plaque.rotation.set(-Math.PI / 2, 0, (e.angleDeg * Math.PI) / 180);
+    const longueur = HAUTEUR_NOM_RUE_3D_M * im.rapport;
+    if (surChaussees && hauteurSol) {
+      // Sur le ruban : la plaque suit la pente de la voie, le sol lu aux deux bouts du nom, et passe au-dessus du ruban.
+      const a = (e.angleDeg * Math.PI) / 180, ux = Math.cos(a), uy = Math.sin(a);
+      const h0 = hauteurSol({ x: e.x - ux * longueur / 2, y: e.y - uy * longueur / 2 }), h1 = hauteurSol({ x: e.x + ux * longueur / 2, y: e.y + uy * longueur / 2 });
+      plaque.position.set(l.x, (h0 + h1) / 2 + DECALAGE_CHAUSSEE_M + AU_DESSUS_DU_SOL_M, l.z);
+      // Les axes de la plaque dans la scene : x le long de la voie (montant avec elle), z sa normale, y en travers.
+      const u = new THREE.Vector3(ux * longueur, h1 - h0, -uy * longueur).normalize();
+      const n = new THREE.Vector3(0, 1, 0).addScaledVector(u, -u.y).normalize();
+      const v = new THREE.Vector3().crossVectors(n, u);
+      plaque.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, n));
+    } else {
+      plaque.position.set(l.x, (hauteurSol ? hauteurSol(e) : 0) + AU_DESSUS_DU_SOL_M, l.z);
+      // Couchee face au ciel, puis tournee dans le sens de la voie (le plan a son y vers le nord, la scene son z vers le sud).
+      plaque.rotation.set(-Math.PI / 2, 0, (e.angleDeg * Math.PI) / 180);
+    }
     plaque.renderOrder = 2;
     scene.add(plaque);
     posees++;

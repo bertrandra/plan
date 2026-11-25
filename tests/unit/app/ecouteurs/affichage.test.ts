@@ -182,6 +182,47 @@ describe('photo aerienne et noms des rues', () => {
   });
 });
 
+describe('option « Rues »', () => {
+  function monterRues(lectureSeule = false, ruesVoisinage?: unknown) {
+    const objets = [{ key: 'parcelle', ...(ruesVoisinage ? { ruesVoisinage } : {}) }] as unknown as ObjetPlan[];
+    const a = fauxAtelier({ objects: objets, selectedKey: null, lectureSeule, highlight: { type: null, index: null } } as never);
+    const ctx: ContexteAffichage = { enregistrerAffichage: vi.fn(), ctxOrtho: () => ({}) as never, buildThreeScene: vi.fn() };
+    const cmd = creerRegistre(tout);
+    brancherAffichage(a, ctx, cmd);
+    const lire = vi.fn();
+    cmd.declarer({ id: 'projet.lireRues', libelle: 'Lire les rues', groupe: 'projet', executer: lire });
+    return { a, cmd, lire, p: objets[0]! };
+  }
+  it('se coche sans Ctrl+Z, marque le projet a enregistrer, et lit les chaussees a l IGN la premiere fois', () => {
+    const { a, cmd, lire, p } = monterRues();
+    cmd.executer('affichage.chaussees');
+    expect(p.voisinage3d).toEqual({ rues: { afficher: false, tracer: true } });
+    expect(a.pushHistory).not.toHaveBeenCalled();
+    expect(a.markDirty).toHaveBeenCalledWith(p);
+    expect(a.render).toHaveBeenCalledTimes(1);
+    expect(lire).toHaveBeenCalledTimes(1);
+    // Decochee, la parcelle retrouve sa forme d'avant, sans relire.
+    cmd.executer('affichage.chaussees');
+    expect('voisinage3d' in p).toBe(false);
+    expect(lire).toHaveBeenCalledTimes(1);
+  });
+  it('ne relit pas des chaussees deja lues ; des noms seuls lus, si', () => {
+    const avec = monterRues(false, { recupereLe: '', rayonM: 250, rues: [], chaussees: [] });
+    avec.cmd.executer('affichage.chaussees');
+    expect(avec.lire).not.toHaveBeenCalled();
+    const noms = monterRues(false, { recupereLe: '', rayonM: 250, rues: [] });
+    noms.cmd.executer('affichage.chaussees');
+    expect(noms.lire).toHaveBeenCalledTimes(1);
+  });
+  it('est permise en lecture seule, sans marquer le projet modifie', () => {
+    const { a, cmd, p } = monterRues(true);
+    expect(cmd.etat('affichage.chaussees').utilisable).toBe(true);
+    cmd.executer('affichage.chaussees');
+    expect(p.voisinage3d?.rues?.tracer).toBe(true);
+    expect(a.markDirty).not.toHaveBeenCalled();
+  });
+});
+
 describe('boutons de vue', () => {
   it('menent au plan, a la 3D et a la visionneuse ; la 3D s efface sans sa capacite', () => {
     const ctx = { allerAuPlan: vi.fn(), goVue3D: vi.fn(), ouvrirVisionneuse: vi.fn() };

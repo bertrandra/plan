@@ -14,6 +14,8 @@ import { animerMateriaux } from './materiauxVivants.js';
 import { reposerPositionGps } from './positionGps3d.js';
 import { reposerFacadeDevant } from './facadeDevant3d.js';
 import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
+import { ajouterChaussees3d } from './chaussees3d.js';
+import { chausseesAffichees } from '../model/rues.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, type SceneVue3d } from './etat3d.js';
 import { cadreOmbres, monterRendu } from './rendu.js';
@@ -336,13 +338,20 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   if (voisinage3d.cloture.afficher && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
     retenirHorsObjets(scene, () => ajouterClotureVoisinage(scene, versLocal, limitesDuVoisinage(etat.objects, ctx.objetMasque), sol ? sol.hauteur : undefined, voisinage3d.cloture));
   }
-  // Le nom des rues, au sol, avec le reste du plan (three/rues3d.ts).
+  // Les rues dessinees (option « Rues », three/chaussees3d.ts) puis leur nom (three/rues3d.ts), au sol, avec le reste du plan.
+  const avecLePlan = etat.voisinageVisible !== false && !etat.isolement && (vue3d.tousLesObjets || !obj);
+  const chaussees = avecLePlan ? chausseesAffichees(ctx.trouverParcelleCloture()) : [];
+  // Retenues hors objets : la vue epuree (le rendu de l'audit pour Claude, le photomontage) ne les montre pas.
+  const pose: { ruban: THREE_NS.Mesh | null } = { ruban: null };
+  if (chaussees.length) retenirHorsObjets(scene, () => { pose.ruban = ajouterChaussees3d(scene, versLocal, chaussees, { hauteurSol: sol ? sol.hauteur : undefined, cadre: bornes }); });
   const rues = ctx.trouverParcelleCloture()?.ruesVoisinage?.rues;
-  if (voisinage3d.rues.afficher && etat.voisinageVisible !== false && rues?.length && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
+  if (voisinage3d.rues.afficher && rues?.length && avecLePlan) {
     ajouterNomsDesRues3d(scene, versLocal, rues, {
       hauteurSol: sol ? sol.hauteur : undefined,
       // Les rues sont decoupees au sol dessine : un nom hors du sol flotterait dans le vide.
       cadre: bornes,
+      // Sur les rues dessinees, le nom se couche sur le ruban : incline dans le sens de la pente, et devant lui.
+      ...(pose.ruban ? { surChaussees: true } : {}),
     });
   }
   rafraichirArbres(scene, ground);

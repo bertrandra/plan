@@ -103,7 +103,7 @@ describe('dessinerCourbesRelief', () => {
   });
 
   it('suit l encre de la palette', () => {
-    poserEncres({ ink: '#000000', rule: '#111111', paper: '#FFFFFF', accent: '#222222', 'panel-bg': '#333333', 'on-ink': '#444444', relief: '#ABCDEF', 'ecart-plu': '#555555' });
+    poserEncres({ ink: '#000000', rule: '#111111', paper: '#FFFFFF', accent: '#222222', 'panel-bg': '#333333', 'on-ink': '#444444', relief: '#ABCDEF', 'ecart-plu': '#555555', chaussee: '#666666', 'chaussee-bord': '#777777' });
     try {
       const g = creerSvg('g');
       const r = plane(-0.1, 0, 100);

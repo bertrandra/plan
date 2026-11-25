@@ -137,6 +137,7 @@ couleur hexadécimale ne traîne hors des blocs de jetons**.
 | `--ok`, `--danger`, `--danger-bg`, `--alerte` | Enregistré ; suppression et erreurs ; bordure des alertes |
 | `--toast-bg`, `--on-toast` | Notifications |
 | `--zebra`, `--zebra-hover` | Alternance des lignes de tableau |
+| `--chaussee`, `--chaussee-bord` | Les rues dessinées (option « Rues ») : ruban ambre et son bord sur le plan, la même couleur en Vue 3D (`render/theme.ts`, `three/chaussees3d.ts`) |
 | `--ombre`, `--ombre-flottante`, `--ombre-menu`, `--ombre-forte`, `--ombre-feuille`, `--scrim` | Ombres et voile |
 | `--r-champ`, `--r-bouton`, `--r-tuile`, `--r-panneau`, `--r-feuille` | Rayons (10, 12, 14, 16, 22) |
 

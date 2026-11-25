@@ -11,7 +11,8 @@ import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { oublierLObjet } from '../../model/ouvrages/index.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
-import { lireRues } from '../../geo/rues.js';
+import { lireRues, RAYON_RUES_M } from '../../geo/rues.js';
+import { ruesTracees } from '../../model/rues.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import { aDesSommets } from '../../model/formes.js';
 import { centroid } from '../../geometry/basic.js';
@@ -63,7 +64,7 @@ export function brancherVoisinage(a: Atelier, ctx: ContexteVoisinage, cmd: Regis
   }
 
   // Lire les rues : une ecriture du projet (annulable, « projet modifie », refusee en lecture seule),
-  // empilee seulement au succes. La case « Nom des rues » la demande la premiere fois qu'on la coche.
+  // empilee seulement au succes. La case « Nom des rues » et l'option « Rues » la demandent la premiere fois qu'on les coche.
   let lectureRues = false;
   async function lireLesRues(): Promise<void> {
     const p = parcelleDuProjet(a.etat.objects);
@@ -71,7 +72,10 @@ export function brancherVoisinage(a: Atelier, ctx: ContexteVoisinage, cmd: Regis
     if (!p || !origine || !aDesSommets(p) || p.pts.length < 3 || lectureRues) return;
     lectureRues = true;
     try {
-      const r = await (ctx.lireRues ?? lireRues)(origine, centroid(p.pts));
+      // Les chaussees se gardent si l'option « Rues » les montre, ou si elles l'ont deja ete : une relecture les tient a jour.
+      // Sinon, la forme d'avant : les seuls noms.
+      const chaussees = ruesTracees(p) || !!p.ruesVoisinage?.chaussees;
+      const r = await (ctx.lireRues ?? lireRues)(origine, centroid(p.pts), RAYON_RUES_M, undefined, { chaussees });
       const cible = parcelleDuProjet(a.etat.objects);
       if (!cible) return;
       a.pushHistory();
