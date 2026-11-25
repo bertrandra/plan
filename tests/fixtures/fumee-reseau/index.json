@@ -158,6 +158,16 @@
   "duree": 316,
   "fichier": "be9a75cb3fea910f.gz"
  },
+ "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=BDTOPO_V3%3Atroncon_de_route&SRSNAME=EPSG:4326&BBOX=48.902941%2C2.129401%2C48.907437%2C2.136221%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326&OUTPUTFORMAT=application/json&COUNT=2000&STARTINDEX=0": {
+  "statut": 200,
+  "type": "application/json;charset=UTF-8",
+  "entetes": {
+   "access-control-allow-origin": "*",
+   "cache-control": "private, max-age=1814400"
+  },
+  "duree": 269,
+  "fichier": "7c5d76958cf1565b.gz"
+ },
  "GET https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=BDTOPO_V3%3Azone_de_vegetation&SRSNAME=EPSG:4326&BBOX=48.110463%2C-1.679962%2C48.111007%2C-1.679173%2Curn%3Aogc%3Adef%3Acrs%3AEPSG%3A%3A4326&OUTPUTFORMAT=application/json&COUNT=40": {
   "statut": 200,
   "type": "application/json;charset=UTF-8",

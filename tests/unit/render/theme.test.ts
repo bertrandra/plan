@@ -17,6 +17,8 @@ describe('les encres du plan suivent la palette', () => {
     expect(theme.SVG_POIGNEE_FOND).toBe(j['panel-bg']);
     expect(theme.SVG_PASTILLE).toBe(j.ink);
     expect(theme.SVG_PASTILLE_TEXTE).toBe(j['on-ink']);
+    expect(theme.SVG_CHAUSSEE).toBe(j.chaussee);
+    expect(theme.SVG_CHAUSSEE_BORD).toBe(j['chaussee-bord']);
   });
 
   it('se reprennent dans la palette du serveur, et le plan est prie de se redessiner', () => {

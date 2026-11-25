@@ -47,7 +47,7 @@ export interface ContexteRendu extends ContexteOrtho {
   renderReleves?: () => void;
   /** Les courbes de niveau du relief (render/relief.ts) : sous les objets, au-dessus de la grille. */
   dessinerRelief?: () => void;
-  /** Le nom des rues (render/rues.ts) : sous les objets, au-dessus du relief. */
+  /** Les rues dessinees (render/chaussees.ts) et leur nom (render/rues.ts) : sous les objets, de part et d'autre du relief. */
   dessinerRues?: () => void;
   /** Les ecarts au PLU (render/pluOverlay.ts) : un marqueur sur l'ouvrage en ecart, son recul mesure ; devant les objets. */
   dessinerEcartsPlu?: () => void;

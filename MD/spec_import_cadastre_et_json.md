@@ -1088,6 +1088,18 @@ sont étirées à l'emprise qu'elles couvrent, comme le banc le fait (`banc/src/
 - **Aucun export ne change** : le SVG, le PNG et le PDF se construisent depuis les objets
   (`export/`, `construireSVG`), sans les tuiles du fond ; les empreintes ne bougent pas.
 
+### 11.5 ter Les rues dessinées par Plan (5.41.0)
+
+Le Plan IGN aide en 2D, mais drapé en 3D ses rues sont des bandes gris pâle, et les petites rues
+y sont blanches sur blanc. L'option **« Rues »** du menu Affichage (feuille Projet au téléphone),
+décochée par défaut, dessine Plan lui-même les rues à la largeur de leur chaussée, sur n'importe
+quel fond : des rubans ambre cernés de brun sur le plan, les mêmes drapés sur le relief de la Vue 3D.
+Les tronçons viennent de la même lecture que le nom des rues (BD TOPO `troncon_de_route`) ; la
+décision, les largeurs et le rendu sont dans `MD/spec-rues.md` §7. Comme le fond, c'est une
+préférence d'affichage enregistrée avec le projet (`voisinage3d.rues.tracer: true`, seule la
+valeur cochée s'écrit), et **aucun export ne change** : ni le SVG, le PNG, le PDF (construits
+depuis les objets), ni le GLB (le ruban est marqué hors export, comme la position GPS).
+
 ### 11.6 Transparence de la parcelle sous le fond, et persistance des réglages
 
 **Le problème** : un terrain rempli à 100 % masque exactement ce que le fond aérien est venu

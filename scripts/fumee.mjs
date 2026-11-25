@@ -5048,6 +5048,144 @@ const POINTS = {
         + `retour photo : ${photo2d.tuiles.length} tuile(s) JPEG, 3D ${s3dPhoto.peintes} peinte(s), ${s3dPhoto.plan} du plan, projet ${JSON.stringify(fondPhoto)}`
     };
   },
+  197: async (page, f) => {
+    // Les rues dessinees par Plan (retour du proprietaire, 25 novembre 2026 : meme avec le Plan IGN, les rues restent difficiles a lire en
+    // 3D) : sur la demonstration, le menu Affichage (feuille Projet au doigt) porte « Rues », decochee, avant « Noms des rues ». Cochee, les
+    // troncons se lisent a l'IGN (la meme requete que le nom des rues) et se dessinent sur le plan : des rubans a la largeur de leur
+    // chaussee, bords puis pleins, au jeton --chaussee du theme, sous le nom des rues et les objets ; le projet porte
+    // `voisinage3d.rues.tracer: true` et ses chaussees, et il est a enregistrer (sans etape d'annulation de plus que la lecture). En Vue 3D,
+    // une maille `rues-chaussees` dont chaque sommet est pose sur le sol (sa hauteur plus 6 cm), mate, hors export. Decochee, plus rien, ni
+    // sur le plan ni en 3D, et le projet n'a plus de `tracer`.
+    const echecs = [];
+    const tactile = f.nom !== 'large';
+    const parcelle = () => page.evaluate(() => {
+      const p = window.__plan.etat().objects.find((o) => o.key === 'parcelle');
+      return { voisinage3d: p.voisinage3d ?? null, chaussees: p.ruesVoisinage?.chaussees?.length ?? null, rues: p.ruesVoisinage?.rues?.length ?? null };
+    });
+    const ouvrirMenu = async () => {
+      if (tactile) await feuille(page, 'projet');
+      await page.evaluate(() => document.getElementById('menuAffichage')?.setAttribute('open', ''));
+      await page.waitForTimeout(250);
+    };
+    const fermerMenu = async () => {
+      await page.evaluate(() => document.getElementById('menuAffichage')?.removeAttribute('open'));
+      if (tactile) await feuille(page, null);
+    };
+
+    // ---- 1. Le menu Affichage propose « Rues », decochee, avant « Noms des rues » -----------------------------------------
+    await ouvrirMenu();
+    const menu = await page.evaluate(() => {
+      const items = [...document.querySelectorAll('#menuAffichage [role="menuitemcheckbox"]')].filter((li) => li.querySelector('button[data-commande]')).map((li) => {
+        const b = li.querySelector('button'), r = b.getBoundingClientRect();
+        return { commande: b.getAttribute('data-commande'), texte: li.textContent.replace('✓', '').trim(), coche: li.getAttribute('aria-checked'), hauteur: Math.round(r.height) };
+      });
+      return items;
+    });
+    const entree = menu.find((m) => m.commande === 'affichage.chaussees');
+    const iRues = menu.findIndex((m) => m.commande === 'affichage.chaussees'), iNoms = menu.findIndex((m) => m.commande === 'affichage.rues');
+    if (!entree || entree.texte !== 'Rues' || entree.coche !== 'false') echecs.push('entrée « Rues » : ' + JSON.stringify(entree));
+    if (!(iRues >= 0 && iNoms === iRues + 1)) echecs.push('« Rues » n’est pas juste avant « Noms des rues » : ' + menu.map((m) => m.texte).join(', '));
+    if (tactile && entree && entree.hauteur < 44) echecs.push('« Rues » sous 44 px : ' + entree.hauteur);
+    const avant = await parcelle();
+    if (avant.voisinage3d) echecs.push('la démonstration a déjà des réglages du voisinage : ' + JSON.stringify(avant.voisinage3d));
+
+    // ---- 2. Cochee : les chaussees lues, dessinees sur le plan -----------------------------------------------------------
+    await page.locator('#menuAffichage [data-commande="affichage.chaussees"]').click();
+    await fermerMenu();
+    const lues = await page.waitForFunction(() => (window.__plan.etat().objects.find((o) => o.key === 'parcelle')?.ruesVoisinage?.chaussees?.length ?? 0) > 0,
+      null, { timeout: 60000, polling: 250 }).then(() => true).catch(() => false);
+    if (!lues) echecs.push('chaussées non lues à l’IGN');
+    // Le plan recule (un tiers de l'echelle) : les rues autour de la parcelle entrent dans l'ecran.
+    await page.evaluate(() => {
+      const e = window.__plan.etat(), avant = e.scene, cx = avant.W / 2, cy = avant.H / 2;
+      const mx = (cx - avant.origine.x) / avant.scale, my = (avant.origine.y - cy) / avant.scale, s = avant.scale / 3;
+      e.scene = { ...avant, scale: s, origine: { x: cx - mx * s, y: cy + my * s } };
+      window.__plan.changerVue(avant);
+    });
+    await page.waitForTimeout(600);
+    const plan = await page.evaluate(() => {
+      const g = document.getElementById('chausseesGroup');
+      const enfants = [...(g?.children ?? [])].map((c) => c.getAttribute('class'));
+      const pleins = [...(g?.querySelectorAll('g.chausseesPleins path') ?? [])];
+      const bords = [...(g?.querySelectorAll('g.chausseesBords path') ?? [])];
+      const svg = g?.ownerSVGElement;
+      const ordre = svg ? [...svg.children].map((c) => c.id || c.tagName) : [];
+      const jeton = getComputedStyle(document.documentElement).getPropertyValue('--chaussee').trim().toUpperCase();
+      const jetonBord = getComputedStyle(document.documentElement).getPropertyValue('--chaussee-bord').trim().toUpperCase();
+      return {
+        enfants, pleins: pleins.length, bords: bords.length, inerte: g?.getAttribute('pointer-events'),
+        couleurs: [...new Set(pleins.map((p) => (p.getAttribute('stroke') || '').toUpperCase()))], couleursBord: [...new Set(bords.map((p) => (p.getAttribute('stroke') || '').toUpperCase()))],
+        jeton, jetonBord, largeurMin: Math.min(...pleins.map((p) => Number(p.getAttribute('stroke-width')))),
+        avantRelief: ordre.indexOf('chausseesGroup') < ordre.indexOf('reliefGroup'), avantNoms: ordre.indexOf('chausseesGroup') < ordre.indexOf('ruesGroup'),
+        avantObjets: ordre.indexOf('chausseesGroup') < ordre.indexOf('objetsGroup'), present: ordre.includes('chausseesGroup')
+      };
+    });
+    if (!plan.present || !plan.pleins || plan.pleins !== plan.bords) echecs.push('plan : ' + JSON.stringify(plan));
+    if (JSON.stringify(plan.enfants) !== JSON.stringify(['chausseesBords', 'chausseesPleins'])) echecs.push('ordre bords/pleins : ' + JSON.stringify(plan.enfants));
+    if (plan.couleurs.length !== 1 || plan.couleurs[0] !== plan.jeton || plan.couleursBord[0] !== plan.jetonBord) echecs.push('couleurs ' + JSON.stringify(plan.couleurs) + ' / ' + JSON.stringify(plan.couleursBord) + ' (jetons ' + plan.jeton + ', ' + plan.jetonBord + ')');
+    if (!(plan.largeurMin >= 2.5)) echecs.push('ruban plus fin que 2,5 px : ' + plan.largeurMin);
+    if (!plan.avantRelief || !plan.avantNoms || !plan.avantObjets) echecs.push('calque mal rangé : ' + JSON.stringify(plan));
+    if (plan.inerte !== 'none') echecs.push('le calque attrape les clics');
+    const coche = await parcelle();
+    if (JSON.stringify(coche.voisinage3d) !== JSON.stringify({ rues: { afficher: false, tracer: true } })) echecs.push('projet : ' + JSON.stringify(coche.voisinage3d));
+    const projet = JSON.parse(await telecharger(page, () => page.evaluate(() => window.__plan.executer('fichier.exporterJson'))));
+    const pj = projet.objects.find((o) => o.key === 'parcelle');
+    if (pj?.voisinage3d?.rues?.tracer !== true || !(pj?.ruesVoisinage?.chaussees?.length > 0)) echecs.push('fichier : ' + JSON.stringify({ v: pj?.voisinage3d, c: pj?.ruesVoisinage?.chaussees?.length }));
+    const c0 = pj?.ruesVoisinage?.chaussees?.[0];
+    if (!c0 || typeof c0.nature !== 'string' || !(c0.largeurM > 0) || !(c0.pts?.length >= 2)) echecs.push('chaussée enregistrée : ' + JSON.stringify(c0).slice(0, 160));
+
+    // ---- 3. En Vue 3D, le ruban drape sur le sol ------------------------------------------------------------------------
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => !!window.__plan.scene3d(), null, { timeout: 20000 });
+    await vue3dEconome(page);
+    await page.waitForFunction(() => { let m = null; window.__plan.scene3d()?.scene.traverse((x) => { if (x.name === 'rues-chaussees') m = x; }); return !!m; }, null, { timeout: 20000 }).catch(() => {});
+    const ruban = await page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const mailles = [];
+      sc.scene.traverse((x) => { if (x.name === 'rues-chaussees') mailles.push(x); });
+      const m = mailles[0];
+      if (!m) return { mailles: 0 };
+      const pos = m.geometry.getAttribute('position');
+      let ecart = 0, n = 0;
+      const pas = Math.max(1, Math.floor(pos.count / 400));
+      for (let k = 0; k < pos.count; k += pas) {
+        // Le repere de la scene est centre sur `cen`, son z vers le sud (three/primitives.ts, versLocalDepuis).
+        const h = sc.hauteurSol ? sc.hauteurSol({ x: pos.getX(k) + sc.cen.x, y: sc.cen.y - pos.getZ(k) }) : 0;
+        ecart = Math.max(ecart, Math.abs(pos.getY(k) - (h + 0.06)));
+        n++;
+      }
+      const jeton = getComputedStyle(document.documentElement).getPropertyValue('--chaussee').trim().toLowerCase();
+      // La couleur du jeton, assombrie de 0,8 en 3D (three/chaussees3d.ts, ATTENUATION_3D) : a un centieme pres, canal par canal.
+      const canaux = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+      const c = m.material.color, j = canaux(jeton);
+      const fidele = [c.r, c.g, c.b].every((v, i) => Math.abs(v - j[i] * 0.8) < 0.01);
+      return { mailles: mailles.length, sommets: pos.count, verifies: n, ecart, couleur: '#' + c.getHexString(), jeton, fidele, rugosite: m.material.roughness,
+        horsExport: !!m.userData.horsExport, relief: !!sc.hauteurSol, couche: m.material.polygonOffsetFactor };
+    });
+    if (ruban.mailles !== 1 || !(ruban.sommets > 0)) echecs.push('3D : ' + JSON.stringify(ruban));
+    if (ruban.mailles && !(ruban.ecart < 0.01)) echecs.push('ruban hors du sol de ' + ruban.ecart?.toFixed(3) + ' m');
+    if (ruban.mailles && (!ruban.fidele || ruban.rugosite !== 1 || !ruban.horsExport || !(ruban.couche < 0))) echecs.push('matériau du ruban : ' + JSON.stringify(ruban));
+
+    // ---- 4. Decochee (Vue 3D ouverte) : plus rien, et le fichier reprend sa forme ----------------------------------------
+    await page.evaluate(() => window.__plan.executer('affichage.chaussees'));
+    await page.waitForTimeout(1500);
+    const apres = await page.evaluate(() => {
+      let mailles = 0;
+      window.__plan.scene3d()?.scene.traverse((x) => { if (x.name === 'rues-chaussees') mailles++; });
+      return { mailles, plan: document.getElementById('chausseesGroup')?.childElementCount ?? -1 };
+    });
+    const decoche = await parcelle();
+    if (apres.mailles || apres.plan) echecs.push('décochée, il reste : ' + JSON.stringify(apres));
+    if (decoche.voisinage3d) echecs.push('décochée, le projet garde : ' + JSON.stringify(decoche.voisinage3d));
+    return {
+      ok: !echecs.length,
+      mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '')
+        + `menu : « ${entree?.texte} »${tactile && entree ? ' (' + entree.hauteur + ' px)' : ''} avant « Noms des rues » ; ${coche.chaussees} chaussée(s) lue(s), ${coche.rues} rue(s) nommée(s) ; `
+        + `plan : ${plan.pleins} ruban(s) par largeur, ${plan.couleurs.join('')} cerné de ${plan.couleursBord.join('')}, ${plan.largeurMin} px au moins, sous les noms et les objets ; `
+        + `3D : ${ruban.sommets} sommets, sol ${ruban.relief ? 'en relief' : 'plat'}, écart au sol ${(ruban.ecart ?? NaN).toFixed(4)} m sur ${ruban.verifies} sommets, ${ruban.couleur} ; décochée : rien ne reste`
+    };
+  },
   190: async (page, f) => {
     // Le photomontage (demande du proprietaire, 20 novembre 2026) : le projet de la Vue 3D pose sur une photo du jardin. Mode expert
     // eteint (le mode est pour tout le monde) : l'entree du menu Exporter, le bouton de la colonne de la camera, la carte « Choisir
@@ -11192,7 +11330,8 @@ function pointsPour(nomClasse) {
   // 195 : la saisie et la recherche de l'inspecteur : feuille a mi-hauteur au telephone, « − » maintenu qui accelere, curseur d'un
   //       nombre borne, « Chercher un réglage » (et un reglage avance), le depart « Pin sur plots » et son seul Ctrl+Z.
   // 196 : le fond « Plan IGN » : choisi au menu Affichage, ses tuiles sous le plan puis drapees sur le sol de la Vue 3D, retour a la photo.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196];
+  // 197 : l'option « Rues » : les chaussees lues, dessinees sur le plan au jeton du theme, drapees sur le sol de la Vue 3D, puis retirees.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

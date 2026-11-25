@@ -118,6 +118,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'affichage.grille': menu('menuAffichage', 'surimpression'),
   'affichage.relief': menu('menuAffichage'),
   'affichage.courbes': menu('menuAffichage'),
+  'affichage.chaussees': menu('menuAffichage'),
   'affichage.rues': menu('menuAffichage'),
   'affichage.orthophoto': menu('menuAffichage'),
   'affichage.fondPhoto': menu('menuAffichage'),

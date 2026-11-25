@@ -6,7 +6,7 @@
 // rue, dans le sens de la voie et jamais la tete en bas. Le plan (render/rues.ts) et la Vue 3D
 // (three/rues3d.ts) posent les memes etiquettes, chacun dans son repere.
 
-import type { PtBrut, RueVoisine } from './types.js';
+import type { ChausseeRue, ObjetPlan, PtBrut, RueVoisine } from './types.js';
 import type { Emprise } from './relief.js';
 
 /** En dessous, une ligne ne porte pas de nom : une impasse de dix metres ne se nomme pas sur un plan. */
@@ -133,4 +133,29 @@ export function etiquettesDesRues(rues: readonly RueVoisine[], cadre?: Emprise):
     }
   }
   return res;
+}
+
+/**
+ * L'option « Rues » (menu Affichage, MD/spec-rues.md §7) : les rues dessinees a la largeur de leur chaussee. Une preference
+ * d'affichage rangee sur la parcelle du projet, a cote du nom des rues (`voisinage3d.rues.tracer`) ; absente, elle est decochee.
+ */
+export function ruesTracees(parcelle: ObjetPlan | null | undefined): boolean {
+  return parcelle?.voisinage3d?.rues?.tracer === true;
+}
+
+/**
+ * Coche ou decoche l'option « Rues ». Seule la valeur cochee s'ecrit : decochee, elle s'efface, et une parcelle qui n'avait aucun
+ * reglage du voisinage retrouve exactement la forme d'avant.
+ */
+export function tracerRues(parcelle: ObjetPlan, oui: boolean): void {
+  const v = parcelle.voisinage3d ?? {};
+  const rues: { afficher: boolean; tracer?: true } = { afficher: v.rues?.afficher ?? false, ...(oui ? { tracer: true as const } : {}) };
+  // Une parcelle dont la case etait le seul reglage du voisinage revient sans reglage : le fichier garde sa forme d'avant.
+  if (!oui && !rues.afficher && Object.keys(v).every((k) => k === 'rues')) delete parcelle.voisinage3d;
+  else parcelle.voisinage3d = { ...v, rues };
+}
+
+/** Les chaussees a dessiner : celles lues, si l'option « Rues » est cochee ; aucune sinon. */
+export function chausseesAffichees(parcelle: ObjetPlan | null | undefined): readonly ChausseeRue[] {
+  return ruesTracees(parcelle) ? parcelle?.ruesVoisinage?.chaussees ?? [] : [];
 }

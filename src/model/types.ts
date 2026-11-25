@@ -509,8 +509,17 @@ export type ObjetAPlat = SansSousObjets<ObjetBrut> & ChampsBatiment & {
 /** L'apparence du voisinage en 3D, rangee sur la parcelle du projet (MD/spec-toit-ign.md §6.4). */
 /** Une rue : son nom (celui de la BAN) et ses troncons, dans le repere du plan. */
 export interface RueVoisine { nom: string; troncons: PtBrut[][] }
-/** Les rues lues autour de la parcelle du projet, et quand. */
-export interface RuesVoisinage { recupereLe: string; rayonM: number; rues: RueVoisine[] }
+/**
+ * Une chaussee lue a la BD TOPO (geo/rues.ts) : un troncon de voie, dans le repere du plan, avec ce qui sert a le dessiner (MD/spec-rues.md
+ * §7) - sa nature (`Route à 1 chaussée`, `Chemin`...), la largeur de sa chaussee (lue, ou deduite du nombre de voies ou de la nature),
+ * son importance (1 a 5) et son nom s'il en a.
+ */
+export interface ChausseeRue { nature: string; largeurM: number; importance?: number; nom?: string; pts: PtBrut[] }
+/**
+ * Les rues lues autour de la parcelle du projet, et quand. `chaussees` : les troncons dessinables, poses seulement quand l'option
+ * « Rues » les a demandes (une lecture pour les seuls noms garde la forme d'avant).
+ */
+export interface RuesVoisinage { recupereLe: string; rayonM: number; rues: RueVoisine[]; chaussees?: ChausseeRue[] }
 
 export interface ReglagesVoisinage3d {
   /**
@@ -534,7 +543,14 @@ export interface ReglagesVoisinage3d {
   /** Un grillage, une palissade, une haie ou un mur sur les limites des parcelles voisines. */
   cloture: { afficher: boolean; type: Exclude<TypeCloture, 'aucune'>; couleur: string };
   /** Le nom des rues, sur le plan et au sol de la Vue 3D (les rues lues sont dans `ruesVoisinage`). */
-  rues: { afficher: boolean };
+  rues: {
+    afficher: boolean;
+    /**
+     * Les rues dessinees a la largeur de leur chaussee, sur le plan et sur le relief de la Vue 3D (menu Affichage › Rues) : une
+     * preference d'affichage, decochee par defaut ; seule la valeur cochee s'ecrit.
+     */
+    tracer?: true;
+  };
   /**
    * Les toits des maisons voisines : en corps et pignons reconstruits sur le LiDAR (`corps`, le defaut,
    * lus a l'import et a l'actualisation IGN), ou en formes simples (MD/spec-toit-ign.md §13.6).

@@ -22,6 +22,7 @@ import { ortho, NOMS_FOND, type CoucheOrtho } from '../render/ortho.js';
 import { reliefDe, affichageRelief } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { voisinage3dDe } from '../model/voisinage3d.js';
+import { ruesTracees } from '../model/rues.js';
 import { showConfirm, showToast, showErrBanner } from '../shell/dialogs.js';
 import type { Magasin, OptionsCommandes } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -253,6 +254,8 @@ function basculesAffichage(etat: EtatApp, commandes: RegistreCommandes): [string
     // Le sol en relief (3D) et les courbes de niveau (plan), chacun sa bascule ; une fois le relief lu.
     ['affichage.relief', 'Relief', !!relief && affichageRelief(relief).sol3d, !!relief],
     ['affichage.courbes', 'Courbes de niveau', !!relief && affichageRelief(relief).courbes, !!relief],
+    // Les rues dessinees a la largeur de leur chaussee (plan et Vue 3D), puis leur nom.
+    ['affichage.chaussees', 'Rues', ruesTracees(parcelle), !!parcelle],
     ['affichage.rues', 'Noms des rues', !!parcelle && voisinage3dDe(parcelle).rues.afficher, !!parcelle],
     ['affichage.orthophoto', 'Fond IGN', ortho.actif, true],
     // La position GPS de l'appareil, suivie dans la Vue 3D : decochee par defaut, jamais enregistree.
