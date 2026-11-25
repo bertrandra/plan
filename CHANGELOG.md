@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.41.0] — 2026-11-25
+
+Version **mineure** au sens de `MD/RELEASE.md` : l'option « Rues » du menu Affichage, les rues dessinées par Plan à la largeur de
+leur chaussée, sur le plan et posées sur le relief de la Vue 3D (#764). Une fonction ajoutée donne le numéro. **Rien n'est retiré
+ni mis derrière un droit** : l'option est décochée par défaut, le fond et le nom des rues ne changent pas. **Aucune quantité ni
+aucun export ne change** : les rues dessinées n'entrent dans aucun export (le GLB écarte le ruban) ; avant le changement de numéro,
+le code de `main` (84f0d790) régénère les témoins de la 5.40.0 au bit près ; les neuf témoins qui portent le numéro ne changent
+qu'à lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ;
+`projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101
+identique. Schéma inchangé (16) ; deux champs de fichier facultatifs nouveaux, dans des objets déjà écrits tels quels
+(`voisinage3d.rues.tracer`, seule la valeur `true` s'écrit ; `ruesVoisinage.chaussees`, posé seulement quand l'option les
+demande) : un fichier d'avant s'ouvre à l'identique, un fichier qui les porte s'ouvre dans la 5.40.0 sans rues dessinées, et
+les garde. `deploy/`, `regles/` et `banc/` ne changent pas depuis la 5.40.0 ; la requête témoin de l'assistant est inchangée.
+Requêtes à vérifier contre l'API Claude sur `main` après la fusion de la version (« Vérifier l'API Claude »).
+
 ### Ajouté
 
 - **Option « Rues » : les rues dessinées par Plan, sur le plan et posées sur le relief de la Vue 3D** (retour du propriétaire :
