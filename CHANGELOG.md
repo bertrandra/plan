@@ -5,6 +5,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.40.0] — 2026-11-25
+
+Version **mineure** au sens de `MD/RELEASE.md` : le fond « Plan IGN », à côté de la photo aérienne, en 2D et drapé sur le relief
+de la Vue 3D (#761), et la Vue 3D qui ne montre qu'une intention à la fois, « Modifier » ou « Ajouter » (#759) ; côté banc, la
+clé d'entraînement vit 72 h (#757). Des fonctions ajoutées donnent le numéro (le choix du fond, l'entrée « Modifier » /
+« Ajouter » du mode Toit) ; le reste est correctif. **Rien n'est retiré ni mis derrière un droit** : les formes de toit changent
+de volet dans le mode Toit, la photo aérienne reste le fond par défaut, et le choix du fond suit la capacité du fond orthophoto
+qui existait déjà. **Aucune quantité ni aucun export ne change** : le fond n'entre dans aucun export ; avant le changement de
+numéro, le code de `main` (75774763) régénère les témoins de la 5.39.0 au bit près ; les neuf témoins qui portent le numéro ne
+changent qu'à lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ;
+`projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101
+identique. Schéma inchangé (16) ; un champ de fichier facultatif nouveau, `ortho.couche` (seule la valeur `'plan'` s'écrit ;
+absent, c'est la photo) : un fichier d'avant s'ouvre à l'identique, un fichier qui le porte s'ouvre dans la 5.39.0 sur la photo.
+`deploy/` et `regles/` ne changent pas depuis la 5.39.0 ; `banc/` change (#757 : déposer le nouveau `api.php`). Requêtes à
+vérifier contre l'API Claude sur `main` après la fusion de la version (« Vérifier l'API Claude »).
+
 ### Ajouté
 
 - **Fond « Plan IGN », à côté de la photo aérienne** (retour du propriétaire : « les rues en 2D et en 3D, posées sur le relief,
