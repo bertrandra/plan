@@ -699,7 +699,9 @@ visionneuse ; **Rail** rail d'outils ; **Pal** palette ; **M:x** menu x ; **Suri
 | `affichage.nord` | Flèche Nord | Fl ; FP › Affichage | Fl ; M:Affichage | M:Affichage |
 | `affichage.voisinage` | Voisinage | Ob ; FP › Affichage | Ob ; M:Affichage | Ob ; M:Affichage |
 | `affichage.grille` | Grille | Fl ; FP › Affichage | Fl ; M:Affichage | Surimp ; M:Affichage |
-| `affichage.orthophoto` | Fond orthophoto | FP › Affichage | M:Affichage | M:Affichage (effacée sans capacité, D8) |
+| `affichage.orthophoto` | Fond IGN | FP › Affichage | M:Affichage | M:Affichage (effacée sans capacité, D8) |
+| `affichage.fondPhoto` | Fond : Photo aérienne | FP › Affichage | M:Affichage | M:Affichage (effacée sans capacité) |
+| `affichage.fondPlan` | Fond : Plan IGN | FP › Affichage | M:Affichage | M:Affichage (effacée sans capacité) |
 | `affichage.orthoOpacite` | Opacité de la photo | FP › Affichage | M:Affichage | M:Affichage |
 | `affichage.orthoParcelleOpacite` | Remplissage de la parcelle | FP › Affichage | M:Affichage | M:Affichage |
 | `affichage.orthoParcelleDefaut` | Remplissage conseillé | FP › Affichage | M:Affichage | M:Affichage |

@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Fond « Plan IGN », à côté de la photo aérienne** (retour du propriétaire : « les rues en 2D et en 3D, posées sur le relief,
+  c'est difficilement lisible »). Le menu Affichage propose un choix « Fond » : **Photo aérienne** (par défaut, inchangée) ou
+  **Plan IGN**, la carte de l'IGN (`GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2`, sans clé) où les rues sont dessinées et nommées. Il se
+  pose sous le plan et se drape sur le relief de la Vue 3D exactement comme la photo ; un seul fond à la fois, jamais les deux.
+  Le choix se range sur la parcelle avec l'opacité (`ortho.couche: 'plan'`) : sans Ctrl+Z, permis en lecture seule, le projet
+  est à enregistrer ; un fichier d'avant, sans ce champ, s'ouvre sur la photo exactement comme avant. La couleur des toits et
+  les images de l'audit pour Claude lisent toujours la photo. Aucune quantité, aucun export ne change. Commandes nouvelles :
+  `affichage.fondPhoto`, `affichage.fondPlan` ; la bascule s'appelle maintenant « Fond IGN ».
 - **Vue 3D, « Modifier » ou « Ajouter » : on sait toujours ce que l'on fait** (retour du propriétaire, 24 novembre 2026 : « on ne
   sait pas ce qui modifie et ce qui crée »). Le mode Toit ne montre plus qu'une intention à la fois, choisie par un commutateur à
   deux boutons : **« Modifier — ce qui existe »** (la forme du toit, les réglages, les gestes : rien n'est créé) ou

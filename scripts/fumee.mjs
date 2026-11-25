@@ -4928,6 +4928,126 @@ const POINTS = {
       + `démonstration (pente, secteur protégé) : « ${d1.reponse} » (${d1.raisons.length} raison(s), ${d1.reserves.length} réserve(s)), en tête du dialogue et dans l’onglet PLU ; `
       + `sans relief : « ${d2.reponse} » ; sans servitude : « ${d3.reponse} » ; terrasse de ${surface.toFixed(1).replace('.', ',')} m² relevée : « ${d4.reponse} » ; verdict du recul : ${etatVerdict}, « ${(texte || '').replace(/\s+/g, ' ').slice(0, 110)}… » ; marquée sur le plan : ${marquee ? 'oui' : 'NON'}` };
   },
+  196: async (page, f) => {
+    // Le fond « Plan IGN » (retour du proprietaire, 25 novembre 2026 : « les rues en 2D et en 3D, posees sur le relief, c'est
+    // difficilement lisible ») : sur la demonstration, le menu Affichage (feuille Projet au doigt) propose « Fond » : « Photo aerienne »
+    // ou « Plan IGN ». Choisi, le Plan IGN remplace la photo sous le plan (tuiles PNG de GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2, jamais une
+    // de la photo), se range dans le projet (`ortho.couche: 'plan'`), puis se drape en Vue 3D sur le sol comme la photo : les images que
+    // la Vue 3D decode sont celles du Plan IGN, aucune de la photo. Revenu a la photo (Vue 3D ouverte), c'est l'inverse, et le fichier
+    // reprend sa forme d'avant (pas de `couche`).
+    const echecs = [];
+    const tactile = f.nom !== 'large';
+    const requetes = [];
+    page.on('request', (r) => { if (/data\.geopf\.fr\/wmts\?/.test(r.url())) requetes.push(r.url()); });
+    const etatFond = () => page.evaluate(async () => {
+      const { ortho } = await import('/src/render/ortho.ts');
+      const cache = [...ortho.cache.entries()];
+      return {
+        couche: ortho.couche, actif: ortho.actif, chargement: ortho.chargement,
+        tuiles: ortho.tuiles.map((t) => t.dataUri), larges: ortho.tuilesLarges.map((t) => t.dataUri),
+        photo: cache.filter(([k]) => k.startsWith('photo/')).map(([, v]) => v), plan: cache.filter(([k]) => k.startsWith('plan/')).map(([, v]) => v),
+        images: [...document.querySelectorAll('#stage svg g.tuilesOrtho image')].map((i) => (i.getAttribute('href') || '').slice(0, 15))
+      };
+    });
+    // L'etat du fond, lu dans son module (le meme que celui de l'application) ; l'attente le relit sans `import` (une fonction
+    // asynchrone rendrait une promesse, toujours vraie pour `waitForFunction`).
+    await page.evaluate(async () => { window.__fondOrtho = (await import('/src/render/ortho.ts')).ortho; });
+    const attendreFond = (couche) => page.waitForFunction((couche) => {
+      const ortho = window.__fondOrtho;
+      const prefixe = couche === 'plan' ? 'data:image/png' : 'data:image/jpeg';
+      const imgs = [...document.querySelectorAll('#stage svg g.tuilesOrtho image')];
+      return ortho.couche === couche && ortho.actif && !ortho.chargement && ortho.tuiles.length > 0 && imgs.length > 0
+        && imgs.every((i) => (i.getAttribute('href') || '').startsWith(prefixe));
+    }, couche, { timeout: 60000, polling: 250 }).then(() => true).catch(() => false);
+
+    // ---- 1. Le menu Affichage propose les deux fonds --------------------------------------------------
+    // La photo d'abord (le fond par defaut de la demonstration, calee par le cadastre).
+    if (!(await attendreFond('photo'))) echecs.push('la photo aérienne ne s’est pas posée à l’ouverture');
+    if (tactile) await feuille(page, 'projet');
+    await page.evaluate(() => document.getElementById('menuAffichage')?.setAttribute('open', ''));
+    await page.waitForTimeout(250);
+    const menu = await page.evaluate(() => {
+      const m = document.getElementById('menuAffichage');
+      const choix = [...m.querySelectorAll('[role="menuitemradio"]')].map((li) => {
+        const b = li.querySelector('button'), r = b.getBoundingClientRect();
+        return { commande: b.getAttribute('data-commande'), texte: li.textContent.replace('✓', '').trim(), coche: li.getAttribute('aria-checked'), hauteur: Math.round(r.height) };
+      });
+      return { titre: m.querySelector('.menuTitre')?.textContent ?? null, choix, bascule: m.querySelector('[data-commande="affichage.orthophoto"]')?.textContent?.replace('✓', '').trim() ?? null,
+        aide: [...m.querySelectorAll('li.menuAide')].map((l) => l.textContent).join(' ') };
+    });
+    if (menu.titre !== 'Fond') echecs.push('titre du choix : ' + menu.titre);
+    if (JSON.stringify(menu.choix.map((c) => [c.commande, c.texte, c.coche])) !== JSON.stringify([['affichage.fondPhoto', 'Photo aérienne', 'true'], ['affichage.fondPlan', 'Plan IGN', 'false']])) {
+      echecs.push('choix du fond : ' + JSON.stringify(menu.choix));
+    }
+    if (tactile && menu.choix.some((c) => c.hauteur < 44)) echecs.push('choix sous 44 px : ' + menu.choix.map((c) => c.hauteur).join(', '));
+    if (menu.bascule !== 'Fond IGN') echecs.push('bascule : ' + menu.bascule);
+    if (!/Plan IGN/.test(menu.aide) || !/relief/.test(menu.aide)) echecs.push('aide du menu sans le Plan IGN : ' + menu.aide.slice(0, 80));
+
+    // ---- 2. « Plan IGN » : les tuiles PLANIGNV2 sous le plan, aucune de la photo -----------------------
+    const avant = requetes.length;
+    await page.locator('#menuAffichage [data-commande="affichage.fondPlan"]').click();
+    await page.evaluate(() => document.getElementById('menuAffichage')?.removeAttribute('open'));
+    if (tactile) await feuille(page, null);
+    const planPose = await attendreFond('plan');
+    const plan2d = await etatFond();
+    const demandesPlan = requetes.slice(avant).filter((u) => u.includes('PLANIGNV2'));
+    if (!planPose) echecs.push('Plan IGN non posé : ' + JSON.stringify({ couche: plan2d.couche, actif: plan2d.actif, tuiles: plan2d.tuiles.length, images: plan2d.images.slice(0, 3) }));
+    if (!demandesPlan.length) echecs.push('aucune tuile PLANIGNV2 demandée');
+    if (demandesPlan.some((u) => /TILEMATRIX=20&/.test(u))) echecs.push('niveau 20 demandé au Plan IGN');
+    if (demandesPlan.some((u) => !u.includes('FORMAT=image/png'))) echecs.push('Plan IGN demandé hors PNG');
+    if (plan2d.tuiles.some((d) => plan2d.photo.includes(d)) || plan2d.larges.some((d) => plan2d.photo.includes(d))) echecs.push('une tuile de la photo reste sous le plan');
+    const projetPlan = JSON.parse(await telecharger(page, () => page.evaluate(() => window.__plan.executer('fichier.exporterJson'))));
+    const fondPlan = projetPlan.objects.find((o) => o.key === 'parcelle')?.ortho ?? null;
+    if (fondPlan?.couche !== 'plan' || fondPlan?.actif !== true) echecs.push('projet : ' + JSON.stringify(fondPlan));
+
+    // ---- 3. En Vue 3D, le Plan IGN drape sur le sol ------------------------------------------------------
+    // Les images que la Vue 3D decode (le sol en relief les peint sur son canevas, le sol plat en fait des dalles) sont relevees.
+    await page.evaluate(() => {
+      const d = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+      window.__srcsFond = [];
+      Object.defineProperty(HTMLImageElement.prototype, 'src', { configurable: true, get() { return d.get.call(this); },
+        set(v) { if (typeof v === 'string' && v.startsWith('data:image/')) window.__srcsFond.push(v); d.set.call(this, v); } });
+    });
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => !!window.__plan.scene3d(), null, { timeout: 20000 });
+    await vue3dEconome(page);
+    await page.waitForTimeout(1500);
+    const sol3d = (etat) => page.evaluate((etat) => {
+      const sc = window.__plan.scene3d(), srcs = new Set(window.__srcsFond);
+      let relief = null, dalles = 0;
+      sc.scene.traverse((x) => {
+        if (!x.isMesh) return;
+        if (x.name === 'sol-relief') relief = { carte: !!x.material?.map, toile: !!x.material?.map?.isCanvasTexture };
+        else if (x.geometry?.type === 'PlaneGeometry' && x.material?.map && etat.tuiles.includes(x.material.map.image?.src)) dalles++;
+      });
+      const peintes = etat.tuiles.filter((d) => srcs.has(d)).length;
+      const photo = etat.photo.filter((d) => srcs.has(d)).length, plan = etat.plan.filter((d) => srcs.has(d)).length;
+      return { relief, dalles, peintes, photo, plan };
+    }, etat);
+    const s3dPlan = await sol3d(await etatFond());
+    if (!s3dPlan.peintes || s3dPlan.photo || (s3dPlan.relief && !s3dPlan.relief.toile)) echecs.push('Vue 3D sous le Plan IGN : ' + JSON.stringify(s3dPlan));
+
+    // ---- 4. Retour a la photo, Vue 3D ouverte -----------------------------------------------------------
+    await page.evaluate(() => { window.__srcsFond = []; window.__plan.executer('affichage.fondPhoto'); });
+    if (!(await attendreFond('photo'))) echecs.push('retour à la photo : non posée');
+    await page.waitForTimeout(1500);
+    const photo2d = await etatFond();
+    if (photo2d.tuiles.some((d) => photo2d.plan.includes(d))) echecs.push('une tuile du Plan IGN reste sous la photo');
+    const s3dPhoto = await sol3d(photo2d);
+    if (!s3dPhoto.peintes || s3dPhoto.plan) echecs.push('Vue 3D revenue à la photo : ' + JSON.stringify(s3dPhoto));
+    const projetPhoto = JSON.parse(await telecharger(page, () => page.evaluate(() => window.__plan.executer('fichier.exporterJson'))));
+    const fondPhoto = projetPhoto.objects.find((o) => o.key === 'parcelle')?.ortho ?? null;
+    if (fondPhoto && 'couche' in fondPhoto) echecs.push('projet revenu à la photo, couche restée : ' + JSON.stringify(fondPhoto));
+    return {
+      ok: !echecs.length,
+      mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '')
+        + `menu « ${menu.titre} » : ${menu.choix.map((c) => c.texte + (c.coche === 'true' ? ' ✓' : '') + (tactile ? ' (' + c.hauteur + ' px)' : '')).join(' / ')} ; `
+        + `Plan IGN : ${plan2d.tuiles.length} tuile(s) PNG, ${demandesPlan.length} requête(s) PLANIGNV2, projet ${JSON.stringify(fondPlan)} ; `
+        + `3D : ${s3dPlan.peintes} tuile(s) du plan peinte(s), ${s3dPlan.photo} de la photo, sol ${s3dPlan.relief ? 'en relief' : 'plat (' + s3dPlan.dalles + ' dalle(s))'} ; `
+        + `retour photo : ${photo2d.tuiles.length} tuile(s) JPEG, 3D ${s3dPhoto.peintes} peinte(s), ${s3dPhoto.plan} du plan, projet ${JSON.stringify(fondPhoto)}`
+    };
+  },
   190: async (page, f) => {
     // Le photomontage (demande du proprietaire, 20 novembre 2026) : le projet de la Vue 3D pose sur une photo du jardin. Mode expert
     // eteint (le mode est pour tout le monde) : l'entree du menu Exporter, le bouton de la colonne de la camera, la carte « Choisir
@@ -11071,7 +11191,8 @@ function pointsPour(nomClasse) {
   //       par la ligne « réglages avancés », un coin replie, deplie et renomme, les arrivees de la parcelle et de la maison.
   // 195 : la saisie et la recherche de l'inspecteur : feuille a mi-hauteur au telephone, « − » maintenu qui accelere, curseur d'un
   //       nombre borne, « Chercher un réglage » (et un reglage avance), le depart « Pin sur plots » et son seul Ctrl+Z.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195];
+  // 196 : le fond « Plan IGN » : choisi au menu Affichage, ses tuiles sous le plan puis drapees sur le sol de la Vue 3D, retour a la photo.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

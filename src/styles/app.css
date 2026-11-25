@@ -337,6 +337,8 @@
   details.menu li.menuReglage input[type=number]{ width:64px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--ink); }
   details.menu li.menuReglage input[type=range]{ flex:1; min-width:90px; }
   details.menu li.menuReglage .valeur{ min-width:40px; text-align:right; font-variant-numeric:tabular-nums; color:var(--ink-soft); }
+  /* Le titre d'un choix exclusif du menu (le fond) : en petites capitales, comme les en-tetes de section. */
+  details.menu li.menuTitre{ padding:6px 12px 2px; font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
   details.menu li.menuAide{ padding:4px 12px 6px; font-family:var(--serif); font-style:italic; font-size:0.7rem; color:var(--ink-soft); max-width:260px; }
   /* Les raccourcis du menu Aide : une liste a lire, pas des entrees a choisir (app/clavier.ts). */
   details.menu li.menuRaccourcis{ padding:4px 12px 8px; font-size:0.72rem; color:var(--ink); }

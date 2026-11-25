@@ -176,6 +176,9 @@ couleur hexadécimale ne traîne hors des blocs de jetons**.
   tableaux de vingt à cent lignes, l'alternance n'est pas décorative.
 - Une section de plus d'un écran au téléphone se découpe en groupes, dans l'ordre où l'on décide
   (la terrasse, la pergola, le carport : forme, structure, finitions ; un bâtiment : toit, façades).
+- Choix exclusif dans un menu (le fond « Photo aérienne » / « Plan IGN » du menu Affichage) : un titre `li.menuTitre` en
+  petites capitales, puis une entrée `role="menuitemradio"` par choix, chacune une commande du registre, la coche `✓` sur
+  celle en place (`ChoixFond`, `zones/BarreApplication.tsx`).
 - Sections repliables : `<details>` avec chevron `›` qui pivote (voir `.inspecteurSection`). Dans
   l'inspecteur, **une seule section ouverte à la fois** : ouvrir l'une replie les autres
   (`zones/Inspecteur.tsx`, `replierLesAutres`).

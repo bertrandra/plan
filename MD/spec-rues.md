@@ -77,6 +77,11 @@ lues le 10/10/2026 », « Pas encore lues », ou que le plan n'est pas calé sur
 
 ## 6. Limites
 
+- Les noms seuls ne disent pas où passe la rue : posés sur la photo aérienne, et plus encore
+  drapés sur le relief en 3D, ils restent difficiles à lire. Pour voir les rues elles-mêmes
+  (chaussées, carrefours, numéros), choisir le fond **Plan IGN** (menu Affichage, « Fond » ;
+  `MD/spec_import_cadastre_et_json.md` §11.5 bis) : la carte de l'IGN, où les rues sont dessinées
+  et nommées, posée sous le plan et drapée sur le relief de la Vue 3D à la place de la photo.
 - Les exports (plan.svg, PDF, DP2) n'écrivent pas encore le nom des rues : un plan de masse le
   demanderait volontiers ; ce serait un changement des exports, donc d'empreintes.
 - Le rayon est fixe (250 m), indépendant du rayon du voisinage importé.

@@ -18,7 +18,7 @@ import { reglesLocalesDemandees } from '../app/ecouteurs/faitsLocaux.js';
 import { BACKPROD_API_URL, vitrinePlateforme } from '../plateforme/config.js';
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useStore } from 'zustand';
-import { ortho } from '../render/ortho.js';
+import { ortho, NOMS_FOND, type CoucheOrtho } from '../render/ortho.js';
 import { reliefDe, affichageRelief } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { voisinage3dDe } from '../model/voisinage3d.js';
@@ -254,15 +254,40 @@ function basculesAffichage(etat: EtatApp, commandes: RegistreCommandes): [string
     ['affichage.relief', 'Relief', !!relief && affichageRelief(relief).sol3d, !!relief],
     ['affichage.courbes', 'Courbes de niveau', !!relief && affichageRelief(relief).courbes, !!relief],
     ['affichage.rues', 'Noms des rues', !!parcelle && voisinage3dDe(parcelle).rues.afficher, !!parcelle],
-    ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true],
+    ['affichage.orthophoto', 'Fond IGN', ortho.actif, true],
     // La position GPS de l'appareil, suivie dans la Vue 3D : decochee par defaut, jamais enregistree.
     ['affichage.positionGps', 'Ma position (3D)', etat.positionGps, true]
   ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
 }
 
+/**
+ * Le choix du fond : photo aerienne ou Plan IGN, un seul a la fois (deux commandes, une coche). Efface avec la capacite du fond,
+ * comme la bascule qu'il complete.
+ */
+export function ChoixFond({ commandes }: { commandes: RegistreCommandes }) {
+  const choix: [string, CoucheOrtho][] = [['affichage.fondPhoto', 'photo'], ['affichage.fondPlan', 'plan']];
+  if (choix.some(([id]) => commandes.effacee(id))) return null;
+  return (
+    <>
+      <li className="menuTitre" role="presentation">Fond</li>
+      {choix.map(([id, couche]) => {
+        const choisi = ortho.actif && ortho.couche === couche;
+        return (
+          <li key={id} role="menuitemradio" aria-checked={choisi}>
+            <button type="button" data-commande={id} disabled={!commandes.etat(id).utilisable} title={commandes.obtenir(id)?.description}
+              onClick={(e) => { commandes.executer(id); fermer(e); }}>
+              <span className="coche" aria-hidden="true">{choisi ? '✓' : ''}</span>{NOMS_FOND[couche]}
+            </button>
+          </li>
+        );
+      })}
+    </>
+  );
+}
+
 /** Le menu Affichage : les bascules, chacune une commande cochee d'apres l'etat, et le fond orthophoto. */
 function MenuAffichage({ magasin, commandes }: PropsMenu) {
-  useCle(magasin, 'menu Affichage', (s) => JSON.stringify([basculesAffichage(s.etat, commandes), ortho.opacite, ortho.parcelleOpacite]));
+  useCle(magasin, 'menu Affichage', (s) => JSON.stringify([basculesAffichage(s.etat, commandes), ortho.opacite, ortho.parcelleOpacite, ortho.couche]));
   const bascules = basculesAffichage(magasin.store.getState().etat, commandes);
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
@@ -283,11 +308,12 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
             </button>
           </li>
         ))}
-        {curseur('affichage.orthoOpacite', 'orthoOpacite', 'orthoOpaciteTexte', 'Photo', Math.round(ortho.opacite * 100), 20, 'Opacité de la photo aérienne elle-même')}
-        {curseur('affichage.orthoParcelleOpacite', 'orthoParcelleOpacite', 'orthoParcelleOpaciteTexte', 'Remplissage parcelle', Math.round(ortho.parcelleOpacite * 100), 0, 'Remplissage du terrain par-dessus la photo : à 100 % la parcelle masque exactement ce qu\'on veut voir')}
+        <ChoixFond commandes={commandes} />
+        {curseur('affichage.orthoOpacite', 'orthoOpacite', 'orthoOpaciteTexte', 'Fond', Math.round(ortho.opacite * 100), 20, 'Opacité du fond lui-même (photo aérienne ou Plan IGN)')}
+        {curseur('affichage.orthoParcelleOpacite', 'orthoParcelleOpacite', 'orthoParcelleOpaciteTexte', 'Remplissage parcelle', Math.round(ortho.parcelleOpacite * 100), 0, 'Remplissage du terrain par-dessus le fond : à 100 % la parcelle masque exactement ce qu\'on veut voir')}
         <Entree commandes={commandes} id="affichage.orthoParcelleDefaut" libelle="Remplissage conseillé (15 %)" idDom="orthoParcelleDefaut" />
-        <Entree commandes={commandes} id="affichage.orthoRecharger" libelle="Recharger la photo aérienne" />
-        <li className="menuAide">Le remplissage ne s'applique que fond affiché : le contour et les cotes restent, seul le fond de couleur s'efface. Les tuiles ne sont pas enregistrées, ces réglages le sont.</li>
+        <Entree commandes={commandes} id="affichage.orthoRecharger" libelle="Recharger le fond IGN" />
+        <li className="menuAide">Le fond est la photo aérienne ou le Plan IGN, où les rues sont dessinées et nommées ; en Vue 3D, il se drape sur le relief. Le remplissage ne s'applique que fond affiché : le contour et les cotes restent, seul le fond de couleur s'efface. Les tuiles ne sont pas enregistrées, ces réglages le sont.</li>
         <li className="separateur" role="separator" />
         {/* Une preference de l'appareil (app/modeExpert.ts) : ni Ctrl+Z, ni « projet modifie », permise en lecture seule. */}
         <Case magasin={magasin} option="modeExpert" idDom="chkModeExpert" controle="affichage.option.modeExpert" libelle="Mode expert"

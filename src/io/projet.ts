@@ -120,6 +120,7 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   ortho.tuiles = [];
   ortho.tuilesLarges = [];
   ortho.couverture = null;
+  ortho.photo = [];
   restaurerOrthoDuProjet(ctx);
   restaurerAffichageDuProjet(etat, ctx);
   ctx.markDirty();

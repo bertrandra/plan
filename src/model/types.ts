@@ -115,6 +115,8 @@ interface ObjetCommun {
     actif?: boolean;
     opacite?: number;
     parcelleOpacite?: number;
+    /** Le fond choisi : `'plan'` pour le Plan IGN v2 ; absent, la photo aerienne (tout fichier d'avant la 5.40.0). */
+    couche?: 'photo' | 'plan';
   } | null;
 
   /**

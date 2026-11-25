@@ -1054,6 +1054,40 @@ Sans clé, avec `access-control-allow-origin: *`.
 Vérifié : 4 tuiles au niveau 19 sur une parcelle seule, 6 sur la propriété fusionnée ; emprise
 du fond contenant tout le plan ; une seule 404 dans la console (la tuile d'essai du niveau 20).
 
+### 11.5 bis Deux fonds : photo aérienne ou Plan IGN (5.40.0)
+
+Les rues ne se lisaient pas sur la photo, ni en 2D ni drapées sur le relief en 3D : seuls leurs
+noms étaient écrits (`MD/spec-rues.md`). Le menu Affichage propose donc un choix « Fond » :
+**Photo aérienne** (par défaut, inchangée) ou **Plan IGN**, la carte de l'IGN où les rues sont
+dessinées et nommées.
+
+| Fond | Couche WMTS | Format | Niveau max. |
+|---|---|---|---|
+| Photo aérienne | `ORTHOIMAGERY.ORTHOPHOTOS` | `image/jpeg` | 20 |
+| Plan IGN | `GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2` | `image/png` | 19 |
+
+Même service (`data.geopf.fr/wmts`, matrice `PM`, sans clé, `access-control-allow-origin: *`),
+même calage, même emprise, même descente de niveau. Au-delà du niveau 19, les tuiles du Plan IGN
+sont étirées à l'emprise qu'elles couvrent, comme le banc le fait (`banc/src/carte.ts`).
+
+- **Une couche à la fois** (`ortho.couche`, `render/ortho.ts`) : choisir l'autre fond oublie les
+  tuiles affichées et lit celles du fond choisi, en 2D comme en 3D (même drapé sur le relief,
+  `three/relief3d.ts`, `peindreOrthoSurSol`). La photo et le Plan IGN ne se superposent jamais.
+  Choisir un fond l'allume s'il était éteint.
+- **Le cache est rangé par couche** (`couche/z/x/y`) : aucune tuile d'un fond ne sert à l'autre,
+  et revenir au fond précédent ne relit rien.
+- **Ce qui lit la photo pour elle-même la lit toujours** : la couleur des toits
+  (`render/couleurToitOrtho.ts`) et les images de l'audit pour Claude (`tuilesPhotoPourAnalyse`) ;
+  sous le Plan IGN, l'audit reprend la photo déjà lue, ou la relit une fois, sans toucher au fond
+  affiché. Claude lit une photo, jamais une carte.
+- **Persistance** : `ortho.couche: 'plan'` sur la parcelle, avec l'opacité. La photo ne s'écrit
+  pas : absent, c'est la photo, donc un fichier d'avant s'ouvre exactement comme avant, et un
+  projet qui revient à la photo reprend la forme de ses fichiers d'avant. Comme l'opacité, c'est
+  une **préférence d'affichage enregistrée avec le projet** : ni Ctrl+Z, permise en lecture seule,
+  mais le projet est à enregistrer quand elle change (`enregistrerConfigOrtho`).
+- **Aucun export ne change** : le SVG, le PNG et le PDF se construisent depuis les objets
+  (`export/`, `construireSVG`), sans les tuiles du fond ; les empreintes ne bougent pas.
+
 ### 11.6 Transparence de la parcelle sous le fond, et persistance des réglages
 
 **Le problème** : un terrain rempli à 100 % masque exactement ce que le fond aérien est venu

@@ -3,15 +3,16 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Le fond orthophoto telecharge des tuiles : on le remplace par son etat et des espions.
 const orthoEspions = vi.hoisted(() => ({
-  ortho: { actif: false, opacite: 0.85, parcelleOpacite: 0.15, chargement: false, tuiles: [] as unknown[], tuilesLarges: [] as unknown[] },
-  basculer: vi.fn(async () => {}), placer: vi.fn(), enregistrer: vi.fn(),
+  ortho: { actif: false, couche: 'photo', opacite: 0.85, parcelleOpacite: 0.15, chargement: false, tuiles: [] as unknown[], tuilesLarges: [] as unknown[] },
+  basculer: vi.fn(async () => {}), placer: vi.fn(), enregistrer: vi.fn(), choisir: vi.fn(async () => {}),
   recharger: vi.fn(async () => ({ z: 19, nb: 4, total: 4, exact: true })), toast: vi.fn()
 }));
 vi.mock('../../../../src/shell/dialogs.js', () => ({ showToast: orthoEspions.toast, showErrBanner: () => {} }));
 vi.mock('../../../../src/render/ortho.js', () => ({
   ortho: orthoEspions.ortho,
   basculerOrthophoto: orthoEspions.basculer, placerOrthophoto: orthoEspions.placer, enregistrerConfigOrtho: orthoEspions.enregistrer,
-  rechargerOrthophoto: orthoEspions.recharger
+  rechargerOrthophoto: orthoEspions.recharger, choisirCoucheOrtho: orthoEspions.choisir,
+  NOMS_FOND: { photo: 'Photo aérienne', plan: 'Plan IGN' }
 }));
 
 import { creerRegistre, type Droits } from '../../../../src/app/commandes.js';
@@ -107,6 +108,44 @@ describe('affichage', () => {
     sans3d.cmd.executer('affichage.orthophoto');
     await Promise.resolve(); await Promise.resolve();
     expect(sans3d.ctx.buildThreeScene).not.toHaveBeenCalled();
+  });
+});
+
+describe('le choix du fond : photo aerienne ou Plan IGN', () => {
+  it('chaque choix passe par le fond (une couche a la fois), puis reconstruit la 3D ouverte avec elle', async () => {
+    vue3d.scene = {} as never;
+    try {
+      const { ctx, cmd } = monter();
+      cmd.executer('affichage.fondPlan');
+      expect(orthoEspions.choisir).toHaveBeenLastCalledWith('plan', {});
+      await Promise.resolve(); await Promise.resolve();
+      expect(ctx.buildThreeScene).toHaveBeenCalledTimes(1);
+      cmd.executer('affichage.fondPhoto');
+      expect(orthoEspions.choisir).toHaveBeenLastCalledWith('photo', {});
+    } finally { vue3d.scene = null; }
+  });
+
+  it('suit la capacite du fond : effaces sans elle, decrits, et poses au menu Affichage', () => {
+    const { cmd } = monter();
+    for (const id of ['affichage.fondPhoto', 'affichage.fondPlan']) {
+      expect(cmd.etat(id).utilisable, id).toBe(true);
+      expect(cmd.obtenir(id)?.description, id).toMatch(/fond du plan et de la Vue 3D/);
+    }
+    const sans = monter(sansOrtho).cmd;
+    for (const id of ['affichage.fondPhoto', 'affichage.fondPlan']) expect(sans.effacee(id), id).toBe(true);
+  });
+
+  it('dit le fond recharge par son nom', async () => {
+    const { cmd } = monter();
+    orthoEspions.ortho.actif = true;
+    orthoEspions.ortho.couche = 'plan';
+    orthoEspions.ortho.tuiles = [{}];
+    orthoEspions.ortho.tuilesLarges = [];
+    try {
+      cmd.executer('affichage.orthoRecharger');
+      await Promise.resolve(); await Promise.resolve();
+      expect(orthoEspions.toast).toHaveBeenLastCalledWith('Plan IGN rechargé : 1 tuile');
+    } finally { orthoEspions.ortho.actif = false; orthoEspions.ortho.couche = 'photo'; orthoEspions.recharger.mockClear(); orthoEspions.toast.mockClear(); }
   });
 });
 
