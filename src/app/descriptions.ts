@@ -84,11 +84,13 @@ export const DESCRIPTIONS: Record<string, string> = {
   'affichage.rues': 'Montre ou cache le nom des rues sur le plan et au sol de la Vue 3D ; la première fois, les rues sont lues à l’IGN',
   'affichage.nord': 'Montre ou cache la flèche du Nord sur le plan',
   'affichage.voisinage': 'Montre ou cache les objets importés des parcelles voisines, sans les supprimer',
-  'affichage.orthophoto': 'Pose la photo aérienne de l’IGN sous le plan, ou la retire',
-  'affichage.orthoOpacite': 'Règle l’opacité de la photo aérienne',
-  'affichage.orthoParcelleOpacite': 'Règle le remplissage de la parcelle par-dessus la photo aérienne',
+  'affichage.orthophoto': 'Pose le fond de l’IGN (photo aérienne ou Plan IGN) sous le plan et sur le relief de la Vue 3D, ou le retire',
+  'affichage.fondPhoto': 'Prend la photo aérienne de l’IGN comme fond du plan et de la Vue 3D',
+  'affichage.fondPlan': 'Prend le Plan IGN comme fond du plan et de la Vue 3D : les rues y sont dessinées et nommées ; la photo aérienne n’est plus montrée',
+  'affichage.orthoOpacite': 'Règle l’opacité du fond (photo aérienne ou Plan IGN)',
+  'affichage.orthoParcelleOpacite': 'Règle le remplissage de la parcelle par-dessus le fond',
   'affichage.orthoParcelleDefaut': 'Remet le remplissage de la parcelle à la valeur conseillée (15 %)',
-  'affichage.orthoRecharger': 'Oublie les tuiles de la photo aérienne et les relit à l’IGN, jusqu’au bout du voisinage',
+  'affichage.orthoRecharger': 'Oublie les tuiles du fond (photo aérienne ou Plan IGN) et les relit à l’IGN, jusqu’au bout du voisinage',
 
   // ---- Cotes --------------------------------------------------------------------------------------
   'mesure.choisirReference': 'Désigne sur le plan le côté à partir duquel les cotes se mesurent',

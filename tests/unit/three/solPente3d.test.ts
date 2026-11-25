@@ -268,6 +268,27 @@ describe('l orthophoto sur le sol', () => {
     }
   });
 
+  it('en relief, le Plan IGN choisi comme fond se drape exactement comme la photo : ses tuiles, et elles seules, sont peintes sur le sol', async () => {
+    // Le fond est une couche a la fois (render/ortho.ts) : la Vue 3D peint ce que `orthoTuiles()` rend, ici les tuiles PNG du
+    // Plan IGN. On releve les images que le sol decode : aucune photo ne s'y glisse.
+    const origine = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = (() => ({ fillStyle: '', fillRect() {}, drawImage() {} })) as never;
+    const lues: string[] = [];
+    const ImageOrigine = globalThis.Image;
+    vi.stubGlobal('Image', class { onload: (() => void) | null = null; set src(v: string) { lues.push(v); } });
+    const plan = { ...tuile, dataUri: 'data:image/png;base64,UExBTg==' };
+    try {
+      await construireAvec(objets(true, PLOTS), { ...contexte(objets(true, PLOTS)), orthoActif: () => true, orthoTuiles: () => [plan] });
+      expect(dalles()).toHaveLength(0);
+      const mat = solRelief()!.material as THREE_NS.MeshStandardMaterial;
+      expect((mat.map as THREE_NS.CanvasTexture | null)?.isCanvasTexture).toBe(true);
+      expect(lues).toEqual([plan.dataUri]);
+    } finally {
+      HTMLCanvasElement.prototype.getContext = origine;
+      vi.stubGlobal('Image', ImageOrigine);
+    }
+  });
+
   it('en relief sans canvas 2D, le sol reste vert et rien ne casse', async () => {
     await construireAvec(objets(true, PLOTS), avecOrtho(objets(true, PLOTS)));
     expect(dalles()).toHaveLength(0);

@@ -18,7 +18,7 @@ import type { ObjetPlan, PtBrut } from '../../../model/types.js';
 import type { ImageAnalyse } from '../../../render/imagesAnalyse.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { EntreesPropositions } from './propositions.js';
-import { ortho } from '../../../render/ortho.js';
+import { tuilesPhotoPourAnalyse } from '../../../render/ortho.js';
 import { dessinerOrthoJardin, reduirePhotoAnalyse } from '../../../render/imagesAnalyse.js';
 
 /** L'identifiant de la requete du jardin dans le batch (`[A-Za-z0-9_-]`). */
@@ -92,7 +92,8 @@ export function runJardinDesResultats(lu: Pick<ResultatsBatch, 'modele' | 'promp
 /** Les images du jardin dans le navigateur : les tuiles du fond orthophoto deja chargees, et les photos reduites. */
 export function fabriqueJardinNavigateur(): FabriqueImagesJardin {
   return {
-    ortho: (parcelle, batiments) => dessinerOrthoJardin([...ortho.tuiles, ...ortho.tuilesLarges], parcelle, batiments),
+    // La photo, meme sous le fond Plan IGN : Claude lit une photo aerienne, jamais une carte.
+    ortho: async (parcelle, batiments) => dessinerOrthoJardin(await tuilesPhotoPourAnalyse(), parcelle, batiments),
     photo: (p) => reduirePhotoAnalyse(p.base64),
   };
 }

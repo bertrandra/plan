@@ -7,7 +7,7 @@
 
 import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
-import { ortho, basculerOrthophoto, placerOrthophoto, enregistrerConfigOrtho, rechargerOrthophoto } from '../../render/ortho.js';
+import { ortho, basculerOrthophoto, placerOrthophoto, enregistrerConfigOrtho, rechargerOrthophoto, choisirCoucheOrtho, NOMS_FOND, type CoucheOrtho } from '../../render/ortho.js';
 import { showToast } from '../../shell/dialogs.js';
 import { vue3d } from '../../three/etat3d.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
@@ -89,6 +89,17 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
     });
   } });
 
+  // Le fond : photo aerienne ou Plan IGN, une couche a la fois (render/ortho.ts). Comme l'opacite, une
+  // preference d'affichage rangee sur la parcelle : ni Ctrl+Z, mais le projet est a enregistrer
+  // (`enregistrerConfigOrtho`). La Vue 3D ouverte se reconstruit avec la couche choisie, drapee sur le relief.
+  const choisirFond = (couche: CoucheOrtho) => () => {
+    void choisirCoucheOrtho(couche, ctx.ctxOrtho()).then(() => {
+      if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
+    });
+  };
+  cmd.declarer({ id: 'affichage.fondPhoto', libelle: 'Fond : ' + NOMS_FOND.photo, groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code, executer: choisirFond('photo') });
+  cmd.declarer({ id: 'affichage.fondPlan', libelle: 'Fond : ' + NOMS_FOND.plan, groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code, executer: choisirFond('plan') });
+
   const valeurDe = (source: HTMLElement | undefined) => parseInt((source as HTMLInputElement | undefined)?.value ?? '', 10);
   cmd.declarer({ id: 'affichage.orthoOpacite', libelle: 'Opacité de la photo', groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code, executer: (source) => {
     const v = valeurDe(source);
@@ -119,13 +130,13 @@ export function brancherAffichage(a: Atelier, ctx: ContexteAffichage, cmd: Regis
   // Une photo mal chargee (tuiles manquantes, reseau coupe en route) ne se reparait qu'en eteignant
   // puis rallumant le fond, ce qui ne relisait rien : les tuiles restaient en cache. Ici tout est
   // oublie et relu, couche fine et couche large du paysage.
-  cmd.declarer({ id: 'affichage.orthoRecharger', libelle: 'Recharger la photo aérienne', groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code,
+  cmd.declarer({ id: 'affichage.orthoRecharger', libelle: 'Recharger le fond IGN', groupe: 'affichage', ecrit: 'affichage', capacite: CAPACITES.ortho.code,
     actif: () => ortho.actif && !ortho.chargement,
     executer: () => {
       void rechargerOrthophoto(ctx.ctxOrtho()).then((r) => {
         const n = ortho.tuiles.length + ortho.tuilesLarges.length;
-        showToast('Photo aérienne rechargée : ' + n + ' tuile' + (n > 1 ? 's' : '') + (r && !r.exact ? ' (calage approximatif)' : ''));
+        showToast(NOMS_FOND[ortho.couche] + ' rechargé' + (ortho.couche === 'photo' ? 'e' : '') + ' : ' + n + ' tuile' + (n > 1 ? 's' : '') + (r && !r.exact ? ' (calage approximatif)' : ''));
         if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey) || null);
-      }).catch((e: unknown) => { showToast(phraseReseau(e, 'Le service des photos aériennes de l’IGN', 'Le plan reste sans fond : réessayez dans un instant.') ?? 'Photo aérienne indisponible : ' + (detailTechnique(e) || 'réessayez plus tard.')); });
+      }).catch((e: unknown) => { showToast(phraseReseau(e, ortho.couche === 'plan' ? 'Le service du Plan IGN' : 'Le service des photos aériennes de l’IGN', 'Le plan reste sans fond : réessayez dans un instant.') ?? NOMS_FOND[ortho.couche] + ' indisponible : ' + (detailTechnique(e) || 'réessayez plus tard.')); });
     } });
 }

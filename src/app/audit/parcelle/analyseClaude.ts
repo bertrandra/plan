@@ -25,7 +25,7 @@ import type { ReleveFacade } from '../../../model/types.js';
 import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import { estReponseAnalyse } from '../../../model/analyseClaude.js';
 import { CHAMPS_SIMPLES } from '../../regles/sujets/vote.js';
-import { ortho } from '../../../render/ortho.js';
+import { tuilesPhotoPourAnalyse } from '../../../render/ortho.js';
 import { dessinerCarteHauteurs, dessinerOrthoRecadree, reduirePhotoAnalyse } from '../../../render/imagesAnalyse.js';
 import { rendreDepuisPrise } from '../../../three/renduPrise.js';
 import { epurerLeTemps } from '../../../three/scene.js';
@@ -161,7 +161,8 @@ export function fabriqueImagesNavigateur(): FabriqueImages {
       // Epure le temps de l'image : la cloture du premier plan cachait le pied du mur.
       return gardes ? epurerLeTemps(gardes, dessiner) : dessiner();
     },
-    ortho: (contour) => dessinerOrthoRecadree([...ortho.tuiles, ...ortho.tuilesLarges], contour),
+    // La photo, meme sous le fond Plan IGN : Claude lit une photo aerienne, jamais une carte.
+    ortho: async (contour) => dessinerOrthoRecadree(await tuilesPhotoPourAnalyse(), contour),
     carte: (o, contour) => (o.batiment?.toitMesure ? dessinerCarteHauteurs(o.batiment?.toitMesure, contour) : null),
     facade: { elevation: elevationRunNavigateur },
   };

@@ -56,7 +56,7 @@ export const CAPACITES = {
   ortho: {
     code: 'plan.ortho',
     libelle: 'Fond orthophoto IGN',
-    commandes: ['affichage.orthophoto', 'affichage.orthoOpacite', 'affichage.orthoParcelleOpacite'],
+    commandes: ['affichage.orthophoto', 'affichage.fondPhoto', 'affichage.fondPlan', 'affichage.orthoOpacite', 'affichage.orthoParcelleOpacite'],
     origines: ['https://data.geopf.fr']
   },
   relief: {

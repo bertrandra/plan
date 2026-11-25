@@ -9,6 +9,12 @@
 // Les reglages se rangent sur la parcelle, comme la cloture : ils suivent donc le projet
 // enregistre sans nouvelle cle a faire transiter. Les tuiles, elles, ne sont jamais enregistrees -
 // elles se retelechargent.
+//
+// Deux fonds au choix, une seule couche a la fois (`ortho.couche`) : la photo aerienne (par defaut)
+// ou le Plan IGN v2, ou les rues sont dessinees et nommees. Le Plan IGN se lit la ou la photo ne dit
+// rien des rues (noms seuls, MD/spec-rues.md) ; il se drape sur le relief en 3D exactement comme elle.
+// Ce qui lit la photo pour elle-meme (couleur des toits, images de l'audit pour Claude) la lit
+// toujours, quel que soit le fond affiche : `chargerTuileOrtho` sans couche, `tuilesPhotoPourAnalyse`.
 
 import { phraseReseau, detailTechnique } from '../util/erreurReseau.js';
 import { cleDesLus } from '../core/controleurObjets.js';
@@ -58,9 +64,27 @@ export interface TuileOrtho {
   large?: boolean;
 }
 
+/** Le fond pose sous le plan : la photo aerienne, ou le Plan IGN v2 (cartographie, rues nommees). */
+export type CoucheOrtho = 'photo' | 'plan';
+
+/**
+ * Les deux couches WMTS de la Geoplateforme, sans cle, dans la matrice `PM`. Le Plan IGN s'arrete au
+ * niveau 19 : au-dela, ses tuiles sont etirees a l'emprise qu'elles couvrent (le banc fait de meme,
+ * banc/src/carte.ts), ce que fait deja le placement des tuiles en metres.
+ */
+export const COUCHES_ORTHO: Readonly<Record<CoucheOrtho, { couche: string; format: string; zoomMax: number }>> = {
+  photo: { couche: 'ORTHOIMAGERY.ORTHOPHOTOS', format: 'image/jpeg', zoomMax: 20 },
+  plan: { couche: 'GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2', format: 'image/png', zoomMax: 19 }
+};
+
+/** La couche d'un reglage enregistre : absent (tout fichier d'avant la 5.40.0) ou inconnu, c'est la photo. */
+export const coucheDe = (v: unknown): CoucheOrtho => (v === 'plan' ? 'plan' : 'photo');
+
 /** Etat du fond : partage entre le calcul des tuiles, le rendu du plan et la Vue 3D. */
 export const ortho: {
   actif: boolean;
+  /** La couche affichee ; les tuiles (`tuiles`, `tuilesLarges`) sont toujours celles de cette couche. */
+  couche: CoucheOrtho;
   opacite: number;
   parcelleOpacite: number;
   /** Tuiles pretes a afficher, en coordonnees monde (metres). */
@@ -68,26 +92,31 @@ export const ortho: {
   /** Les tuiles du paysage (`large`), sous les fines, la ou le relief va au-dela des parcelles. */
   tuilesLarges: TuileOrtho[];
   chargement: boolean;
-  /** Cle « z/x/y » -> data URI. Une tuile ne se retelecharge pas d'un zoom a l'autre. */
+  /** Cle « couche/z/x/y » -> data URI. Une tuile ne se retelecharge pas d'un zoom a l'autre, ni d'un fond a l'autre. */
   cache: Map<string, string>;
+  /**
+   * Les tuiles de la photo gardees pour l'audit quand le fond affiche est le Plan IGN : Claude lit une
+   * photo, jamais une carte. Vide tant que personne n'en a eu besoin ; oublie avec le projet.
+   */
+  photo: TuileOrtho[];
   /** L'emprise que les tuiles ont ete lues pour couvrir : le calque de toutes les parcelles. */
   couverture: Emprise | null;
   /** Change a chaque lecture : le calque SVG se reconstruit quand les tuiles ne sont plus les memes. */
   version: number;
 } = {
   actif: false,
+  couche: 'photo',
   opacite: 0.85,
   parcelleOpacite: 0.15,
   tuiles: [],
   tuilesLarges: [],
   chargement: false,
   cache: new Map<string, string>(),
+  photo: [],
   couverture: null,
   version: 0
 };
 const WMTS_URL = 'https://data.geopf.fr/wmts';
-const ORTHO_COUCHE = 'ORTHOIMAGERY.ORTHOPHOTOS';
-const ORTHO_ZOOM_MAX = 20;
 const ORTHO_MAX_TUILES = 36;
 /** Le niveau le plus grossier essaye : un voisinage de 5 km tient en 36 tuiles au niveau 14 ou 13. */
 const ORTHO_ZOOM_MIN = 12;
@@ -97,8 +126,8 @@ const ORTHO_ZOOM_MIN = 12;
 // disparait, au-dela de 30 % la photo devient laiteuse.
 const ORTHO_PARCELLE_OPACITE_CONSEILLEE = 0.15;
 
-/** La config du fond, une fois que `configOrtho` a comblé ses trois champs. */
-interface ConfigOrthoComplete { actif: boolean; opacite: number; parcelleOpacite: number }
+/** La config du fond, une fois que `configOrtho` a comblé ses trois champs. La couche, absente, vaut la photo. */
+interface ConfigOrthoComplete { actif: boolean; opacite: number; parcelleOpacite: number; couche?: CoucheOrtho }
 
 /**
  * La config enregistrée sur la parcelle, complétée à défaut manquant.
@@ -136,19 +165,26 @@ export function enregistrerConfigOrtho(ctx: ContexteOrtho): void {
   // cette comparaison, tout projet avec un fond actif s'ouvrirait en "modifications non
   // enregistrees" alors que rien n'a change.
   const existante = configOrtho(false, ctx);
-  const auxDefauts = ortho.actif === orthoParDefaut(ctx) && ortho.opacite === 0.85 && ortho.parcelleOpacite === ORTHO_PARCELLE_OPACITE_CONSEILLEE;
+  const auxDefauts = ortho.actif === orthoParDefaut(ctx) && ortho.opacite === 0.85 && ortho.parcelleOpacite === ORTHO_PARCELLE_OPACITE_CONSEILLEE && ortho.couche === 'photo';
   if(!existante && auxDefauts) return;
   const c = configOrtho(true, ctx);
   if(!c) return;   // pas de parcelle : rien ou ranger le reglage, il reste valable pour la session
-  if(c.actif === ortho.actif && c.opacite === ortho.opacite && c.parcelleOpacite === ortho.parcelleOpacite) return;
+  if(c.actif === ortho.actif && c.opacite === ortho.opacite && c.parcelleOpacite === ortho.parcelleOpacite && coucheDe(c.couche) === ortho.couche) return;
   c.actif = ortho.actif;
   c.opacite = ortho.opacite;
   c.parcelleOpacite = ortho.parcelleOpacite;
+  // La photo ne s'ecrit pas : un projet qui ne choisit jamais le Plan IGN garde la forme de ses fichiers d'avant.
+  if(ortho.couche === 'plan') c.couche = 'plan';
+  else delete c.couche;
   ctx.markDirty();
 }
 // Au chargement d'un projet : on restitue les reglages, et on rallume le fond s'il etait actif.
 export function restaurerOrthoDuProjet(ctx: ContexteOrtho): void {
   const c = configOrtho(false, ctx);
+  // La couche d'abord : des tuiles d'une autre couche ne sont jamais reprises.
+  poserCouche(coucheDe(c?.couche));
+  // La photo gardee pour l'audit est celle du projet d'avant : elle ne vaut plus rien ici.
+  ortho.photo = [];
   if(!c){
     // Projet sans reglage enregistre : le fond par defaut (allume si le plan vient du cadastre).
     // Les tuiles du projet precedent, calees sur une autre parcelle, ne sont jamais reprises.
@@ -161,6 +197,19 @@ export function restaurerOrthoDuProjet(ctx: ContexteOrtho): void {
   // Les curseurs du menu Affichage lisent `ortho` a chaque rendu des zones (zones/BarreApplication.tsx).
   if(c.actif) void basculerOrthophoto(true, ctx);
   else if(ortho.actif) void basculerOrthophoto(false, ctx);
+}
+
+/** Change la couche courante ; celles de l'autre couche sont oubliees (le cache, lui, les garde). */
+function poserCouche(couche: CoucheOrtho): void {
+  if(couche === ortho.couche) return;
+  // La photo deja lue sert encore a l'audit : on la garde en passant au Plan IGN.
+  if(ortho.couche === 'photo' && ortho.tuiles.length) ortho.photo = [...ortho.tuiles, ...ortho.tuilesLarges];
+  ortho.couche = couche;
+  ortho.tuiles = [];
+  ortho.tuilesLarges = [];
+  ortho.couverture = null;
+  extensionTentee = '';
+  ortho.version++;
 }
 
 /** Le repere qui recale le fond sur le plan : un point commun aux deux systemes de coordonnees. */
@@ -190,18 +239,20 @@ export function referenceGeoPlan(ctx: ContexteOrtho): ReferenceGeo | null {
   }
   return null;
 }
-export function urlTuileOrtho(z: number, x: number, y: number): string {
-  return WMTS_URL + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=' + ORTHO_COUCHE +
-    '&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX=' + z + '&TILEROW=' + y + '&TILECOL=' + x;
+export function urlTuileOrtho(z: number, x: number, y: number, couche: CoucheOrtho = 'photo'): string {
+  const c = COUCHES_ORTHO[couche];
+  return WMTS_URL + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=' + c.couche +
+    '&STYLE=normal&TILEMATRIXSET=PM&FORMAT=' + c.format + '&TILEMATRIX=' + z + '&TILEROW=' + y + '&TILECOL=' + x;
 }
 // Les tuiles sont recuperees en fetch puis converties en data URI, jamais posees en href
 // distant : une image d'un autre domaine "salit" le canevas (canvas tainted) et ferait echouer
-// l'export PNG - et l'export SVG ne serait plus autonome.
-export async function chargerTuileOrtho(z: number, x: number, y: number): Promise<string> {
-  const cle = z + '/' + x + '/' + y;
+// l'export PNG - et l'export SVG ne serait plus autonome. Sans couche, c'est la photo : ce qui lit la
+// photo pour elle-meme (la couleur des toits) la lit quel que soit le fond affiche.
+export async function chargerTuileOrtho(z: number, x: number, y: number, couche: CoucheOrtho = 'photo'): Promise<string> {
+  const cle = couche + '/' + z + '/' + x + '/' + y;
   const enCache = ortho.cache.get(cle);
   if(enCache !== undefined) return enCache;
-  const r = await fetch(urlTuileOrtho(z, x, y), {cache:'force-cache'});
+  const r = await fetch(urlTuileOrtho(z, x, y, couche), {cache:'force-cache'});
   if(!r.ok) throw new Error('tuile ' + cle + ' : HTTP ' + r.status);
   const blob = await r.blob();
   const dataUri = await new Promise<string>((resolve, reject)=>{
@@ -217,7 +268,11 @@ export async function chargerTuileOrtho(z: number, x: number, y: number): Promis
 /** Ce que rend un chargement reussi : le niveau de detail retenu, et sa fiabilite. */
 interface ResultatChargementOrtho { z: number; nb: number; total: number; exact: boolean }
 
-export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatChargementOrtho> {
+/** Le dernier contexte connu : de quoi relire la photo pour l'audit quand le fond affiche est le Plan IGN. */
+let dernierContexte: ContexteOrtho | null = null;
+
+/** L'emprise a couvrir et le repere qui la cale, ou une erreur dite a la personne. */
+function empriseACouvrir(ctx: ContexteOrtho) {
   const ref = referenceGeoPlan(ctx);
   if(!ref) throw new Error('aucune parcelle geolocalisee : importe une parcelle depuis une adresse, ou renseigne le lieu.');
   const proj = projecteurLocal(ref.lat, ref.lon);
@@ -241,38 +296,65 @@ export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatCha
     minX -= marge; maxX += marge; minY -= marge; maxY += marge;
   }
   const versLonLat = (x: number, y: number) => proj.versDegres(x - ref.x, y - ref.y);
-  const fines = await tuilesSur({ xMin: minX, xMax: maxX, yMin: minY, yMax: maxY }, versLonLat, proj, ref);
+  return { ref, proj, versLonLat, couverture: { xMin: minX, xMax: maxX, yMin: minY, yMax: maxY } as Emprise };
+}
+
+export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatChargementOrtho> {
+  dernierContexte = ctx;
+  // La couche est celle du depart : un changement de fond pendant la lecture la rend caduque.
+  const couche = ortho.couche;
+  const { ref, proj, versLonLat, couverture } = empriseACouvrir(ctx);
+  const fines = await tuilesSur(couverture, versLonLat, proj, ref, couche);
   if(!fines) throw new Error('aucune tuile disponible sur ce secteur (service WMTS injoignable, ou hors couverture)');
-  ortho.tuiles = fines.tuiles;
-  ortho.couverture = { xMin: minX, xMax: maxX, yMin: minY, yMax: maxY };
   // Le paysage : quand le relief du voisinage va au-dela des parcelles (un voisinage etendu, son
   // horizon), une couche plus grossiere le couvre aussi, sous la fine. Sans elle, la vallee restait
   // verte au-dela de la derniere parcelle importee.
   const q = reliefDe(ctx.etat.objects)?.paysage;
   const paysage = q ? empriseGrille(q) : null;
-  ortho.tuilesLarges = paysage && !contientEmprise(ortho.couverture, paysage)
-    ? ((await tuilesSur(paysage, versLonLat, proj, ref, fines.z - 1))?.tuiles ?? []).map(t => ({ ...t, large: true }))
+  const larges = paysage && !contientEmprise(couverture, paysage)
+    ? ((await tuilesSur(paysage, versLonLat, proj, ref, couche, fines.z - 1))?.tuiles ?? []).map(t => ({ ...t, large: true }))
     : [];
+  const resultat = { z: fines.z, nb: fines.tuiles.length, total: fines.total, exact: ref.exact };
+  if(couche !== ortho.couche) return resultat;
+  ortho.tuiles = fines.tuiles;
+  ortho.couverture = couverture;
+  ortho.tuilesLarges = larges;
   ortho.version++;
-  return { z: fines.z, nb: fines.tuiles.length, total: fines.total, exact: ref.exact };
+  return resultat;
 }
 
+/**
+ * Les tuiles de la photo aerienne pour les images de l'audit (Claude lit une photo, jamais une carte),
+ * quel que soit le fond affiche. La photo affichee, telle quelle ; sous le Plan IGN, la photo gardee en
+ * changeant de fond, ou relue une fois (fines seules) sur la meme emprise. Vide si rien ne revient.
+ */
+export async function tuilesPhotoPourAnalyse(): Promise<TuileOrtho[]> {
+  if(ortho.couche === 'photo') return [...ortho.tuiles, ...ortho.tuilesLarges];
+  if(ortho.photo.length || !dernierContexte) return ortho.photo;
+  try {
+    const { ref, proj, versLonLat, couverture } = empriseACouvrir(dernierContexte);
+    ortho.photo = (await tuilesSur(couverture, versLonLat, proj, ref, 'photo'))?.tuiles ?? [];
+  } catch {
+    ortho.photo = [];
+  }
+  return ortho.photo;
+}
 /**
  * Les tuiles d'une emprise, au plus haut niveau de detail qui tienne en ORTHO_MAX_TUILES (et pas au-dela
  * de `zMax`). On redescend tant que rien ne revient : la couverture de l'orthophoto ne va pas au meme
  * zoom partout (verifie : sur cette commune le niveau 20 repond 404 alors que le 19 sert bien
  * l'image). Une tuile qui echoue est redemandee une fois : une seule perdue laissait un trou.
  */
-async function tuilesSur(e: Emprise, versLonLat: (x: number, y: number) => { lon: number; lat: number }, proj: ReturnType<typeof projecteurLocal>, ref: ReferenceGeo, zMax = ORTHO_ZOOM_MAX): Promise<{ z: number; tuiles: TuileOrtho[]; total: number } | null> {
+async function tuilesSur(e: Emprise, versLonLat: (x: number, y: number) => { lon: number; lat: number }, proj: ReturnType<typeof projecteurLocal>, ref: ReferenceGeo, couche: CoucheOrtho, zMax = COUCHES_ORTHO[couche].zoomMax): Promise<{ z: number; tuiles: TuileOrtho[]; total: number } | null> {
   const coinSO = versLonLat(e.xMin, e.yMin), coinNE = versLonLat(e.xMax, e.yMax);
-  for(let z = Math.min(zMax, ORTHO_ZOOM_MAX); z >= ORTHO_ZOOM_MIN; z--){
+  for(let z = Math.min(zMax, COUCHES_ORTHO[couche].zoomMax); z >= ORTHO_ZOOM_MIN; z--){
     const x0 = tuileX(coinSO.lon, z), x1 = tuileX(coinNE.lon, z);
     const y0 = tuileY(coinNE.lat, z), y1 = tuileY(coinSO.lat, z);   // y croit vers le sud
     if((x1-x0+1)*(y1-y0+1) > ORTHO_MAX_TUILES) continue;
     // Une seule tuile d'essai avant de lancer les autres : un niveau absent repond 404 sur
     // chacune de ses tuiles, et seize 404 dans la console pour rien noieraient les vraies erreurs.
     try {
-      await chargerTuileOrtho(z, Math.floor((x0+x1)/2), Math.floor((y0+y1)/2));
+      await chargerTuileOrtho(z, Math.floor((x0+x1)/2), Math.floor((y0+y1)/2), couche);
     } catch {
       continue;
     }
@@ -286,7 +368,7 @@ async function tuilesSur(e: Emprise, versLonLat: (x: number, y: number) => { lon
         tuiles.push({ z, x, y, dataUri:null, xMin: so.x + ref.x, yMin: so.y + ref.y, largeur: ne.x - so.x, hauteur: ne.y - so.y });
       }
     }
-    const lire = (t: TuileOrtho) => chargerTuileOrtho(t.z, t.x, t.y).then(u=>{ t.dataUri = u; }).catch(()=>{ t.dataUri = null; });
+    const lire = (t: TuileOrtho) => chargerTuileOrtho(t.z, t.x, t.y, couche).then(u=>{ t.dataUri = u; }).catch(()=>{ t.dataUri = null; });
     await Promise.all(tuiles.map(lire));
     await Promise.all(tuiles.filter(t => !t.dataUri).map(lire));
     const reussies = tuiles.filter(t=>t.dataUri);
@@ -407,6 +489,7 @@ export async function rechargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatC
   ortho.tuiles = [];
   ortho.tuilesLarges = [];
   ortho.couverture = null;
+  ortho.photo = [];
   ortho.cache.clear();
   extensionTentee = '';
   ortho.chargement = true;
@@ -429,15 +512,31 @@ export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho, dis
     const r = await chargerOrthophoto(ctx);
     ctx.render();
     enregistrerConfigOrtho(ctx);
-    if(!discret) showToast('Orthophoto IGN : ' + r.nb + ' tuile(s) au niveau ' + r.z +
+    if(!discret) showToast(NOMS_FOND[ortho.couche] + ' : ' + r.nb + ' tuile(s) au niveau ' + r.z +
       (r.exact ? '.' : ' — calage approximatif (plan sans import cadastre : le fond est posé sur le lieu déclaré de la parcelle).'));
   } catch(e){
     ortho.actif = false;
     // Le rendu redit au menu que le fond est eteint.
     ctx.render();
-    if(!discret) showToast(phraseReseau(e, 'Le service des photos aériennes de l’IGN', 'Le plan reste sans fond : réessayez dans un instant (Affichage › Photo aérienne).') ?? 'Orthophoto indisponible : ' + detailTechnique(e));
+    if(!discret) showToast(phraseReseau(e, ortho.couche === 'plan' ? 'Le service du Plan IGN' : 'Le service des photos aériennes de l’IGN', 'Le plan reste sans fond : réessayez dans un instant (menu Affichage, « Fond IGN »).') ?? NOMS_FOND[ortho.couche] + ' indisponible : ' + detailTechnique(e));
   } finally {
     ortho.chargement = false;
   }
 }
 
+
+/** Le nom d'un fond, tel que l'interface le dit. */
+export const NOMS_FOND: Readonly<Record<CoucheOrtho, string>> = { photo: 'Photo aérienne', plan: 'Plan IGN' };
+
+/**
+ * Choisit le fond : la photo aerienne ou le Plan IGN. Une seule couche a la fois : les tuiles de
+ * l'autre sont oubliees du plan (le cache les garde pour un retour), le fond s'allume s'il etait
+ * eteint (choisir un fond, c'est vouloir le voir), et le reglage se range sur la parcelle comme
+ * l'opacite : sans Ctrl+Z, mais le projet est a enregistrer.
+ */
+export async function choisirCoucheOrtho(couche: CoucheOrtho, ctx: ContexteOrtho): Promise<void> {
+  if(couche === ortho.couche && ortho.actif) return;
+  poserCouche(couche);
+  ctx.render();
+  await basculerOrthophoto(true, ctx);
+}
