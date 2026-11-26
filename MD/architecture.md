@@ -256,8 +256,7 @@ C4Container
 
 **What is no longer in this picture, and where it went.** Redis, object storage, PgBouncer, a worker
 and a console of Plan's own: whatever of them exists belongs to backprod and is described in its
-`docs/architecture-v2.md`. §5.3 and §5.5 still show the original target and should be read with this
-section.
+`docs/architecture-v2.md`. §5.3 and §5.5 were rewritten the same day to match.
 
 ### 5.2 Client component view
 
@@ -789,17 +788,33 @@ re-exports `points.ts`, `typesReleve.ts`, `typesToit.ts` and `typesCalcul.ts`.
 
 ### 5.3 Data view
 
-Five tiers, per `spec-data-strategy.md`:
+*Rewritten on 26 November 2026.* The five tiers first drawn here (relational tables, Redis, object
+storage) were the design of a platform Plan was going to build. Plan keeps no database
+(`spec-connexion-plateforme.md` §6); its data lives in four places, and only one of them is a
+server Plan does not run:
 
 ```
-T1 relational   tenants · users · memberships · sessions · mfa
-                features · tenant_features · tenant_usage
-                projects (envelope) · project_versions (envelope) · assets · audit(partitioned)
-T2 document     projects.data  ── the plan, opaque, versioned by schema_version
-T3 derived      projects.summary · footprint · parcelle_idu · commune_insee   (rebuildable)
-T4 binary       logos, favicons, generated artefacts        (object storage)
-T5 ephemeral    sessions, resolved feature sets, branding, quota counters   (Redis)
+On backprod (PostgreSQL, JSONB)       the project: an opaque document, schema_version, versions,
+                                      duplicate, soft delete — plus people, tenants, rights, invoices
+On Plan's host (data/, outside the    demos, admin settings (palette, tree library, calibration),
+web root, PHP helpers)                Claude journal and budgets, audit traces, conformity measures
+In the browser (IndexedDB,            survey photos (io/photosLocales.ts), the audit walk's draft
+localStorage)                         (io/brouillonAudit.ts), per-device preferences and notes
+In memory only                        the platform access token, tile and LiDAR caches
 ```
+
+| Data | Where | Why there |
+|---|---|---|
+| **The project** (`projet.json`: `meta.schemaVersion`, `objects`, `measures`) | backprod's `projects` resource: `document` JSONB, `schema_version` required on write, versions kept | One authority for who may read it, isolated per tenant and per holder by the platform's own tests. Plan's migrations (`model/migrations.ts`) keep every old document openable (ASR-2) |
+| **Embedded content** (photos, rectified elevations) | the device, IndexedDB | backprod refuses any `data:` URI or string over 64 KiB in a document (`EMBEDDED_ASSET_REJECTED`) and has no file storage yet. Consequence, accepted: a survey's photos stay on the phone that took them |
+| **Server settings and traces** | `data/` beside `public_html/` (`deploy/donnees.php`) | They belong to the operator of Plan, not to a tenant; outside the web root so nothing is served by accident (the 1.x `data/` was) |
+| **Derived values** (quantities, BOM, 3D) | recomputed from the document, never stored as authority | ASR-1: the golden fingerprints prove the same document gives the same numbers |
+| **External data** (cadastre, BD TOPO, LiDAR, imagery) | fetched from IGN on demand; what a project needs (parcel, buildings, street names) is copied into the document | The project opens without the network; IGN stays an availability dependency, never a data owner |
+
+What the original tiers became: T1 and T2 are backprod's (`docs/architecture-v2.md` there); T3 is
+recomputed in the browser; T4 does not exist yet (the photos wait on the device for backprod's
+`StorageProvider`); T5 has no server cache — the session token lives in memory and each tab asks
+`/auth/refresh`.
 
 ### 5.4 Security view
 
@@ -824,30 +839,48 @@ platform's own tests. Detail in `spec-connexion-plateforme.md`.
 
 ### 5.5 Deployment view
 
+*Rewritten on 26 November 2026.* The view first drawn here (CDN, reverse proxy, API × N, worker,
+PgBouncer, Postgres with PITR) was never built. Two hosts, siblings under `raillard.org` so that the
+platform's `SameSite=Strict` refresh cookie reaches both (`spec-connexion-plateforme.md` §1):
+
 ```
-                    ┌── CDN ──┐
-   Browser ─────────┤ index   │  single file, immutable, hashed URL
-                    └─────────┘
-                         │
-                    ┌────▼──────────┐
-                    │ Reverse proxy │  TLS · brotli · rate limit · CSP
-                    └────┬──────────┘
-                ┌────────┴─────────┐
-           ┌────▼────┐       ┌─────▼─────┐
-           │ API × N │       │ Worker ×1 │
-           └────┬────┘       └─────┬─────┘
-                └────────┬─────────┘
-                    ┌────▼─────┐
-                    │ PgBouncer│  transaction pooling
-                    └────┬─────┘
-                    ┌────▼──────────────┐
-                    │ Postgres primary  │  WAL archiving · PITR 35 d
-                    └───────────────────┘
+                       ┌──────────────── plan.raillard.org ────────────────┐
+   Browser ── HTTPS ──▶│ Apache + PHP, the folder livraison/ copied as is  │
+      │                │  index.html (no-cache) · assets/plan-<hash>.js    │
+      │                │  .htaccess: CSP, HSTS, headers, routes            │
+      │                │  analyse.php · admin.php · donnees.php            │──▶ API Claude
+      │                └───────────────┬───────────────────────────────────┘
+      │                         data/ (outside public_html)
+      │
+      ├── HTTPS ──▶ www.raillard.org   backprod: PHP 8.3 + PostgreSQL, one hosting account
+      │                                (docs/deploying-to-siteground.md), /api/v1, one crontab
+      │                                line for its jobs (renewals, dunning, notifications)
+      │
+      ├── HTTPS ──▶ data.geopf.fr · BAN       cadastre, PLU, BD TOPO, LiDAR, tiles, geocoding
+      └── HTTPS ──▶ cdn.jsdelivr.net · Poly Haven   three.js modules, textures (on demand)
 ```
 
-Environments: `dev` (local, Docker Compose), `staging` (production-shaped, with a copy of production data structure and volume), `production`. The client artefact is identical across all three; only its API origin differs, injected at build time.
+**What ships from this repository is one folder, `livraison/`**, built from `main` by
+`BACKPROD_API_URL=https://www.raillard.org npm run livraison` (and `livraison.zip`): `index.html`,
+`assets/plan-<hash>.js`, `.htaccess` produced from `deploy/htaccess.template`, the PHP helpers of
+`deploy/*.php` with their `.exemple.php` configurations, and `LISEZMOI-DEPLOIEMENT.txt` naming the
+commit. Installing is copying that folder (ASR-3); the server configuration (the Claude key, the
+admin password, `dossierDonnees`) lives beside it, never in it — `npm run verifier-paquet` fails the
+build when a secret is found in a shipped file. The single-file property did not survive (ADR-4
+superseded, §10).
 
-**The single-file property did not survive** (ADR-4 superseded, §10). What ships is one folder, `livraison/`, built from `main` (`npm run livraison`): `index.html`, `assets/plan-<hash>.js`, `.htaccess`, and the PHP helpers of `deploy/*.php` (admin of demos, Claude analysis proxy, server data). The API, the database and the session belong to backprod, not to this repository. Installing remains a copy of one folder — ASR-3 in spirit.
+**The platform's origin is injected at build time** (`BACKPROD_API_URL`, `vite.config.ts`): the build
+refuses to run without it. The same code is built three ways:
+
+| Environment | Plan | Platform |
+|---|---|---|
+| Local | `npx vite` (port 5199 for the smoke run) | `http://plateforme.test`, simulated in the browser by the smoke and capture scripts (`scripts/captures.mjs`) |
+| CI (`.github/workflows/ci.yml`) | `verifier` (typecheck, lint, tests, build, package check, 5 MB budget) and `fumee` (Playwright, the `ci` batch of `scripts/fumee.mjs`) | the same simulation; IGN replayed from `tests/fixtures/fumee-reseau/` when it does not answer |
+| Production | `plan.raillard.org`, `livraison/` from `main` | `www.raillard.org`, deployed from `bertrandra/backprod` |
+
+Nothing here scales horizontally, and nothing needs to yet: the computation runs in each visitor's
+browser, so the servers carry documents and sessions, not work. The API, the database, the backups
+and the job schedule are backprod's, and its own documents describe them.
 
 ### 5.6 Runtime scenario — cold start
 

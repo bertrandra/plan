@@ -7,6 +7,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **`MD/architecture.md` §5.3 et §5.5 réécrites**, comme la §5.1 (#767) : elles montraient encore les tables, Redis, le
+  stockage objet, le proxy, PgBouncer et le worker d'une plateforme jamais bâtie. La §5.3 dit où vivent les données (le projet
+  chez backprod, les réglages et traces du serveur dans `data/` hors de la racine web, les photos de relevé sur l'appareil) ;
+  la §5.5 montre les deux hôtes, le dossier `livraison/` et les trois environnements. Documentation seulement.
 - **`MD/architecture.md` §5.1 réécrite** : elle décrivait encore la cible abandonnée (API Node/Fastify, worker, Redis,
   stockage S3 bâtis par ce dépôt). Elle montre maintenant ce qui tourne : le client Plan dans le navigateur, les assistants PHP
   livrés avec lui (`deploy/*.php` : relais Claude, admin, données) et la plateforme backprod (identité, abonnements, projets).
