@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Toits LiDAR « surréalistes »** (Seyssins, 1a rue de Comboire, parcelle AO 202, et d'autres bâtiments du banc) :
+  - une maison à étage entre deux annexes basses recevait un toit de 17 m qui la traversait, ses pans descendus à 1,6 m sur
+    les annexes, et trois autres toits de sens différents sur le corps à étage. Les marches de part et d'autre d'un bloc haut
+    sont maintenant coupées même quand chaque côté contient une partie basse (bloc d'au moins 3 m, `model/toitMesure.ts`), et
+    un corps contenu dans un autre n'y pose plus un second toit (réglages `PART_CONTENUE_MIN` et `GAIN_CONTENU`). AO 202 : un
+    toit à croupes à 7,7 m sur le corps à étage et un toit par annexe ;
+  - un bâtiment dont le contour a un côté de biais pouvait recevoir un toit tourné sur la maison, posé sur une boîte deux fois
+    trop large, avec un pan qui s'enfonçait dans le sol (Hucqueliers, bâtiment 9207309 : égouts à −1,6 m). L'axe d'un tel
+    contour n'est plus un biais qui prend, à la limite de sa tolérance, tous les côtés d'équerre (réglage `SOUTIEN_AXE_MIN`) ;
+    et une forme lue sur une tranche ou sur la boîte n'a plus d'égout sous 1,5 m, la règle des autres corps.
+
+  Banc (cinq villages, 427 bâtiments) : 3 bâtiments changent de forme et 15 perdent un toit en double ou gagnent un corps ;
+  AE 101 et AE 103 identiques. Version de lecture 8 : les toits déjà lus seront relus à l'ouverture. Aucune quantité ni aucun
+  export ne change.
+
 ### Modifié
 
 - **`MD/architecture.md` §5.3 et §5.5 réécrites**, comme la §5.1 (#767) : elles montraient encore les tables, Redis, le

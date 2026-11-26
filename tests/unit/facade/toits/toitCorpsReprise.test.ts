@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { reconstruireCorps, contourEquerre, corpsDepuisFormes, corpsEtendu, decalageSurMesure, partVideSous, PART_VIDE_RECALAGE, PART_RECOUVERTE_MAX, LARGEUR_BANDE_M } from '../../../../src/facade/toits/toitCorps.js';
 import { rectanglesEnTranches } from '../../../../src/model/volumesToit.js';
-import { toitMesureDepuisGrille } from '../../../../src/model/toitMesure.js';
+import { axeDesCotes } from '../../../../src/facade/toits/toitCorps/recalage.js';
+import { EGOUT_CORPS_MIN_M } from '../../../../src/facade/toits/toitCorps/ajustement.js';
+import { SEUILS_TOITS } from '../../../../src/regles/toits/reglages.js';
+import { toitMesureDepuisGrille, decouperParHauteur } from '../../../../src/model/toitMesure.js';
 import { pointInPolygon } from '../../../../src/geometry/basic.js';
 import { distancePointContour } from '../../../../src/geometry/proximite.js';
 import type { GrilleRelief } from '../../../../src/model/relief.js';
@@ -246,5 +249,104 @@ describe('reprise des contours de biais', () => {
     const { corps } = hucqueliers('37248484', true);
     expect(corps.some((c) => c.faitage === 11)).toBe(true);
     expect(corps.some((c) => Math.abs(Math.min(...dimsDe(c)) - 4.4) < 0.05)).toBe(true);
+  });
+});
+
+// Hucqueliers 9207309 (26 novembre 2026) : une maison de 22 x 6 m dont un cote de biais a 13 degres
+// prenait, a la limite de sa fenetre de 15 degres, tous les cotes d'equerre. L'axe, la boite et le toit
+// tournaient de 12 degres sur la maison, et la boite, deux fois trop large, recevait un toit lu sur
+// une partie seulement : ses egouts tombaient a -1,6 m, le pan s'enfoncait dans le sol.
+describe('l axe d un contour de biais et le plancher des egouts', () => {
+  const ecartEquerre = (a: number, b: number) => { const d = (((a - b) % 90) + 90) % 90; return Math.min(d, 90 - d); };
+  const hucq = JSON.parse(readFileSync(new URL('../../../fixtures/toits/hucqueliers-9207309.json', import.meta.url), 'utf8')) as Releve;
+
+  it('l axe suit les cotes d equerre, pas un biais qui les prend a la limite de sa fenetre', () => {
+    // Les murs longs du contour sont a 0 degre a trois degres pres ; le biais est a 13 degres.
+    expect(ecartEquerre(axeDesCotes(hucq.contour), 0)).toBeLessThan(3);
+    // Un rectangle a peine de travers garde l'axe de son premier cote, comme avant.
+    const rect = [p(0, 0), p(10, 0.2), p(9.9, 6.2), p(-0.1, 6)];
+    expect(axeDesCotes(rect)).toBeCloseTo((Math.atan2(0.2, 10) * 180) / Math.PI, 6);
+  });
+
+  it('un biais dont la fenetre prend tous les cotes ne fait pas l axe s il en porte peu', () => {
+    // Une maison de 20 x 6 m, un coin coupe a 13 degres, decrite depuis le biais : chaque cote est dans sa
+    // fenetre, et compte en entier il l emportait, premier venu ; il ne porte pourtant que lui-meme.
+    const coin = [p(6, 6), p(0, 4.6), p(0, 0), p(20, 0), p(20, 6)];
+    expect(ecartEquerre(axeDesCotes(coin), 0)).toBeLessThan(0.5);
+    expect(SEUILS_TOITS.SOUTIEN_AXE_MIN).toBeGreaterThan(0.5);
+  });
+
+  it('Hucqueliers 9207309 : des toits a l equerre de la maison, aucun egout sous 1,5 m', () => {
+    const m = toitMesureDepuisGrille(hucq.grille, hucq.contour)!;
+    const corps = reconstruireCorps(m, hucq.contour, { grille: hucq.grille, coupes: false })!;
+    expect(corps.length).toBeGreaterThan(1);
+    for (const c of corps) {
+      expect(Math.min(...c.egouts)).toBeGreaterThanOrEqual(EGOUT_CORPS_MIN_M);
+      const a = (Math.atan2(c.pts[1]!.y - c.pts[0]!.y, c.pts[1]!.x - c.pts[0]!.x) * 180) / Math.PI;
+      expect(ecartEquerre(a, 0)).toBeLessThan(3);
+    }
+    // Le corps principal porte la maison haute (faitage vers 5 m), pas une rampe depuis le sol.
+    expect(Math.max(...corps.map((c) => c.faitage))).toBeGreaterThan(4.5);
+  });
+
+  it('les formes simples d une tranche ne rendent pas un toit dont l egout touche le sol', () => {
+    // Un pan qui monte de 0,8 m a 3,2 m sur 8 m : une rampe de terrain, pas un appentis.
+    const pas = 0.5, x0 = -1, y0 = 7, nx = 23, ny = 17;
+    const z: number[] = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const x = x0 + i * pas, y = y0 - j * pas;
+      z.push(x >= 0 && x <= 10 && y >= 0 && y <= 6 ? 0.8 + 0.4 * y : 0);
+    }
+    expect(corpsDepuisFormes({ pas, x0, y0, nx, ny, z }, [p(0, 0), p(10, 0), p(10, 6), p(0, 6)])).toBeNull();
+    // Le meme pan, 2 m plus haut, est un appentis.
+    const haut = corpsDepuisFormes({ pas, x0, y0, nx, ny, z: z.map((v) => (v > 0 ? v + 2 : 0)) }, [p(0, 0), p(10, 0), p(10, 6), p(0, 6)])!;
+    expect(Math.min(...haut.egouts)).toBeGreaterThanOrEqual(2.5);
+  });
+});
+
+// Seyssins, 1a rue de Comboire, parcelle AO 202 (26 novembre 2026), le cas que l'utilisateur a montre : une maison a etage entre
+// deux annexes basses. Les deux marches (2 a 3 m) n'etaient pas coupees, chaque cote d'une marche contenant une annexe ; un toit
+// de 17 m couvrait le tout, ses pans descendus a 1,6 m sur les annexes ; et trois autres toits, de sens differents, se posaient sur
+// le corps a etage, chacun sur un rectangle maximal qui le contenait.
+describe('un corps a etage entre deux annexes basses (Seyssins AO 202)', () => {
+  const r = JSON.parse(readFileSync(new URL('../../../fixtures/toits/seyssins-3453886.json', import.meta.url), 'utf8')) as Releve;
+  const corps = reconstruireCorps(toitMesureDepuisGrille(r.grille, r.contour)!, r.contour, { grille: r.grille })!;
+
+  it('un seul toit sur le corps a etage, et chaque annexe le sien', () => {
+    const hauts = corps.filter((c) => c.faitage > 6);
+    expect(hauts).toHaveLength(1);
+    expect(hauts[0]!.faitage).toBeGreaterThan(7.2);
+    expect(Math.min(...hauts[0]!.egouts)).toBeGreaterThan(5.5);
+    // Les annexes : leurs toits sous 4,5 m, aucun egout sous 2,5 m (la rampe descendait a 1,6 m).
+    const bas = corps.filter((c) => c.faitage <= 6);
+    expect(bas.length).toBeGreaterThanOrEqual(2);
+    for (const c of corps) expect(Math.min(...c.egouts)).toBeGreaterThan(2.5);
+  });
+
+  it('aucun corps n est contenu dans un autre', () => {
+    const dedans = (a: CorpsToit, b: CorpsToit) => {
+      const pts: PtBrut[] = [];
+      for (let u = 0.1; u < 1; u += 0.2) for (let v = 0.1; v < 1; v += 0.2) pts.push(p(a.pts[0]!.x + u * (a.pts[1]!.x - a.pts[0]!.x) + v * (a.pts[3]!.x - a.pts[0]!.x), a.pts[0]!.y + u * (a.pts[1]!.y - a.pts[0]!.y) + v * (a.pts[3]!.y - a.pts[0]!.y)));
+      return pts.filter((q) => pointInPolygon(q, b.pts)).length / pts.length;
+    };
+    for (const a of corps) for (const b of corps) if (a !== b) expect(dedans(a, b)).toBeLessThan(0.9);
+  });
+
+  it('la coupe aux marches trouve un bloc haut entre deux parties basses, pas la bande d un faitage', () => {
+    // Un rectangle de 18 x 6 m : 4 m a 3 m de haut, 9 m a 6,5 m, 5 m a 3 m. Chaque cote de chaque marche contient une partie basse.
+    const pas = 0.5, nx = 37, ny = 13, x0 = -0.25, y0 = 6.25;
+    const z: (number | null)[] = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const x = x0 + i * pas; z.push(x >= 4 && x < 13 ? 6.5 : 3); }
+    const t = toitMesureDepuisGrille({ pas, x0, y0, nx, ny, z } as GrilleRelief, [p(0, 0), p(18, 0), p(18, 6), p(0, 6)])!;
+    const deux = decouperParHauteur(t, [p(0, 0), p(18, 0), p(18, 6), p(0, 6)])!;
+    expect(deux).not.toBeNull();
+    const xs = deux.map((q) => Math.max(...q.map((v) => v.x)));
+    expect(xs.some((x) => Math.abs(x - 4) < 0.6 || Math.abs(x - 13) < 0.6)).toBe(true);
+    // Une bande haute de 1,5 m entre deux bords raides (la bande du faitage d'un deux-pans pentu) n'est pas un bloc : moins de
+    // LARGEUR_BANDE_M, rien n'est coupe, comme avant.
+    const z2: (number | null)[] = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const x = x0 + i * pas; z2.push(x >= 8.5 && x < 10 ? 6.5 : 3); }
+    const t2 = toitMesureDepuisGrille({ pas, x0, y0, nx, ny, z: z2 } as GrilleRelief, [p(0, 0), p(18, 0), p(18, 6), p(0, 6)])!;
+    expect(decouperParHauteur(t2, [p(0, 0), p(18, 0), p(18, 6), p(0, 6)])).toBeNull();
   });
 });

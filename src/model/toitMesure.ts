@@ -259,6 +259,7 @@ export function decouperParHauteur(t: ToitMesure, rect: readonly PtBrut[]): [PtB
   }
   const meilleure = (series: number[][], longueur: number): { k: number; score: number } | null => {
     const basses = series.map((c) => bas(c, 1));
+    franches = [];
     let best: { k: number; score: number } | null = null;
     for (let k = 2; k + 2 <= series.length; k++) {
       if (k * pas < S.LARGEUR_BLOC_MIN_M || longueur - k * pas < S.LARGEUR_BLOC_MIN_M) continue;
@@ -280,9 +281,33 @@ export function decouperParHauteur(t: ToitMesure, rect: readonly PtBrut[]): [PtB
       if (saut < 1.6 * calme) continue;
       const score = Math.min(saut, Math.abs(droite - gauche));
       if (score >= S.SEUIL_MARCHE_M && (!best || score > best.score)) best = { k, score };
+      // Franche : calme des deux cotes (l'annexe d'un cote, le corps de l'autre), pas d'un seul comme le bas d'un pan raide.
+      if (saut >= S.SEUIL_MARCHE_M && voisines.length === 2 && saut >= 1.6 * Math.max(...voisines)) franches.push({ k, signe: Math.sign(moyenne(apres) - moyenne(avant)), saut });
+    }
+    return best ?? enSandwich(series, franches);
+  };
+  // Un bloc haut entre deux parties basses (un corps a etage entre deux annexes) : chacun des deux cotes
+  // d'une marche, pris en entier, contient une partie basse, et leurs hauteurs basses ne different plus.
+  // Aucune coupe n'etait retenue et un seul toit couvrait le tout, ses pans descendus jusqu'aux annexes
+  // (Seyssins AO 202 : sauts de 2 a 3 m, un pan a 1,6 m d'egout). Seulement quand rien d'autre ne coupe :
+  // deux marches franches de sens oppose, dont le bloc entre elles differe d'au moins SEUIL_MARCHE_M de
+  // chacun des deux autres ; la plus franche des deux, l'autre viendra au decoupage suivant. Chaque marche
+  // est calme des deux cotes, et les trois blocs sont des volumes, pas des bandes (LARGEUR_BANDE_M) : la
+  // bande du faitage d'un deux-pans pentu (Hucqueliers 9207532, 1,5 m), le bas d'un pan raide au-dessus
+  // d'un coyau, les bords evases d'une imperiale ont aussi deux bords raides de sens oppose.
+  const enSandwich = (series: number[][], marches: readonly { k: number; signe: number; saut: number }[]): { k: number; score: number } | null => {
+    let best: { k: number; score: number } | null = null;
+    for (const a of marches) for (const b of marches) {
+      if (b.k <= a.k || b.signe !== -a.signe || Math.min(a.k, b.k - a.k, series.length - b.k) * pas < S.LARGEUR_BANDE_M) continue;
+      const h0 = bas(series.slice(0, a.k).flat()), h1 = bas(series.slice(a.k, b.k).flat()), h2 = bas(series.slice(b.k).flat());
+      if (h0 === null || h1 === null || h2 === null) continue;
+      const ecart = Math.min(Math.abs(h1 - h0), Math.abs(h1 - h2));
+      if (Math.sign(h1 - h0) !== a.signe || Math.sign(h1 - h2) !== a.signe || ecart < S.SEUIL_MARCHE_M) continue;
+      for (const m of [a, b]) { const score = Math.min(m.saut, ecart); if (!best || score > best.score) best = { k: m.k, score }; }
     }
     return best;
   };
+  let franches: { k: number; signe: number; saut: number }[] = [];
   const selonU = meilleure(colonnes, L), selonV = meilleure(lignes, W);
   const choix = selonU && (!selonV || selonU.score >= selonV.score) ? { axe: 'u' as const, k: selonU.k } : selonV ? { axe: 'v' as const, k: selonV.k } : null;
   if (!choix) return null;

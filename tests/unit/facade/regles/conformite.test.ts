@@ -5,6 +5,7 @@ import { lireFichierPromenade, type CasAudit, type FichierPromenade } from '../.
 import { casDeLAuditParcelle, casDeLaPromenade, corpusConformite, jugerCas, lectureDesCorps, texteCorpusConformite } from '../../../../src/facade/regles/conformite.js';
 import { lireCorpusConformite, resumer } from '../../../../src/regles/conformite.js';
 import type { FichierAuditParcelle } from '../../../../src/model/fichierAuditParcelle.js';
+import { rejouerCas } from '../../../../src/facade/regles/rejeu.js';
 import corpusLivre from '../../../../regles/conformite.json';
 
 // Le jugement d'un cas sur le code d'aujourd'hui (lot G3), et le fichier du corpus que l'ecran
@@ -31,10 +32,11 @@ describe('regles/conformite.json', { timeout: 60_000 }, () => {
     const v = lireCorpusConformite(corpusLivre);
     expect(v).toHaveLength(2);
     const r = resumer(v);
-    // AE 101 tient son attendu ; le pavillon de la longere d'Hucqueliers est toujours decoupe en morceaux.
-    expect(r).toMatchObject({ total: 2, conformes: 1, nonConformes: 1, aRevoir: 0, taux: 0.5 });
+    // AE 101 tient son attendu. Le pavillon de la longere d'Hucqueliers etait note decoupe en morceaux (8 corps) ; depuis la
+    // regle des corps contenus (26 novembre 2026) le rejeu en rend 7 : le probleme est a revoir, sur la carte, par l'utilisateur.
+    expect(r).toMatchObject({ total: 2, conformes: 1, nonConformes: 0, aRevoir: 1, taux: 1 });
     expect(v.find((x) => x.cle === 'vesinet-ae101')).toMatchObject({ etat: 'conforme', forme: 'deux-pans', region: '78' });
-    expect(v.find((x) => x.cle === 'bati-batiment-37248484')).toMatchObject({ etat: 'non-conforme', forme: 'non-notee', region: '62', problemes: ['toit.morceaux'] });
+    expect(v.find((x) => x.cle === 'bati-batiment-37248484')).toMatchObject({ etat: 'a-revoir', forme: 'non-notee', region: '62', problemes: ['toit.morceaux'] });
   });
 });
 
@@ -61,7 +63,9 @@ describe('jugerCas', { timeout: 60_000 }, () => {
   });
 
   it('un probleme note : toujours la si le rejeu redonne le terrain, a revoir s’il a change', () => {
-    expect(jugerCas(observe(longere)).etat).toBe('non-conforme');
+    // Les sorties notees sur le terrain, remplacees par celles du code d'aujourd'hui : le rejeu redonne le terrain.
+    const commeAujourdhui = { ...longere, sorties: { ...longere.sorties, ...rejouerCas(longere).sorties } } as CasAudit;
+    expect(jugerCas(observe(commeAujourdhui)).etat).toBe('non-conforme');
     const change = jugerCas(observe({ ...longere, sorties: { ...longere.sorties, corps: [] } }));
     expect(change.etat).toBe('a-revoir');
     expect(change.assertions[0]?.motif).toContain('à revoir');

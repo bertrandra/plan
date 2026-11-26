@@ -15,16 +15,27 @@ export const HAUTEUR_BATIE_M = R.HAUTEUR_BATIE_M;
 /**
  * L'axe d'un contour, en degres : celui (a l'equerre pres) qui aligne la plus grande longueur de
  * cotes, a la tolerance des rectangles. Le plus long cote ne suffit pas : ce peut etre le biais.
+ *
+ * Compter en entier tout cote dans la tolerance laisse gagner un biais dont la fenetre prend, a sa
+ * limite, tous les cotes d'equerre : la boite, la mise a l'equerre et les toits tournaient alors de 12
+ * degres sur la maison (Hucqueliers 9207309 : egouts a -1,6 m). On pese donc aussi chaque cote par son
+ * ecart a l'axe (1 - (ecart / tolerance)^2) : si l'axe retenu ne porte pas SOUTIEN_AXE_MIN du meilleur
+ * axe ainsi pese, celui-ci le remplace. Au-dessus, l'axe d'avant reste : la lecture des formes sur une
+ * boite bouge pour un degre, et les toits qui etaient bons ne doivent pas changer pour si peu.
  */
 export function axeDesCotes(contour: readonly PtBrut[]): number {
   const cotes = contour.map((q, i) => { const r = au(contour, (i + 1) % contour.length); return { angle: (Math.atan2(r.y - q.y, r.x - q.x) * 180) / Math.PI, l: Math.hypot(r.x - q.x, r.y - q.y) }; });
   const ecart = (a: number, b: number) => { const d = (((a - b) % 90) + 90) % 90; return Math.min(d, 90 - d); };
+  const pese = (a: number) => cotes.reduce((s, o) => { const d = ecart(o.angle, a); return s + (d <= S.TOLERANCE_DEG ? o.l * (1 - (d / S.TOLERANCE_DEG) ** 2) : 0); }, 0);
   let best = { angle: angleDuPlusLongCote(contour), l: -1 };
+  let mieuxPorte = { angle: best.angle, l: -1 };
   for (const c of cotes) {
     const l = cotes.reduce((s, o) => s + (ecart(o.angle, c.angle) <= S.TOLERANCE_DEG ? o.l : 0), 0);
     if (l > best.l + 1e-6) best = { angle: c.angle, l };
+    const p = pese(c.angle);
+    if (p > mieuxPorte.l + 1e-6) mieuxPorte = { angle: c.angle, l: p };
   }
-  return best.angle;
+  return best.l < 0 || pese(best.angle) >= S.SOUTIEN_AXE_MIN * mieuxPorte.l ? best.angle : mieuxPorte.angle;
 }
 
 /**

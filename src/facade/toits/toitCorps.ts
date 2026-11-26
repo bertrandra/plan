@@ -57,7 +57,46 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
     else couper(b.rect, 0);
   }
   const corps = [...refondus, ...blocs.map((r) => avecCroupesSiMieux(m, r, contour, options.grille ?? null, corpsAvecPignons(m, r, contour)))].filter((c): c is CorpsToit => c !== null);
-  return corps.length ? sansBandesRecouvertes(corps, contour) : null;
+  return corps.length ? sansCorpsContenus(sansBandesRecouvertes(corps, contour), contour) : null;
+}
+
+/**
+ * Les corps sans ceux qu'un seul autre corps contient : au-dela de PART_CONTENUE_MIN de sa surface (dans
+ * le contour) sous un meme autre corps, un corps est un second toit pose sur le meme bloc. Les rectangles
+ * maximaux qui se chevauchent recoivent chacun le leur, et la 3D, ou le plus haut l'emporte, montrait des
+ * faitages croises sur une seule maison (Seyssins AO 202 : quatre toits de 6,6 a 7,7 m, deux sens, sur
+ * le corps a etage). Le plus grand reste, comme pour les bandes : c'est souvent lui le bon toit, sauf
+ * si le contenu colle nettement mieux a la mesure, a GAIN_CONTENU de son ecart (Hucqueliers 9207378 : un
+ * deux-pans a 0,47 m d'ecart sous un plat a 0,99 m ; les deux restent, le plus grand couvrant ce que
+ * l'autre laisse). Deux ecarts lus sur des surfaces differentes ne se departagent pas au centimetre. Deux corps qui se
+ * contiennent l'un l'autre gardent celui qui colle le mieux. Une aile qui penetre un corps n'y est
+ * qu'en partie : elle reste.
+ */
+function sansCorpsContenus(corps: readonly CorpsToit[], contour: readonly PtBrut[]): CorpsToit[] {
+  if (corps.length < 2) return [...corps];
+  const points = corps.map((c) => {
+    const r = repere(c.pts), out: PtBrut[] = [];
+    for (let s = S.PAS_RECOUVREMENT_M / 2; s < r.L; s += S.PAS_RECOUVREMENT_M) for (let t = S.PAS_RECOUVREMENT_M / 2; t < r.W; t += S.PAS_RECOUVREMENT_M) {
+      const q = point(r, s, t);
+      if (pointInPolygon(q, contour)) out.push(q);
+    }
+    return out;
+  });
+  const aire = (k: number) => { const r = repere((corps[k] as CorpsToit).pts); return r.L * r.W; };
+  const dans = (k: number, j: number) => { const e = points[k] as PtBrut[]; return e.length ? e.filter((q) => pointInPolygon(q, (corps[j] as CorpsToit).pts)).length / e.length : 0; };
+  const garde = corps.map(() => true);
+  for (;;) {
+    let retire = -1;
+    for (let k = 0; k < corps.length && retire < 0; k++) for (let j = 0; j < corps.length && retire < 0; j++) {
+      if (k === j || !garde[k] || !garde[j] || dans(k, j) < S.PART_CONTENUE_MIN) continue;
+      const mutuel = dans(j, k) >= S.PART_CONTENUE_MIN;
+      if (mutuel) retire = (corps[k] as CorpsToit).ecart > (corps[j] as CorpsToit).ecart || ((corps[k] as CorpsToit).ecart === (corps[j] as CorpsToit).ecart && k > j) ? k : j;
+      else if (aire(k) <= aire(j) && (corps[k] as CorpsToit).ecart > S.GAIN_CONTENU * (corps[j] as CorpsToit).ecart) retire = k;
+    }
+    if (retire < 0) break;
+    garde[retire] = false;
+  }
+  return corps.filter((_, k) => garde[k]);
 }
 
 /**
