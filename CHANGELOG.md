@@ -5,6 +5,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.41.1] — 2026-11-26
+
+Version **corrective** au sens de `MD/RELEASE.md` : les toits LiDAR « surréalistes » corrigés (#769 : un toit qui traversait
+une maison à étage entre deux annexes, des toits en double sur un corps contenu dans un autre, un toit tourné et enfoncé dans le
+sol sur un contour à côté de biais), et la documentation de `MD/architecture.md` (§5.1, §5.3 et §5.5, #767 et #768). Une
+correction sans fonction ajoutée donne un PATCH. **Rien n'est retiré ni mis derrière un droit.** **Aucune quantité ni aucun
+export ne change** : avant le changement de numéro, le code de `main` (e983b90e) régénère les témoins de la 5.41.0 au bit près ;
+les neuf témoins qui portent le numéro ne changent qu'à lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur
+neuf, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et
+`glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ nouveau ; la version de lecture des
+toits passe à 8, si bien que les toits déjà lus du LiDAR sont relus à l'ouverture d'un projet (forme du toit en 3D et dans
+l'audit, jamais une quantité). `regles/` change par trois réglages des toits (`PART_CONTENUE_MIN`, `GAIN_CONTENU`,
+`SOUTIEN_AXE_MIN`) et un cas de conformité passé « à revoir » ; `deploy/` et `banc/` ne changent pas depuis la 5.41.0 ; la
+requête témoin de l'assistant est inchangée. Requêtes à vérifier contre l'API Claude sur `main` après la fusion de la version
+(« Vérifier l'API Claude »).
+
 ### Corrigé
 
 - **Toits LiDAR « surréalistes »** (Seyssins, 1a rue de Comboire, parcelle AO 202, et d'autres bâtiments du banc) :
