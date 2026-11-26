@@ -203,30 +203,61 @@ The **domain architecture is sound and the delivery architecture does not exist.
 
 ### 5.1 Containers
 
+*Rewritten on 26 November 2026 (version 5.41.0).* The diagram this section first carried — a Node 20 /
+Fastify API, a Node worker, Redis, S3/MinIO and a separate console, all built by this repository — was
+never built. Plan became one product of the backprod platform (`spec-connexion-plateforme.md`, ADR-3
+amended, §10), and what runs today is this:
+
 ```mermaid
 C4Container
   Person(user, "Utilisateur")
-  Person(padmin, "Admin plateforme")
+  Person(padmin, "Admin plateforme / opérateur")
 
-  Container(spa, "Client", "TypeScript, Vite, single-file HTML", "Editor, engine, 3D, exports")
-  Container(api, "API", "Node 20, TypeScript, Fastify", "Auth, tenancy, entitlements, projects")
-  Container(admin, "Console plateforme", "TypeScript", "Separate host, separate session")
-  Container(worker, "Worker", "Node, same engine", "Batch recompute, thinning, exports, mail")
-  ContainerDb(pg, "PostgreSQL 15", "RLS, jsonb, PostGIS", "Identity, tenancy, projects, audit")
-  ContainerDb(redis, "Cache", "Redis", "Sessions, feature sets, branding, quotas")
-  ContainerDb(obj, "Object storage", "S3 / MinIO", "Logos, generated artefacts")
+  Container(spa, "Plan (client)", "TypeScript, React 19, Vite, three.js", "Editor, structural engine, 3D, exports — all in the browser")
+  Container(helpers, "PHP helpers of Plan", "PHP, deploy/*.php, same host", "Claude proxy, demo admin, server data (data/ outside the web root)")
+  Container_Ext(backprod, "backprod", "PHP 8.3, PostgreSQL, /api/v1 (OpenAPI 3.1)", "Identity, tenancy, subscriptions, entitlements, projects, sharing, billing, jobs, mail")
+  System_Ext(ign, "IGN Géoplateforme · BAN", "Cadastre, PLU, BD TOPO, LiDAR, WMTS imagery, geocoding")
+  System_Ext(claude, "API Claude", "Parcel, façade, PLU analysis and the assistant")
+  System_Ext(cdn, "jsDelivr · Poly Haven", "three.js runtime, textures")
 
-  Rel(user, spa, "HTTPS")
-  Rel(spa, api, "JSON/HTTPS, cookie session")
-  Rel(padmin, admin, "HTTPS")
-  Rel(api, pg, "SQL via PgBouncer")
-  Rel(api, redis, "")
-  Rel(api, obj, "")
-  Rel(worker, pg, "")
-  Rel(worker, obj, "")
+  Rel(user, spa, "HTTPS, plan.raillard.org")
+  Rel(spa, backprod, "JSON/HTTPS, generated client, bearer token in memory")
+  Rel(spa, helpers, "JSON/HTTPS, same origin")
+  Rel(helpers, claude, "HTTPS, server-side key")
+  Rel(spa, ign, "HTTPS, direct")
+  Rel(spa, cdn, "HTTPS, on demand")
+  Rel(padmin, backprod, "Console /console/*")
+  Rel(padmin, helpers, "?admin screens")
 ```
 
-**Why Node/TypeScript for the API rather than keeping PHP.** One reason decides it: the engine is pure TypeScript (P2), so running it server-side — batch re-pricing, server-generated dossiers, validating a submitted BOM — costs *zero new logic*. Any other runtime means maintaining a second implementation of the structural calculator, which would be the single worst thing that could happen to ASR-1. Shared types between client and server across the whole `model/**` layer is a large secondary benefit.
+| Container | Runs | Owns | Repository |
+|---|---|---|---|
+| **Plan client** | The browser: `index.html` + `assets/plan-<hash>.js` (FF-5 budget 5 MB), three.js loaded from jsDelivr (`three/bibliotheque.ts`), pdf-lib on demand | The plan document while it is edited, every quantity, every export | this one |
+| **PHP helpers** | Apache + PHP on Plan's host, shipped in `livraison/` beside the client | The Claude key and its journal (`analyse.php`), the demos and admin settings (`admin.php`: palette, tree library, calibration), audit traces — all under `data/`, outside the web root (`donnees.php`) | this one |
+| **backprod** | `www.raillard.org`, PHP 8.3 modular (FastRoute, PSR-7/15, PHP-DI, Doctrine DBAL), PostgreSQL + JSONB, one crontab line for its jobs | Accounts and sessions, tenants, roles, offers, subscriptions, entitlements, the `projects` resource (the plan as an opaque JSONB document with `schema_version`, versions, assets), sharing, invoices and VAT, notifications | `bertrandra/backprod` |
+
+**What decides the shape.**
+
+- **The engine runs in the browser only.** No server reuses it yet (ADR-3 amended). The reason the
+  original diagram chose Node — running the structural calculator server-side at zero cost — still
+  holds as an option, and nothing in the pure core (`model`, `geometry`, `engine`) prevents it; it
+  is simply not needed by any caller today.
+- **Plan keeps no database and writes no authentication** (`spec-connexion-plateforme.md` §0.1, §6).
+  A project is saved to backprod's resource; who may do what is backprod's answer, read live
+  (`/me/context`), and the client greys buttons without being the authority.
+- **One contract, generated.** `plateforme/contrat.ts` is generated from backprod's OpenAPI;
+  `npm run gate:client` fails the build when it drifts.
+- **Every external system is optional.** No IGN: no import, a working editor. No CDN: no 3D. No
+  Claude: no analysis. No backprod session: the showcase (`?mode=demo`), served from the PHP helpers'
+  demos, still opens.
+- **Installing stays a copy of one folder** (ASR-3): `livraison/`, built from `main` by
+  `npm run livraison`, holds the client, `.htaccess` (security headers, `deploy/htaccess.template`)
+  and the PHP helpers. backprod is deployed on its own, from its own repository.
+
+**What is no longer in this picture, and where it went.** Redis, object storage, PgBouncer, a worker
+and a console of Plan's own: whatever of them exists belongs to backprod and is described in its
+`docs/architecture-v2.md`. §5.3 and §5.5 still show the original target and should be read with this
+section.
 
 ### 5.2 Client component view
 
