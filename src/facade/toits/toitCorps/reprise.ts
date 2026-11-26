@@ -7,7 +7,7 @@ import { ajusterToit, diagnostiquerToit, type EchantillonHauteur, type ToitAjust
 import { repereFaitage } from '../../../geometry/faitage.js';
 import type { CorpsToit, PtBrut, ToitMesure } from '../../../model/types.js';
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../../../regles/toits/reglages.js';
-import { dixieme, cm, penteMaxRad, repere, point, type Grille, tourne, corpsAvecPignons } from './ajustement.js';
+import { dixieme, cm, penteMaxRad, repere, point, type Grille, tourne, corpsAvecPignons, EGOUT_CORPS_MIN_M } from './ajustement.js';
 import { axeDesCotes, contourEquerre } from './recalage.js';
 
 /** La hauteur de la grille a la cellule la plus proche d'un point ; null hors d'elle ou sans mesure. */
@@ -89,6 +89,10 @@ export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[], contour: r
   if (quatre && repere(pts).L < repere(pts).W) pts = tourne(pts);
   const r = repere(pts);
   const H = Math.max(0, toit.hauteur), E = dixieme(egout), F = dixieme(egout + H);
+  // La regle du modele des corps : pas d'egout sous EGOUT_CORPS_MIN_M. Sur la boite d'un contour de
+  // biais, des pentes lues sur une partie seulement de la boite descendaient jusqu'a ses bords, au-dela
+  // du contour, et le toit s'enfoncait dans le sol (Hucqueliers 9207309 : egouts a -1,6 m).
+  if (E < EGOUT_CORPS_MIN_M) return null;
   const base = { pts, pignons: [], ecart: cm(a.ecart) };
   if (toit.forme === 'plat' || H < S.HAUTEUR_PLAT_M) {
     const z = dixieme(toit.forme === 'appentis' ? egout + H / 2 : egout);

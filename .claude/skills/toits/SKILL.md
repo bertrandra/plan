@@ -101,7 +101,8 @@ le calcul est entier et la grille est gardée. Plus loin, c'est la version **all
    construction** (une aile qui pénètre un corps ; dans la 3D, le plus haut l'emporte).
 2. **Marches** (`decouperParHauteurs`) : on coupe là où la couverture saute d'au moins 0,8 m
    (`SEUIL_MARCHE_M`), d'un coup (1,6 fois plus que sur le mètre voisin). Un bloc fait au moins
-   1,5 m.
+   1,5 m. Si rien ne coupe, un bloc haut d'au moins 3 m entre deux marches franches de sens opposé
+   est coupé (le « sandwich » : maison à étage entre deux annexes, Seyssins AO 202).
 3. **Ailes recouvertes** : une aile qui a plus de la moitié de sa surface sous un rectangle plus
    grand (`PART_SOUS_PLUS_GRAND`) n'est pas coupée aux marches si son toit entier tient la mesure
    à la tolérance des bandes (1,6) avec des égouts d'au moins 2 m. Les marches qu'on y lit sont les
@@ -128,13 +129,19 @@ le calcul est entier et la grille est gardée. Plus loin, c'est la version **all
    sa surface sous les autres corps est retirée, la plus recouverte d'abord (la plus étroite à
    égalité). Un corps plus large reste, même recouvert : c'est souvent lui le bon toit, et les
    bandes ses morceaux.
+10. **Corps contenus** (`sansCorpsContenus`) : un corps à 90 % sous un seul autre plus grand
+   (`PART_CONTENUE_MIN`) est retiré, sauf s'il colle à moins de 0,8 fois son écart (`GAIN_CONTENU`) ;
+   de deux corps qui se contiennent, le moins fidèle part. Sans cela, des faîtages croisés sur un même
+   bloc (Seyssins AO 202 : quatre toits de deux sens sur le corps à étage).
 
 ### Contour de biais (reprise, `corpsDeReprise`)
 
 `contourEquerre` (chaque biais devient une marche au droit d'un autre sommet, dans l'axe qui aligne
-le plus de côtés : `axeDesCotes`) → `rectanglesEnTranches` → `corpsDepuisFormes` par tranche (à
+le plus de côtés : `axeDesCotes` ; un axe qui ne porte pas `SOUTIEN_AXE_MIN` = 0,8 du meilleur axe pesé
+par l'écart de chaque côté, 1 − (écart / 15°)², est remplacé par lui) → `rectanglesEnTranches` → `corpsDepuisFormes` par tranche (à
 défaut, le modèle des corps) → `completerSurContour`. En dernier recours, `corpsSurBoite` : un seul
-corps sur la boîte orientée, avec `lectureDeSecours`. L'appentis y est admis s'il bat d'un dixième la
+corps sur la boîte orientée, avec `lectureDeSecours`. Les formes d'une tranche ou de la boîte
+(`corpsDepuisFormes`) n'ont pas d'égout sous 1,5 m (`EGOUT_CORPS_MIN_M`, la règle de `ajusterCorps`). L'appentis y est admis s'il bat d'un dixième la
 meilleure forme à faîtage : c'est le toit à un pan des maisons de village provençales.
 
 **Complétion** : un corps avance ses côtés libres pour couvrir le contour (pas de 25 cm, 8 m au
@@ -297,6 +304,13 @@ pavillon (pav.), sans corps ou sans mesure (—).
 | eguisheim (D16) | 327 | 401 | 241 | 52 | 125 | 19 | 100 | 140 | 12 | 4 | 52 |
 | beuvron (D16) | 119 | 206 | 80 | 17 | 27 | 8 | 39 | 47 | 7 | 0 | 17 |
 
+Recapturés le 26 novembre 2026 (code de `main` 456fd024) : vesinet 58 bâtiments, 107 corps, 27 suspects ; hucqueliers
+69 / 111 / 40 ; versailles 98 / 190 / 61 ; gordes 152 / 216 / 95 ; seyssins (1a rue de Comboire 38180 Seyssins, 100 m,
+parcelle AO 202) 50 / 78 / 19. Après les règles du 26 novembre (axe porté, plancher d'égout, sandwich, corps contenus) :
+vesinet 105 corps / 27 suspects, hucqueliers 112 / 40, versailles 188 / 61, gordes 219 / 94, seyssins 73 / 19. Pour faire le tour d'un village en chiffres (égouts sous
+1,5 m, faîtage sous l'égout, corps hors du contour), un balayage des `q/<cle>.json` contre la grille suffit ; les « faîtage
+sous l'égout » de 10 cm qui restent sont des arrondis au décimètre, pas des toits faux.
+
 Les trois villages de D16 ont été capturés le 14 octobre 2026 (§6.2) ; aucune forme nouvelle n'y
 est encore produite, c'est leur point de départ. À Versailles, les toits à la Mansart à terrasson
 plat se lisent aujourd'hui en pavillon ou en croupes (28283510, 28283290) : ce sont les premiers
@@ -308,7 +322,10 @@ serrées) : à regarder avant d'y juger une forme.
 ## 6. Méthode : vérifier sur un village
 
 Les scripts de `.claude/skills/toits/scripts/` écrivent dans `$TOITS_DOSSIER` (par défaut `/tmp/toits`).
-`village.mjs` affiche aussi les bâtiments à cheval et la question posée, et en fait une capture.
+`village.mjs` affiche aussi les bâtiments à cheval et la question posée, et en fait une capture. Il décoche
+« Import direct » (le parcours par défaut depuis le point 170) pour régler le voisinage aux étapes 2 et 3.
+La lecture de fond y est coupée (`ouvrirDemo` pose `__sansToitsFond`) : seuls les 30 bâtiments les plus
+proches ont leurs corps dans l'application ; le banc rejoue tous les autres.
 `REPONSE_CHEVAL=principal` ou `secondaire` répond à chaque question ; sans cette variable, Échap.
 
 ```bash
@@ -559,6 +576,18 @@ fichier de promenade jusqu'à la PR. Mode d'essai : `?regles=local`, menu Admin 
   doit tenir la mesure, avec des égouts d'au moins 2 m.
 - **La complétion suivait n'importe quel point libre** : une lisière de quelques centimètres l'a
   menée sur 5 m (Hucqueliers). Il faut une part de bande, une hauteur cohérente et un égout plancher.
+- **Un biais pris pour l'axe** (Hucqueliers 9207309, 26 novembre 2026) : compté en entier dans sa
+  fenêtre de 15°, un côté à 13° prenait tous les côtés d'équerre et devenait l'axe ; boîte tournée de
+  12°, deux fois trop large, un pan lu sur une partie de la boîte prolongé jusqu'à ses bords : égouts
+  à −1,6 m. D'où `SOUTIEN_AXE_MIN` et le plancher d'égout de `corpsDepuisFormes`. **Piège dans le
+  piège** : changer l'axe d'un ou deux degrés, ou seulement son sens (deux côtés parallèles qui se
+  valent), change la lecture des formes sur la boîte (Gordes 16860044 passait d'appentis à deux pans,
+  AE 103 bougeait) : l'axe d'avant reste tant qu'il est assez porté.
+- **Un bloc haut entre deux annexes** (Seyssins AO 202, 26 novembre 2026) : chaque côté de chaque marche
+  contient une partie basse, le test « les deux côtés pris en entier » ne coupait rien, et un toit de 17 m
+  passait dessus, un pan à 1,6 m d'égout, caché sous les autres toits sauf aux annexes (l'ajustement robuste
+  écarte « ce qui dépasse », donc l'annexe entière). Le bloc du milieu doit faire 3 m : à 1,5 m, c'est la
+  bande du faîtage d'un deux-pans pentu (Hucqueliers 9207532 se coupait le long du faîtage).
 - **Une hauteur BD TOPO fausse** (église à 4,7 m) déclenche « égout > h » dans le banc : ce n'est
   pas un défaut du toit. Le filtre de végétation (+3 m) peut en revanche écarter à tort un corps
   d'un bâtiment dont la hauteur BD TOPO est trop basse.

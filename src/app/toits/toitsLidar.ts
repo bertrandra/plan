@@ -230,6 +230,12 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   { version: 6, reglages: 'b472cd75', faits: '43162115', formes: '83c56e39' },
   // La bay window de la face est d'AE 101 (fait, regles/toits/faits.json) et les seuils de leur lecture (facade/regles/toits/baies.ts).
   { version: 7, reglages: 'becf6fa1', faits: '2427f5f5', formes: '83c56e39' },
+  // Les toits LiDAR « surrealistes » (26 novembre 2026). L'axe d'un contour de biais n'est plus un biais qui prenait les cotes
+  // d'equerre a la limite de sa fenetre (SOUTIEN_AXE_MIN, facade/toits/toitCorps/recalage.ts::axeDesCotes) ; les formes simples
+  // d'une tranche ou de la boite n'ont plus d'egout sous 1,5 m (Hucqueliers 9207309 : egouts a -1,6 m) ; un bloc haut entre deux
+  // annexes basses est coupe a ses marches (model/toitMesure.ts, Seyssins AO 202 : un pan a 1,6 m d'egout) ; un corps contenu dans
+  // un autre n'y pose plus un second toit (PART_CONTENUE_MIN, GAIN_CONTENU : quatre faitages croises sur une maison). Tout est relu.
+  { version: 8, reglages: '0f395d8a', faits: '2427f5f5', formes: '83c56e39' },
 ];
 
 /**

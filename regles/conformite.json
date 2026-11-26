@@ -14,12 +14,12 @@
    "problemes": [
     "toit.morceaux"
    ],
-   "etat": "non-conforme",
+   "etat": "a-revoir",
    "assertions": [
     {
      "assertion": "probleme",
      "tenue": false,
-     "motif": "toit.morceaux : toujours là"
+     "motif": "toit.morceaux : le calcul a changé depuis le terrain (corps 8 corps → 7 corps), à revoir"
     }
    ],
    "nonVerifiees": []

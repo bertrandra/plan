@@ -23,6 +23,12 @@ export const ECART_ABERRANT_M = R.ECART_ABERRANT_M;
 export const DEPASSEMENT_GARDE_M = R.DEPASSEMENT_GARDE_M;
 /** Le nombre de passes de l'ajustement. */
 const PASSES = 5;
+/**
+ * Un corps n'a pas d'egout plus bas que cela : en dessous, c'est une coupe a travers une cour ou un
+ * jardin, pas un toit. Vaut pour le modele des corps (`ajusterCorps`) et pour les formes simples
+ * posees sur une tranche ou sur la boite d'un contour de biais (`corpsDepuisFormes`).
+ */
+export const EGOUT_CORPS_MIN_M = 1.5;
 /** En deca de cette hauteur de faitage au-dessus des egouts, le toit est plat. */
 export const HAUTEUR_PLAT_M = R.HAUTEUR_PLAT_M;
 /** Et en deca de cette pente : l'ecoulement d'une toiture-terrasse, pas un pan. */
@@ -157,7 +163,7 @@ function profilEn(ms: readonly Mesure[], W: number, p: number): Profil | null {
   const e0 = p <= 0 ? F : (sol[1] ?? 0);
   const e1 = p >= W ? F : p <= 0 ? (sol[1] ?? 0) : (sol[2] ?? 0);
   // Un toit, pas une coupe : le faitage au-dessus des egouts, des pentes de couverture.
-  if (F < Math.max(e0, e1) - 0.1 || Math.min(e0, e1) < 1.5) return null;
+  if (F < Math.max(e0, e1) - 0.1 || Math.min(e0, e1) < EGOUT_CORPS_MIN_M) return null;
   const tan = tanMax();
   if (p > 0 && (F - e0) / p > tan) return null;
   if (p < W && (F - e1) / (W - p) > tan) return null;

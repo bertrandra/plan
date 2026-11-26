@@ -1063,13 +1063,34 @@ Exemple : 2 allée des Limites, parcelle AE 103.
 - **Mise à l'équerre** (`contourEquerre`). L'axe retenu est celui qui aligne la plus grande
   longueur de côtés (le plus long côté peut être le biais). Chaque côté de biais devient une
   marche, dont le ressaut tombe au droit d'un autre sommet du contour, à défaut au milieu.
+  **L'axe doit être porté** (`axeDesCotes`, 26 novembre 2026) : compté en entier dans la tolérance
+  de 15°, un biais de 13° prenait à la limite de sa fenêtre tous les côtés d'équerre et devenait
+  l'axe ; la boîte, la mise à l'équerre et les toits tournaient de 12° sur la maison. On pèse donc
+  aussi chaque côté par son écart à l'axe (1 − (écart / 15°)²) : si l'axe retenu ne porte pas
+  `SOUTIEN_AXE_MIN` (0,8) du meilleur axe ainsi pesé, celui-ci le remplace ; au-dessus, l'axe d'avant
+  reste, pour qu'un toit bien lu ne change pas pour un degré. Hucqueliers 9207309 (0,41) : un seul
+  pan sur une boîte de 20 × 10,5 m tournée de 12°, égouts à −1,6 m, devient un toit à croupes sur la
+  maison et ses annexes basses ; Gordes 38818778, 38818665, 38818905 se lisent en ailes au lieu
+  d'une boîte de travers. Le Vésinet et Versailles ne changent pas, AE 101 et AE 103 non plus.
 - **Tranches** (`model/volumesToit.ts::rectanglesEnTranches`). Le contour à l'équerre est coupé
   perpendiculairement à l'un de ses axes ; les rectangles maximaux y tiraient une bande d'un bout à
   l'autre de la maison.
+- **Bloc haut entre deux parties basses** (`model/toitMesure.ts::decouperParHauteur`, 26 novembre 2026). Une marche
+  n'est coupée que si les deux côtés, pris en entier, diffèrent de `SEUIL_MARCHE_M` au dixième centile ; une maison à
+  étage entre deux annexes basses n'en avait donc aucune (chaque côté contient une annexe), et un seul toit couvrait le
+  tout, ses pans descendus jusqu'à 1,6 m (Seyssins AO 202, marches de 2 à 3 m). Quand rien d'autre ne coupe, deux marches
+  franches de sens opposé dont le bloc du milieu (au moins `LARGEUR_BANDE_M`, sinon c'est la bande d'un faîtage) diffère des
+  deux autres sont coupées, la plus franche d'abord.
+- **Corps contenus** (`toitCorps.ts::sansCorpsContenus`). Les rectangles maximaux qui se chevauchent recevaient chacun leur
+  toit : sur le corps à étage d'AO 202, quatre toits de 6,6 à 7,7 m, de deux sens. Un corps dont `PART_CONTENUE_MIN` (90 %)
+  de la surface est sous un seul autre corps plus grand est retiré, sauf s'il colle nettement mieux à la mesure
+  (`GAIN_CONTENU`, 0,8 de l'écart du grand) ; entre deux corps qui se contiennent l'un l'autre, le moins fidèle part.
 - **Formes simples** (`corpsDepuisFormes`). Chaque tranche est lue par `facade/toits/toitLidar.ts::
   ajusterToit` sur la grille brute : deux pans, croupes ou quatre pans (faîtage dans la longueur,
   croupes à la pente des pans : `CorpsToit.croupes`), appentis (plat en deçà de 10°), plat. À
-  défaut, le modèle des corps. Le modèle des corps, lui, n'a pas changé : les contours qui se
+  défaut, le modèle des corps. Comme dans le modèle des corps, aucun égout sous 1,5 m
+  (`EGOUT_CORPS_MIN_M`) : une forme lue sur une partie de la tranche ou de la boîte prolongeait ses
+  pentes jusqu'à des murs au-delà du contour, et le toit s'enfonçait dans le sol. Le modèle des corps, lui, n'a pas changé : les contours qui se
   découpaient gardent leurs corps au centimètre (test sur le relevé réel d'AE 101,
   `tests/unit/facade/toitCorpsReprise.test.ts`).
 - **Complétion** (`completerSurContour`, `corpsEtendu`). La marche rend d'un côté du biais ce qu'elle
