@@ -5,6 +5,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **`MD/architecture.md` §5.1 réécrite** : elle décrivait encore la cible abandonnée (API Node/Fastify, worker, Redis,
+  stockage S3 bâtis par ce dépôt). Elle montre maintenant ce qui tourne : le client Plan dans le navigateur, les assistants PHP
+  livrés avec lui (`deploy/*.php` : relais Claude, admin, données) et la plateforme backprod (identité, abonnements, projets).
+  Documentation seulement : aucun code, aucune quantité ni aucun export ne change.
+
 ## [5.41.0] — 2026-11-25
 
 Version **mineure** au sens de `MD/RELEASE.md` : l'option « Rues » du menu Affichage, les rues dessinées par Plan à la largeur de
