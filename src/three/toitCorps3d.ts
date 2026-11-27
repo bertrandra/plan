@@ -20,7 +20,9 @@ import { estBowWindow, facettesBowWindow, facettesEncorbellement, vitresBowWindo
 import { aDesTraveesOuvertes, contourAvecReculs, murBasDeLAppentis, reculEn, segmentsDuMurBas } from '../facade/modeToit/travees.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { dessinCouverture, textureCouverture, matiereCouverture } from './couverture.js';
-import type { VersLocal } from './primitives.js';
+import { COUCHES_SOL, HORS_EXPORT, poserEnCouche, type VersLocal } from './primitives.js';
+import { APPUI, ENCADREMENT, LINTEAU_M, VITRE, batisseursBaies, couleurPierre, poserFenetreEnCreux, type BaieRelief } from './fenetresRelief.js';
+import type { S3 as S3Three } from './batisseur.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import { distancePointSegment } from '../geometry/segments.js';
 import type { CorpsToit, PtBrut, Toit } from '../model/types.js';
@@ -663,6 +665,7 @@ export function uvDuMur(poly: readonly S3[]): number[] {
 export function ajouterToitCorpsSurContour3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, contour: readonly PtBrut[]): { pans: number; murs: number } {
   const { pans, murs } = facettesSurContour(corps, contour);
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
+  ajouterFenetresLucarnes3d(ctx, corps);
   ajouterElementsToit3d(ctx, corps);
   ajouterBordsToit3d(ctx, corps, contour);
   return { pans: pans.length, murs: murs.length };
@@ -684,9 +687,67 @@ export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly Corps
     if (aDesTraveesOuvertes(c) && c.ouvert !== true) murs.push(...piedEnTravees(c, c.ouvert === false && estUnAppentis(c) ? murBasDeLAppentis(c) : null));
   });
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
+  ajouterFenetresLucarnes3d(ctx, corps);
   ajouterElementsToit3d(ctx, corps);
   ajouterBordsToit3d(ctx, corps, contour);
   return { pans: pans.length, murs: murs.length };
+}
+
+/**
+ * La fenetre d'une lucarne (demande du proprietaire, 27 novembre 2026 : une lucarne existe pour porter une fenetre). Centree sur la
+ * face, avec l'encadrement, l'appui et le linteau des fenetres de facade (fenetresRelief.ts) ; `marge` de mur autour d'eux, jamais
+ * plus grande que la face ni que `largeurMax` x `hauteurMax`, et aucune sur une face trop petite pour une baie de `largeurMin` x
+ * `hauteurMin`.
+ */
+export const FENETRE_LUCARNE = { marge: 0.08, largeurMin: 0.4, hauteurMin: 0.4, largeurMax: 1.2, hauteurMax: 1.4 } as const;
+export const NOM_FENETRES_LUCARNES = 'toit-lucarnes-fenetres';
+const COULEUR_MENUISERIE_LUCARNE = 0xc9c2b4;
+
+/** La baie d'une face de lucarne de `largeur` x `hauteur` metres, dans le repere de la face ; null si la face est trop petite. */
+export function fenetreDeLucarne(largeur: number, hauteur: number): BaieRelief | null {
+  const F = FENETRE_LUCARNE, bas = APPUI.hauteur + F.marge, haut = LINTEAU_M + F.marge, cote = ENCADREMENT.largeur + F.marge;
+  const l = Math.min(F.largeurMax, largeur - 2 * cote), h = Math.min(F.hauteurMax, hauteur - bas - haut);
+  if (l < F.largeurMin - 1e-9 || h < F.hauteurMin - 1e-9) return null;
+  return { x: (largeur - l) / 2, y: bas + (hauteur - bas - haut - h) / 2, l, h };
+}
+
+/**
+ * Pose la fenetre de chaque lucarne des corps, posee a la main ou lue : les memes pieces qu'une fenetre de facade en creux. Hors
+ * export, comme elles (le .glb ne change pas).
+ */
+export function ajouterFenetresLucarnes3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[]): number {
+  const b = batisseursBaies();
+  let n = 0;
+  for (const c of corps) {
+    if (!c.lucarnes?.length) continue;
+    const r = repere(c.pts);
+    for (const f of facettesLucarnes(c, r.L, r.W).faces) {
+      const baie = fenetreDeLucarne(f.s1 - f.s0, f.z1 - f.z0);
+      if (!baie) continue;
+      // La face regarde l'egout de son pan : vers t = 0 sur le pan 0, vers t = W sur l'autre.
+      const dehors = f.pan === 0 ? -1 : 1;
+      const pt = (x: number, y: number, s: number): S3Three => { const l = ctx.toLocal(point(r, f.s0 + x, f.t + dehors * s)); return [l.x, f.z0 + y, l.z]; };
+      poserFenetreEnCreux(b, pt, baie, { colonnes: 2, rangs: 1 }, f.z1 - f.z0 + 0.05);
+      n++;
+    }
+  }
+  if (!n) return 0;
+  const groupe = new THREE.Group();
+  groupe.name = NOM_FENETRES_LUCARNES;
+  groupe.userData[HORS_EXPORT] = true;
+  const pieces = [
+    [b.encadrement, new THREE.MeshStandardMaterial({ color: couleurPierre(ctx.couleurMur), roughness: 0.85, side: THREE.DoubleSide }), 'encadrement'],
+    [b.menuiserie, new THREE.MeshStandardMaterial({ color: COULEUR_MENUISERIE_LUCARNE, roughness: 0.6, side: THREE.DoubleSide }), 'menuiserie'],
+    [b.vitre, new THREE.MeshStandardMaterial({ color: VITRE.couleur, roughness: VITRE.rugosite, metalness: VITRE.metal, side: THREE.DoubleSide }), 'vitre'],
+  ] as const;
+  for (const [bat, mat, nom] of pieces) {
+    if (bat.vide) continue;
+    poserEnCouche(mat, COUCHES_SOL.surMur);
+    bat.groupe(0);
+    groupe.add(bat.maillage([mat], 'lucarnes-' + nom));
+  }
+  ctx.scene.add(groupe);
+  return n;
 }
 
 /** Les couleurs des elements de toit : cadre et vitre d'une fenetre de toit, cadre et cellules d'un panneau solaire. */

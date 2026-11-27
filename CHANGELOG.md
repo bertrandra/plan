@@ -20,7 +20,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   un chien-assis ; un dessus qui monte vers l'intérieur du toit, une rampante. Les lucarnes d'un même pan de la même taille à un
   pas de grille près (50 cm) sont un seul modèle : une largeur, une hauteur, une profondeur (les médianes), le type du plus grand
   nombre (« la quantité est bien 3, et elles font la même taille »). La longère d'Hardencourt (6501004) retrouve trois jacobines
-  identiques sur son pan côté cour (1,5 m de large, faîtage à 6,28 m) ; AE 101 ne change pas. Sur les sept villages du banc (850 bâtiments) : 22 lucarnes lues
+  identiques sur son pan côté cour (1,5 m de large, faîtage à 6,28 m) ; AE 101 ne change pas. **Une lucarne porte une fenêtre**
+  (Vue 3D) : centrée sur sa face, avec l'encadrement, l'appui et le linteau des fenêtres de façade, jamais plus grande que la
+  face, aucune sur une face trop petite (`FENETRE_LUCARNE`, `three/toitCorps3d.ts`) ; pour une lucarne lue comme pour une
+  lucarne posée à la main en mode Toit, dont la face était jusque-là un mur nu. Hors export : le `.glb` ne change pas. Sur les sept villages du banc (850 bâtiments) : 22 lucarnes lues
   sur 13 bâtiments ; les séries sont justes à l'œil, une lucarne isolée sur trois environ reste douteuse (le toit d'à côté, un
   toit mal ajusté). Une lucarne lue est celle de la lecture : relue à chaque lecture, elle cède à une lucarne vue sur une photo,
   dite par un fait ou posée à la main, et le mode Toit la déplace ou la retire (le toit est alors figé). Seize seuils nommés

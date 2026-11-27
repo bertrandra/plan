@@ -398,15 +398,19 @@ const PENTE_LUCARNE = 0.7;
 /** La pente inverse du toit d'un chien-assis (tangente) : 15 degres. */
 const PENTE_CHIEN_ASSIS = 0.27;
 
+/** La face d'une lucarne, dans le repere du corps : de `s0` a `s1` le long du faitage, a `t` dans la largeur, de `z0` a `z1`. */
+export interface FaceLucarne { pan: 0 | 1; s0: number; s1: number; t: number; z0: number; z1: number }
+
 /**
  * Les facettes des lucarnes d'un corps : leur face, leurs joues et leur toit, poses sur le pan. Une lucarne n'entaille pas le
  * pan (ses facettes sont au-dessus de lui) : pas de coupe a faire. Sa face est a `profondeurM` en deca du point ou son
- * faitage rejoint le pan, a plat. Une meuniere affleure le mur d'egout.
+ * faitage rejoint le pan, a plat. Une meuniere affleure le mur d'egout. `faces` : le rectangle de la face de chaque lucarne qui porte
+ * une fenetre (sous l'egout de son toit ; ni l'oeil-de-boeuf, ni le lanterneau, qui sont leur propre vitre).
  */
-export function facettesLucarnes(c: CorpsForme & { lucarnes?: readonly Lucarne[] }, L: number, W: number): { pans: Sommet[][]; murs: Sommet[][] } {
-  const pans: Sommet[][] = [], murs: Sommet[][] = [];
+export function facettesLucarnes(c: CorpsForme & { lucarnes?: readonly Lucarne[] }, L: number, W: number): { pans: Sommet[][]; murs: Sommet[][]; faces: FaceLucarne[] } {
+  const pans: Sommet[][] = [], murs: Sommet[][] = [], faces: FaceLucarne[] = [];
   // Sur un toit a profil libre ou de revolution, la hauteur du pan n'est pas celle d'un pan droit : pas de lucarne posee a l'aveugle.
-  if (estSpecial(c, W)) return { pans, murs };
+  if (estSpecial(c, W)) return { pans, murs, faces };
   const f = formeDe(c, L, W)?.f ?? null;
   for (const l of c.lucarnes ?? []) {
     const n = l.pan, largeur = n === 0 ? c.posFaitage : W - c.posFaitage, F = c.faitage;
@@ -459,6 +463,7 @@ export function facettesLucarnes(c: CorpsForme & { lucarnes?: readonly Lucarne[]
       for (let i = 0; i < 40; i++) { const m = (a + b) / 2; if (zP(m) < zToit(m)) a = m; else b = m; }
       const dR = (a + b) / 2, zR = zToit(dR);
       murs.push([S(x0, dF, z0), S(x1, dF, z0), S(x1, dF, zf), S(x0, dF, zf)]);
+      faces.push({ pan: n, s0: x0, s1: x1, t: n === 0 ? dF : W - dF, z0, z1: zf });
       pans.push([S(x0, dF, zf), S(x1, dF, zf), S(x1, dR, zR), S(x0, dR, zR)]);
       murs.push([S(x0, dF, z0), S(x0, dF, zf), S(x0, dR, zR)]);
       murs.push([S(x1, dF, z0), S(x1, dR, zR), S(x1, dF, zf)]);
@@ -466,6 +471,7 @@ export function facettesLucarnes(c: CorpsForme & { lucarnes?: readonly Lucarne[]
     }
     // Jacobine, meuniere, inconnue : deux pans et un petit pignon en facade ; capucine : une croupe en facade.
     const capucine = l.type === 'capucine' || l.type === 'outeau';
+    faces.push({ pan: n, s0: x0, s1: x1, t: n === 0 ? dF : W - dF, z0, z1: ze });
     if (capucine) {
       const dr = dF + demi;
       murs.push([S(x0, dF, z0), S(x1, dF, z0), S(x1, dF, ze), S(x0, dF, ze)]);
@@ -480,5 +486,5 @@ export function facettesLucarnes(c: CorpsForme & { lucarnes?: readonly Lucarne[]
     murs.push([S(x0, dF, z0), S(x0, dF, ze), S(x0, dE, ze)]);
     murs.push([S(x1, dF, z0), S(x1, dE, ze), S(x1, dF, ze)]);
   }
-  return { pans, murs };
+  return { pans, murs, faces };
 }

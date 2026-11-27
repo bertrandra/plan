@@ -1367,7 +1367,8 @@ jacobine ») : en travers de la bosse, sur le dessus médian de chaque tranche d
 passe le plus bas des deux bords d'au moins `CRETE_JACOBINE_M` (0,2 m). Sinon, un dessus qui monte vers l'intérieur du toit
 (`PENTE_RAMPANTE_MIN`, 0,5 m par mètre) est une rampante, et un dessus plat un chien-assis (`TYPE_LUCARNE_LUE`). La mesure est
 faible (trois ou quatre tranches par lucarne) : sur le banc, 21 lucarnes lues sur 22 sortent jacobines. Une photo ou un fait qui
-dit mieux l'emporte. Le dessin est celui du catalogue (`facettesLucarnes`), le même qu'une lucarne posée à la main.
+dit mieux l'emporte. Le dessin est celui du catalogue (`facettesLucarnes`), le même qu'une lucarne posée à la main ; sa face porte une fenêtre
+(`three/toitCorps3d.ts::ajouterFenetresLucarnes3d`, bornes `FENETRE_LUCARNE` : les pièces d'une fenêtre de façade, hors export).
 
 **Le même modèle.** Les lucarnes d'un même pan dont la largeur et la hauteur lues sont à `MEME_LUCARNE_M` (0,5 m, un pas de
 grille) de leurs médianes sont le même modèle (« la quantité est bien 3, et elles font la même taille ») : une seule largeur,
