@@ -1325,4 +1325,8 @@ chaque bâtiment. Un bâtiment dessiné « sur son contour » (contours de biais
 gardent chacun leur couleur. Le retour d'angle demande des toits symétriques et des hauteurs qui s'accordent ; sinon l'aile
 entre dans le pan sans croupe.
 
-Vérifié : `tests/unit/facade/toits/raccord.test.ts`. Version de lecture 10.
+**Un corps plus bas garde son toit** (27 novembre 2026, Hardencourt 6501003) : bout à bout, le corps ne prend le toit de celui
+qu'il prolonge que si leurs égouts se lisent aussi à la même hauteur (`MEME_EGOUT_M`). Le haut mesuré de son rectangle ne suffit
+pas : le toit du voisin, plus haut, y entre et le relève, alors que ses murs se lisent à leur hauteur (3,1 m contre 4,9 m).
+
+Vérifié : `tests/unit/facade/toits/raccord.test.ts`. Version de lecture 11.

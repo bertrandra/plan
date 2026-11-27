@@ -248,6 +248,10 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // porte (au coin, un retour d'angle : memes faitages, memes egouts, deux croupes) ; un corps qui en prolonge un autre en prend
   // le toit ; un pignon lu de moins de 2 m de large n'est plus dessine (LARGEUR_PIGNON_LU_MIN_M). Tout est relu.
   { version: 10, reglages: '789969b8', faits: '2427f5f5', formes: '83c56e39' },
+  // Un corps plus bas garde son toit (27 novembre 2026, Hardencourt 6501003 : « sur la partie droite le batiment est plus bas, il
+  // faut le respecter ») : bout a bout, un corps ne prend le toit de celui qu'il prolonge que si leurs egouts se lisent aussi a la
+  // meme hauteur (MEME_EGOUT_M). La version 10 l'avait releve de 3,1 a 4,9 m d'egout : tout est relu.
+  { version: 11, reglages: '789969b8', faits: '2427f5f5', formes: '83c56e39' },
 ];
 
 /**
