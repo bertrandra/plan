@@ -69,6 +69,9 @@ export const PIECES: readonly PieceCatalogue[] = [
   { id: 'facade:bow-conge', famille: 'facade', libelle: 'Bow arrondi', cachee: true },
   { id: 'facade:galerie', famille: 'facade', libelle: 'Galerie' },
   { id: 'facade:appentis-ferme', famille: 'facade', libelle: 'Appentis fermé' },
+  // L'auvent au-dessus d'une porte (une marquise sur consoles) : la saillie `auvent` que la lecture des photos posait deja (lot L1),
+  // offerte a la main par le parcours simple du mode (facade/modeToit/simple.ts, maquette du 27 novembre 2026).
+  { id: 'facade:auvent', famille: 'facade', libelle: 'Auvent' },
   // Une travee du mur regarde (schema 14) : un mur recule sous le toit, ou, sous un appentis, un garde-corps entre ses poteaux.
   { id: 'facade:travee', famille: 'facade', libelle: 'Travée' },
   // Un decroche au point touche (demande du proprietaire, novembre 2026) : la personne touche l'egout ou le mur, choisit le cote et la
@@ -412,7 +415,7 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     const surFacade = corpsDeLaFacade(o, facade), hote = choisi ?? (surFacade && !surFacade.saillie ? surFacade : corpsPourPoser(o));
     if (!hote || !o.batiment?.corpsToit) return false;
     const rang = o.batiment?.corpsToit.indexOf(hote);
-    const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : 'appentis';
+    const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : nom === 'auvent' ? 'auvent' : 'appentis';
     const forme: FormeSaillie = nom === 'bow-arc' ? 'arc' : nom === 'bow-conge' ? 'conge' : nom === 'bow-rectangle' ? 'rectangle' : genre === 'bow-window' ? 'pans' : 'rectangle';
     const d = DEFAUTS_SAILLIE[genre];
     const mur = hote === surFacade && facade ? facade.mur : murLibre(o.batiment?.corpsToit, rang);

@@ -15,21 +15,23 @@ const DEUX_PANS = EXEMPLES_TOITS.find((e) => e.id === 'deux-pans') as ExempleToi
 /**
  * La vignette d'un element de facade de la palette : un deux-pans, l'element pose contre son mur de devant. Elle est
  * calculee par les memes fonctions que la 3D (`corpsDeSaillie`, `facettesBowWindow`), pas dessinee a part.
- * `nom` : `bow-window` (pans coupes), `bow-rectangle`, `bow-arc`, `bow-conge`, `galerie`, `appentis-ferme`.
+ * `nom` : `bow-window` (pans coupes), `bow-rectangle`, `bow-arc`, `bow-conge`, `galerie`, `appentis-ferme`, `auvent`.
  */
 export function vueDeSaillie(nom: string): VueIso {
   // Le mur de la maison, une dalle mince et haute : l'element se lit mieux contre un mur seul que contre une maison entiere.
   const mur: ExempleToit = { id: 'mur', titre: 'Mur', famille: 'toit', corps: [{ corps: { posFaitage: 0.15, faitage: 3.4, egouts: [3.4, 3.4] }, w: 0.3, l: 7 }] };
   const hote = corpsDeLExemple(mur)[0];
   if (!hote) return { facettes: [], largeur: 0, hauteur: 0 };
-  const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : 'appentis';
+  const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : nom === 'auvent' ? 'auvent' : 'appentis';
   const forme: FormeSaillie = nom === 'bow-arc' ? 'arc' : nom === 'bow-conge' ? 'conge' : nom === 'bow-rectangle' || genre !== 'bow-window' ? 'rectangle' : 'pans';
   const d = DEFAUTS_SAILLIE[genre];
-  const profondeurM = genre === 'bow-window' ? (forme === 'arc' ? 2 : 1.6) : genre === 'galerie' ? 2 : 3;
-  const c = corpsDeSaillie(hote, { genre, hote: 0, mur: 2, centreM: 3.5, largeurM: genre === 'bow-window' ? 4 : 6.4, profondeurM, forme, niveau: d.niveau, toit: d.toit });
+  const profondeurM = genre === 'bow-window' ? (forme === 'arc' ? 2 : 1.6) : genre === 'galerie' ? 2 : genre === 'auvent' ? 1.4 : 3;
+  const c = corpsDeSaillie(hote, { genre, hote: 0, mur: 2, centreM: 3.5, largeurM: genre === 'bow-window' || genre === 'auvent' ? 4 : 6.4, profondeurM, forme, niveau: d.niveau, toit: d.toit });
   const f = facettesBowWindow(c);
   const toS = (q: Pt3) => ({ s: q.x, t: q.y, z: q.z });
   let murs = f.murs;
+  // Un auvent n'a ni mur ni poteau : sa dalle seule, contre le mur.
+  if (genre === 'auvent') murs = [];
   if (genre === 'galerie') {
     // Une galerie est ouverte : des poteaux sur son bord, pas de mur.
     const r = repere(c.pts), egout = c.egouts[0];

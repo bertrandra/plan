@@ -193,6 +193,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   'toit.dupliquer': partout('vue3d'),
   'toit.supprimer': partout('vue3d'),
   'toit.tourner': partout('vue3d'),
+  // Le parcours simple du volet « Modifier le toit » : la hauteur du faitage par pas et « Tourner » (facade/modeToit/simple.ts).
+  'toit.faitage': partout('vue3d'),
+  'toit.sens': partout('vue3d'),
   'toit.scinder': partout('vue3d'),
   'toit.fusionner': partout('vue3d'),
   'toit.retour': partout('vue3d'),

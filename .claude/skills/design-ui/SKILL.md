@@ -183,6 +183,11 @@ couleur hexadécimale ne traîne hors des blocs de jetons**.
 - Sections repliables : `<details>` avec chevron `›` qui pivote (voir `.inspecteurSection`). Dans
   l'inspecteur, **une seule section ouverte à la fois** : ouvrir l'une replie les autres
   (`zones/Inspecteur.tsx`, `replierLesAutres`).
+- **Le simple d'abord** (mode Toit, 27 novembre 2026) : un panneau qui a grandi montre peu de réglages, chacun dit en mots sur sa
+  ligne (titre, valeur, − et + ou un bouton à verbe), et range le reste derrière une entrée repliée « Plus de réglages »
+  (`<details>` piloté, replié à chaque ouverture). Rien n'est retiré, rien n'est dit deux fois : ce que le parcours simple offre
+  n'est pas redit dessous. Les actions qui ferment (Annuler, Valider, « Poser la lucarne ») sont au pied, hors du défilement, à
+  48 px. Modèle : `zones/vue3d/ModeToit.tsx`, `facade/modeToit/simple.ts`.
 - Boutons : `button` plein (`--ink`) pour l'action principale, `.secondary` pour le reste,
   `.small` pour les actions de ligne, `.danger` pour l'irréversible — toujours derrière une
   confirmation Z8.

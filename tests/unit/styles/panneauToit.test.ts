@@ -30,14 +30,33 @@ describe('le panneau du mode Toit sur la scene 3D', () => {
     expect(interieur.filter((r) => /background/.test(r.corps)).map((r) => r.selecteur)).toEqual([]);
   });
 
-  it('tout le contenu du panneau, hors la languette, est dans le defilement', () => {
-    const debut = tsx.indexOf('className={\'panneauToit\''), fin = tsx.indexOf('</>', debut);
+  it('tout le contenu du panneau, hors la languette et le pied, est dans le defilement', () => {
+    const debut = tsx.indexOf('className={\'panneauToit\''), fin = tsx.lastIndexOf('</>');
     const panneau = tsx.slice(debut, fin);
     const apresLanguette = panneau.slice(panneau.indexOf('</button>') + '</button>'.length);
-    // Le premier element ouvert apres la languette est le defilement ; la barre et le catalogue sont apres lui.
+    // Le premier element ouvert apres la languette est le defilement ; le titre, les reglages et « Plus de reglages » sont dedans.
     expect(apresLanguette.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').trimStart().startsWith('<div className="defilementToit">')).toBe(true);
-    expect(panneau.indexOf('defilementToit')).toBeLessThan(panneau.indexOf('barreToit'));
-    // Le catalogue (les formes de toit quand on modifie, les pieces quand on ajoute) est un composant pose dans les volets du panneau.
-    expect(panneau.indexOf('<CatalogueToit')).toBeGreaterThan(panneau.indexOf('defilementToit'));
+    const pied = panneau.indexOf('className="piedToit"');
+    for (const dedans of ['intentionToit', '<ModifierSimple', '<AjouterSimple', 'className="plusToit"', '<BarreSession', '<CatalogueToit']) {
+      expect(panneau.indexOf(dedans), dedans).toBeGreaterThan(panneau.indexOf('defilementToit'));
+      expect(panneau.indexOf(dedans), dedans).toBeLessThan(pied);
+    }
+    // Le pied (Annuler, Valider, « Poser la lucarne ») ne defile pas : il reste sous le pouce, et il n'a pas de defilement a lui.
+    expect(pied).toBeGreaterThan(panneau.indexOf('</details>'));
+    expect(sur('piedToit').filter((r) => defile(r.corps)).map((r) => r.selecteur)).toEqual([]);
+  });
+
+  it('« Plus de reglages » est replie a l ouverture : un <details> pilote par un etat qui part de faux et y revient a chaque session', () => {
+    expect(tsx).toMatch(/const \[plus, setPlus\] = useState\(false\)/);
+    expect(tsx).toMatch(/if \(!enSession\) setPlus\(false\)/);
+    expect(tsx).toMatch(/<details className="plusToit" open=\{plus\}/);
+    expect(tsx).toContain('<summary>Plus de réglages</summary>');
+  });
+
+  it('les cibles du parcours simple font 48 px', () => {
+    for (const classe of ['boutonPas', 'boutonPied', 'boutonTourner']) {
+      expect(sur(classe).some((r) => /(min-)?height\s*:\s*48px/.test(r.corps)), classe).toBe(true);
+    }
+    expect(regles.some((r) => /\.plusToit > summary$/.test(r.selecteur) && /min-height\s*:\s*48px/.test(r.corps))).toBe(true);
   });
 });

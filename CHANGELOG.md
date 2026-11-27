@@ -5,6 +5,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Mode Toit : le parcours simple** (maquette du 27 novembre 2026, « je veux du simple » ; `MD/spec-mode-toit-3d.md`,
+  « Le parcours simple, et “Plus de réglages” »).
+  - **La maison touchée** montre une carte (au téléphone, une feuille basse) : son nom, l'état de son toit en une ligne
+    (« Toit à deux pans · faîtage à 6,8 m ») et deux gros boutons à sous-titre, « Modifier le toit — Sa forme, sa hauteur, son
+    sens » et « Ajouter au toit — Lucarne, cheminée, auvent… ».
+  - **Modifier le toit** : trois réglages seulement. La **forme** (Plat, Un pan, Deux pans, Quatre pans ; celle en place marquée,
+    une forme rare en place reste montrée), la **hauteur du faîtage** par − et + de 10 cm (commande `toit.faitage`, la mesure du
+    LiDAR rappelée quand elle existe), le **sens du faîtage** et « Tourner » (commande `toit.sens`). « Annuler » et « Valider » au
+    pied du panneau.
+  - **Ajouter au toit** : six pièces (Lucarne, Fenêtre de toit, Cheminée, Auvent, Appentis, Galerie) ; on en choisit une, le
+    bouton du pied la pose et porte son nom (« Poser la lucarne »). Posée, sa largeur se règle par − et +.
+  - **L'auvent** (une marquise sur consoles au-dessus d'une porte) entre au catalogue du mode : `facade:auvent`, la saillie que
+    la lecture des photos posait déjà.
+
+### Modifié
+
+- **Mode Toit : tout le reste est rangé sous « Plus de réglages »**, replié à l'ouverture, dans chaque volet : la barre de la
+  session (défaire, rétablir, revenir au départ, isoler, les vues), les pastilles, les autres formes de toit (dont les trois
+  pans), l'inspecteur et les gestes d'un corps ou d'un élément (tourner, couper, retour d'angle, réunir, dupliquer, choisir le
+  mur), les Règles, et les autres pièces du catalogue (pignon, solaire, autres lucarnes, bow-window, travée, décroché, aile,
+  retour, biaise). **Rien n'est retiré** ; les quatre formes et les six pièces du parcours simple ne sont pas redites dessous.
+  « Retour : abandonner » et « Valider » quittent la barre pour le pied du panneau (« Annuler », « Valider »). L'indicateur posé
+  sur la scène ne reste que pendant une insertion : le titre du panneau et sa promesse disent si l'on modifie ou si l'on ajoute.
+  À la tablette, le panneau n'a plus de rail vertical.
+- Aucune quantité ni aucun export ne change ; AE 101 identique ; aucun champ nouveau dans le fichier.
+
 ## [5.41.1] — 2026-11-26
 
 Version **corrective** au sens de `MD/RELEASE.md` : les toits LiDAR « surréalistes » corrigés (#769 : un toit qui traversait
