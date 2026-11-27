@@ -251,6 +251,27 @@ AE 0098   dist 20,02 m  408 m²
 Le point d'adresse est à l'extérieur des **cinq** candidats : la règle 1 ne se déclenche
 jamais sur ce cas, et c'est bien la règle 2 qui donne le bon résultat.
 
+### A4.4 bis Zoom et déplacement dans l'aperçu (27 novembre 2026)
+
+L'aperçu des étapes 2 et 3 (et du résumé de l'import direct) s'agrandit et se déplace, pour
+toucher des parcelles petites ou nombreuses (voisinage étendu) :
+
+- molette centrée sur le pointeur, glisser à la souris ; pincer à deux doigts, glisser à un doigt ;
+  boutons « Agrandir », « Réduire », « Tout voir » de 44 px dans le coin de l'aperçu ; touches `+`
+  et `-` quand l'aperçu a le focus, sans raccourci global ;
+- bornes : jamais plus loin que le cadrage complet, jamais plus près que la largeur de la plus
+  petite parcelle cliquable (5 m au moins) ; la molette qui recule quand tout est vu fait défiler le
+  dialogue ;
+- un geste qui a bougé de plus de 6 px (ou un pincement) ne choisit ni ne bascule aucune parcelle ;
+  en deçà, c'est un toucher, qui choisit comme avant ;
+- traits, pointillés, étiquettes et point d'adresse sont divisés par le grossissement : leur
+  taille à l'écran ne change pas ; au cadrage complet, l'aperçu est celui d'avant ;
+- le zoom est gardé quand on choisit une autre parcelle et de l'étape 2 à l'étape 3 (ramené dans
+  le nouveau cadre complet), et repart de « tout voir » à une nouvelle adresse.
+
+Le calcul du cadre est dans `src/geometry/cadreApercu.ts` ; le cadre retenu vit dans l'état du
+parcours (`vueApercu`, `app/cadastre/importCadastre.ts`).
+
 ### A4.5 Sélection manuelle par clic
 
 Quand l'utilisateur clique une parcelle dans l'aperçu, on **ne devine pas** : on

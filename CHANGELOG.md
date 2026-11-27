@@ -5,6 +5,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Zoom et déplacement dans l'aperçu des parcelles de l'import par adresse** (demande du propriétaire : « je dois pouvoir zoomer
+  sur le plan pour sélectionner la ou les parcelles pendant les étapes »). Aux étapes 2 et 3 et dans le résumé de l'import direct :
+  molette centrée sur le pointeur et glisser à la souris, pincer et glisser au doigt, boutons « Agrandir », « Réduire » et « Tout
+  voir » de 44 px dans le coin de l'aperçu, touches `+` et `-` quand il a le focus. Le zoom s'arrête au cadrage complet et à la
+  largeur de la plus petite parcelle cliquable (5 m au moins). Un geste qui a bougé de plus de 6 px ne choisit ni ne bascule
+  aucune parcelle ; un toucher immobile choisit comme avant. Traits et étiquettes gardent leur taille à l'écran. Le zoom est
+  gardé d'une étape à l'autre et quand on change de parcelle, et repart de « tout voir » à une nouvelle adresse. Calcul du cadre
+  dans `geometry/cadreApercu.ts`, testé ; aucune quantité ni aucun export ne change.
+
 ## [5.43.1] — 2026-11-27
 
 Version **corrective** au sens de `MD/RELEASE.md` : elle corrige la 5.43.0 sans fonction nouvelle. Le propriétaire l'a vu à
