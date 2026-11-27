@@ -147,4 +147,14 @@ for (const [nom, px, py, dx, dy, dz] of VUES) {
   await page.waitForTimeout(2500);
   await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: S + 'village-' + NOM + '-' + nom + '.png' });
 }
+// ALTITUDES=1 : le sol de la scene au centre de chaque batiment de la parcelle du projet, et les altitudes de son faitage et de
+// ses egouts s'il etait pose la (une maison en plusieurs batiments se pose sur un seul sol, model/memeMaison.ts).
+if (process.env.ALTITUDES) console.log('altitudes', JSON.stringify(await page.evaluate(() => {
+  const s = window.__plan.scene3d();
+  if (!s.hauteurSol) return 'sol plat';
+  return window.__plan.etat().objects.filter((o) => o.fonction === 'batiment' && o.batiment?.corpsToit?.length && !o.voisinage).map((o) => {
+    const c = o.pts.reduce((a, q) => ({ x: a.x + q.x / o.pts.length, y: a.y + q.y / o.pts.length }), { x: 0, y: 0 }), sol = s.hauteurSol(c), k = o.batiment.corpsToit[0];
+    return { cle: o.key, sol: +sol.toFixed(2), faitage: +(sol + k.faitage).toFixed(2), egout: +(sol + k.egouts[0]).toFixed(2), toit: o.batiment.toit?.couleur, couverture: o.bdtopo?.materiauxToiture };
+  });
+})));
 await navigateur.close();

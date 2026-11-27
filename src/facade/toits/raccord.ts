@@ -151,6 +151,20 @@ export function raccorderLesToits(batiments: readonly ToitARaccorder[]): Map<str
     if (a === w || aire(w.r) > aire(a.r) || (aire(w.r) === aire(a.r) && (w.b < a.b || (w.b === a.b && w.k < a.k)))) continue;
     const p = prolonge(a, w);
     if (!p || !memeToit(a, w)) continue;
+    if (!w.c.pignons.length && !w.c.croupes) {
+      // Le meme batiment, aligne (le proprietaire, Hardencourt : « il s'agit du meme batiment qui est aligne ») : le corps prend
+      // la section du grand, mur pour mur - son rectangle retrace dans le repere du grand, colle a son bout -, donc la meme ligne
+      // de faitage et les memes lignes d'egout. Ses pignons et ses croupes, s'il en a, se comptent le long de son propre
+      // rectangle : il le garde alors, et ne prend que le faitage et les egouts.
+      const ss = w.c.pts.map((q) => local(a.r, q).s);
+      let s0 = Math.min(...ss), s1 = Math.max(...ss);
+      if (Math.abs(s0 - a.r.L) <= S.ACCOLE_M) s0 = a.r.L;
+      if (Math.abs(s1) <= S.ACCOLE_M) s1 = 0;
+      const P = (ps: number, pt: number): PtBrut => ({ x: cm(a.r.p0.x + a.r.u.x * ps + a.r.v.x * pt), y: cm(a.r.p0.y + a.r.u.y * ps + a.r.v.y * pt) });
+      poser(w, { ...w.c, pts: [P(s0, 0), P(s1, 0), P(s1, a.r.W), P(s0, a.r.W)], posFaitage: a.c.posFaitage, faitage: a.c.faitage, egouts: [a.c.egouts[0], a.c.egouts[1]] });
+      w.r = repere(w.c.pts);
+      continue;
+    }
     const egouts: [number, number] = p.memeOrdre ? [a.c.egouts[0], a.c.egouts[1]] : [a.c.egouts[1], a.c.egouts[0]];
     poser(w, { ...w.c, posFaitage: cm(p.pos), faitage: a.c.faitage, egouts });
   }

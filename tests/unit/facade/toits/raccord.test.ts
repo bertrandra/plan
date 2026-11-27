@@ -66,6 +66,16 @@ describe('le raccord en equerre', () => {
   });
 });
 
+describe('le raccord bout a bout', () => {
+  it('un corps qui en prolonge un autre, trace 60 cm a cote, s aligne sur lui mur pour mur : la meme ligne de faitage et d egout', () => {
+    // Le proprietaire (Hardencourt) : « il s'agit du meme batiment qui est aligne ».
+    const bout = [p(20.3, 0.6), p(26, 0.6), p(26, 6.4), p(20.3, 6.4)];
+    const r = raccorderLesToits([{ cle: 'a', corps: [corps(PRINCIPAL, 3, 7, 4)] }, { cle: 'w', corps: [corps(bout, 2.6, 6.7, 3.6)] }]);
+    expect(r.has('a')).toBe(false);
+    expect(r.get('w')![0]).toMatchObject({ pts: [p(20, 0), p(26, 0), p(26, 6), p(20, 6)], posFaitage: 3, faitage: 7, egouts: [4, 4] });
+  });
+});
+
 describe('une bosse etroite n est pas un pignon', () => {
   it('Hardencourt 6501004 : la longere n a plus de pignon de 1,5 m monte au faitage ; AE 101 garde les siens (2,0 et 2,9 m)', () => {
     const lire = (f: string) => { const d = JSON.parse(readFileSync(new URL(`../../../fixtures/toits/${f}.json`, import.meta.url), 'utf8')); return reconstruireCorps(d.toitMesure ?? toitMesureDepuisGrille(d.grille, d.contour)!, d.contour, { grille: d.grille })!; };

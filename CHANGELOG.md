@@ -16,6 +16,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   prolonge un autre en prend le toit. Un pignon lu par la mesure seule sur moins de 2 m de large (lucarne, cheminée) n'est plus
   dessiné jusqu'au faîtage (19 sur 76 dans les sept villages du banc ; ceux d'AE 101, 2,0 et 2,9 m, restent). Quatre seuils
   nommés ; version de lecture 10 (les toits sont relus). Aucun changement de schéma.
+  - **Une seule maison dans la Vue 3D** (`model/memeMaison.ts`) : les bâtiments raccordés se posent sur un seul sol (celui du
+    plus grand ; à Hardencourt ils étaient à +0,52, +0,42 et +0,11 m, soit 41 cm d'écart entre des faîtages égaux), portent la
+    couverture, la couleur de toit et la couleur de murs du plus grand sauf choix fait à la main, et un corps qui en prolonge
+    un autre s'aligne sur lui mur pour mur. Rien ne s'enregistre.
 - **Toits LiDAR : un toit est symétrique sauf preuve du contraire** (retours du propriétaire, 27 novembre 2026 : « je vois
   beaucoup de toits où le faîtage n'est pas centré » ; « la forme du toit est de la même hauteur à gauche et à droite, et
   faîtage centré » ; `MD/spec-toit-ign.md` §13.9, `facade/toits/toitCorps/centrage.ts`). Un toit a son faîtage dans l'axe de son

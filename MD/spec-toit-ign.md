@@ -1302,7 +1302,25 @@ lecture peut écrire ; aucun champ nouveau, le schéma ne change pas).
 d'Hardencourt, aucun corps ne change que par les pignons étroits retirés (19 sur 76 : Le Vésinet 4, Hardencourt 1,
 Hucqueliers 1, Gordes 1, Beuvron 3, Versailles 4, Eguisheim 5) ; formes et suspects identiques.
 
-**Limites.** Le raccord ne se fait que sur la parcelle du projet. Un bâtiment dessiné « sur son contour » (contours de biais,
+**Une seule maison, dans la scène** (`model/memeMaison.ts` ; le propriétaire, sur les captures : « j'ai l'impression que les deux
+toitures du L ne sont pas à la même hauteur » ; « il s'agit du même bâtiment qui est aligné »). Le modèle était juste (trois
+corps à 6,4 m de faîtage et 4,9 m d'égout), la scène non : chaque bâtiment se posait sur le sol lu en SON centre. À Hardencourt,
+relief affiché : l'aile à +0,52 m, la longère à +0,42 m, le corps du bout à +0,11 m, donc des faîtages à 6,92, 6,82 et 6,51 m
+et des égouts à 5,42, 5,32 et 5,01 m — 41 cm d'écart pour un même toit.
+
+- **Un seul sol.** Deux bâtiments de la parcelle du projet sont la même maison quand un corps de l'un touche un corps de l'autre
+  (`ACCOLE_M`) et qu'ils portent le même toit (même faîtage, mêmes égouts : ce que le raccord produit). La maison se pose sur
+  le sol au centre de son plus grand bâtiment (`pointDePose`) : toits, murs, fenêtres, photo d'un relevé (`three/sceneObjets.ts`)
+  et poignées du mode Toit (`altitudeDuBatiment`). Rien ne s'enregistre : la maison se déduit à chaque dessin.
+- **Un seul habit.** Chaque bâtiment de la maison prend la couverture, la couleur de toit et la couleur de murs du plus grand
+  (`habilleCommeSaMaison`), sauf ce que la personne a choisi à la main (couleur de toit sans origine, couverture choisie, source
+  de couleur des murs, couleur ou matériau vus sur place, texture de mur), jamais touché.
+- **Aligné.** Un corps qui en prolonge un autre bout à bout prend sa section mur pour mur (son rectangle retracé dans le repère
+  du grand, collé à son bout) : la même ligne de faîtage et les mêmes lignes d'égout. S'il porte des pignons ou des croupes, il
+  garde son rectangle et ne prend que le faîtage et les égouts.
+
+**Limites.** Le raccord ne se fait que sur la parcelle du projet. La surbrillance de l'audit lit encore le sol au centre de
+chaque bâtiment. Un bâtiment dessiné « sur son contour » (contours de biais,
 §13.7) découpe ses toits sur son propre contour : l'aile prolongée chez son voisin y serait coupée. Les murs des deux bâtiments
 gardent chacun leur couleur. Le retour d'angle demande des toits symétriques et des hauteurs qui s'accordent ; sinon l'aile
 entre dans le pan sans croupe.
