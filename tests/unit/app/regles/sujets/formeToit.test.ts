@@ -42,7 +42,7 @@ describe('la forme du toit proposée d’après Claude', () => {
     expect(corps.slice(1)).toEqual((o.batiment?.corpsToit as CorpsToit[]).slice(1));
     expect(p?.indices.map((i) => i.texte)).toEqual(expect.arrayContaining([
       'deux rampes jusqu’à un sommet (photo 1 de la façade)',
-      expect.stringMatching(/^Écart à la mesure LiDAR avec cette forme : 0,\d\d m \(aujourd’hui 0,35 m\)$/),
+      expect.stringMatching(/^Écart à la mesure LiDAR avec cette forme : 0,\d\d m \(aujourd’hui 0,37 m\)$/),
       'Écart avec le rendu : croupe à gauche, petit triangle de mur (le modèle dit : pignon à gauche)',
     ]));
     expect(p?.reserve).toMatch(/non encore mesuré/);
@@ -78,7 +78,7 @@ describe('la forme du toit proposée d’après Claude', () => {
     const { o, objets } = batiment();
     const p = forme(o, objets, 'plat');
     expect(p?.apres).toMatch(/^plat \(terrasse\)/);
-    expect(p?.indices.some((i) => /Écart à la mesure LiDAR avec cette forme : 0,58 m \(aujourd’hui 0,35 m\)/.test(i.texte))).toBe(true);
+    expect(p?.indices.some((i) => /Écart à la mesure LiDAR avec cette forme : 0,58 m \(aujourd’hui 0,37 m\)/.test(i.texte))).toBe(true);
     expect(cochesParDefaut([p as Proposition]).size).toBe(0);
   });
 });

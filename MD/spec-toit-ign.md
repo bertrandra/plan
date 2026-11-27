@@ -1168,3 +1168,72 @@ Vérifié : `tests/unit/model/aCheval.test.ts` (parts, débord, doute) et
 réponse, enchaînement des dialogues, lecture seule). Dans le navigateur, à Hucqueliers, deux
 annexes à cheval sur la parcelle du projet donnent chacune leur question. Au 2 allée des Limites
 (AE 101), aucune question n'est posée.
+
+### 13.9 Le faîtage est le haut du toit, au milieu sauf preuve du contraire
+
+*27 novembre 2026. Retours du propriétaire : « je vois beaucoup de toits où le faîtage n'est pas centré » ; « j'ai le cas sur
+AE 101 où un toit n'est pas centré et il devrait l'être » ; sur les cartes de hauteur d'Hardencourt-Cocherel : « le faîtage est
+centré dans la réalité ».*
+
+**Ce qui se passait.** Le modèle des corps (`toitCorps/ajustement.ts`) écarte ce qui dépasse le pan de plus de 40 cm : c'est ainsi
+qu'il voit les pignons, et c'est ainsi qu'il s'écrase. Sur un quatre-pans, un pavillon ou un deux-pans à lucarnes, un toit bas au
+faîtage poussé contre un mur colle mieux à *son* écart qu'un toit juste, parce que le vrai toit, qui dépasse, n'y compte presque
+pas. Un corps qui avait un pignon gardait le modèle sans comparaison (le « pignon » était parfois le toit entier, Le Vésinet
+229075 : faîtage à 5,4 m contre un mur, haut mesuré à 7,5 m) ; sans pignon, les formes simples ne l'emportaient que si elles
+lisaient des croupes. Au Vésinet (100 m autour d'AE 101), 34 corps de plus de 25 m² sur 105 avaient leur faîtage à 50 cm ou plus
+de l'axe, souvent 1 à 3 m. Le LiDAR, lui, est bien posé : la crête mesurée est à 24 cm de l'axe du contour en médiane.
+
+**La règle** (`facade/toits/toitCorps/centrage.ts::centreSaufPreuve`, la dernière question posée au toit d'un corps, après le
+modèle et les formes). Deux pans ont la même pente et se rejoignent au milieu.
+
+- **Hors de l'axe** : un faîtage à `DECENTRAGE_MIN_M` (0,5 m) ou plus du milieu de son corps, hors appentis et toit plat. Il se
+  **prouve**, par trois choses à la fois :
+  1. la **crête se lit** sur la mesure là où le modèle la met (`creteMesuree` : par profil en travers, la position du plus haut ;
+     au moins `CRETE_PROFILS_MIN` profils de `CRETE_RELIEF_MIN_M` de relief, dispersion sous `CRETE_DISPERSION_MAX_M`, crête à
+     `CRETE_ACCORD_M` du faîtage) ;
+  2. les deux pans ont la **même pente** (`RAPPORT_PENTES_EGALES`) : un vrai toit asymétrique a un grand pan qui descend plus
+     bas ; un faîtage hors de l'axe entre deux égouts de même hauteur, c'est un contour tracé à côté du toit ;
+  3. **aucun toit centré ne colle mieux**, à l'écart symétrique (`ecartAuCorps`).
+
+  Sans cette preuve, le toit centré l'emporte dès qu'il tient la mesure (`TOLERANCE_CENTRE`, `TOLERANCE_CENTRE_M`).
+- **Écrasé** : un faîtage à `ECRASEMENT_M` (1 m) ou plus sous le haut mesuré de son rectangle (95e centile). Le toit qui porte
+  le faîtage au moins `RELEVE_MIN_M` plus haut l'emporte si son écart symétrique tombe à `GAIN_ECRASE` : il atteint le haut et
+  colle mieux. Sinon le haut mesuré est un arbre, une tour, et le corps garde son toit.
+- **Les toits essayés** : le *même modèle* au faîtage imposé au milieu, pignons relus (`corpsImpose`, qui écarte désormais leurs
+  mesures) ; la lecture des formes simples sur le même rectangle, qui ne le remplace que si elle colle nettement mieux
+  (`GAIN_CROUPES`) ou, sans pignon à perdre, si elle lit des croupes à `TOLERANCE_CROUPES_CENTRE` près (un quatre-pans se lit en
+  quatre pans) ; et les mêmes dans l'autre sens, s'ils collent nettement mieux (`GAIN_SENS`).
+- **Tout se compare à l'écart symétrique.** L'écart du modèle compte peu ce qui dépasse le pan : il ne départage pas deux lectures.
+- **Un fait ne redéplace pas le faîtage.** Un pignon posé par un fait ou vu sur une photo (`facade/regles/toits/pignons.ts`) relit
+  les hauteurs du pan sans ses mesures, à la place de faîtage que la lecture a décidée ; cherchée de nouveau, elle repartait vers
+  un mur.
+
+**Ce qui reste hors de l'axe** : un appentis ; un vrai asymétrique prouvé (Le Vésinet 228945 : deux corps, faîtage à 1,1 et
+1,2 m de l'axe, pentes égales, un égout à 5,9 m et l'autre à 7,9 m) ; un corps dont aucun toit centré ne tient la mesure.
+
+**AE 101** (décision du propriétaire, la référence change une fois de plus) : ses trois corps du calcul ont leur faîtage dans
+l'axe.
+
+| Corps | Avant | Après |
+|---|---|---|
+| Principal, 9,9 × 6,5 m (calcul seul) | faîtage 7,5 m à 4,00 m, égouts 6,1 / 5,0 m, deux pignons | faîtage 7,6 m à 3,25 m, égouts 6,0 / 5,2 m, deux pignons |
+| Principal, sous ses faits | faîtage 7,6 m à 3,75 m, égouts 6,1 / 5,0 m, deux pignons de 3,7 m | faîtage 7,5 m à 3,25 m, égouts 6,1 / 5,1 m, deux pignons de 3,7 m |
+| Aile basse, 4,2 × 9,9 m | faîtage 4,3 m à 6,94 m, égouts 3,1 / 3,2 m | faîtage 4,1 m à 4,95 m, égouts 3,4 / 3,6 m |
+| Annexe nord, 5,9 × 7,8 m | faîtage 4,5 m à 5,02 m, égouts 2,7 / 3,1 m | faîtage 4,3 m à 3,89 m, égouts 2,5 / 3,4 m |
+
+L'appentis de la galerie et la bay window ne bougent pas.
+
+**Banc** (27 novembre 2026, captures du jour, bâtiments dont la forme change) : Le Vésinet 13 sur 58 (asymétrique → deux pans 7,
+→ croupes 2, → pavillon 2 ; un appentis écrasé relevé en deux pans ; un deux-pans relu en croupes) ; Hardencourt 5 sur 27 ;
+Hucqueliers 4 sur 69 ; Gordes 8 sur 152 ; Beuvron 11 sur 119 ; Versailles 8 sur 98 ; Eguisheim 15 sur 327. Les « → appentis »
+(8 en tout) sont des toits à un pan que le modèle lisait en deux pans au faîtage contre un mur. Les bâtiments lus « asymétrique »
+passent de 130 à 72 sur les sept villages (850 bâtiments). Le nombre de corps ne bouge pas (à un près dans trois villages).
+
+**Ce que la règle ne fait pas.** Quand le contour de la BD TOPO est tracé à côté du toit (Hardencourt 6501004 : 70 cm), le toit
+est dessiné centré sur le contour, donc 70 cm à côté de la crête mesurée. Le remède est de déplacer le bâtiment entier sur la
+mesure, comme le recalage (§13.7), dont le seuil (12 % de cellules non bâties sous le contour) ne voit pas un décalage de moins
+d'un mètre : un recalage fin par la crête, à faire.
+
+Vérifié : `tests/unit/facade/toits/faitageCentre.test.ts` (relevés réels du Vésinet et d'Hardencourt, toits de synthèse),
+`toitCorpsReprise.test.ts` (AE 101 au centimètre, à sa nouvelle référence), `identite.ts`. Version de lecture 9 : tous les
+toits sont relus.

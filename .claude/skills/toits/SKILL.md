@@ -23,6 +23,9 @@ sur le terrain (scripts de `scripts/`).
    Depuis le 14 octobre 2026, AE 101 porte un fait (la galerie de sa façade sud, `regles/toits/faits.json`,
    décision de l'utilisateur) : `identite.ts` compare le calcul seul à `corps` et le calcul sous ses
    faits à `corpsAvecFaits` (quatre corps, l'appentis en plus). Les deux doivent rester identiques.
+   **La référence a changé le 27 novembre 2026, par décision de l'utilisateur** (« un toit n'est pas centré et il devrait
+   l'être ») : ses trois corps ont leur faîtage dans l'axe (§3, « Centré sauf preuve du contraire » ; spec §13.9). L'impératif
+   reste : toute autre modification laisse AE 101 identique à cette référence.
 2. **Des règles générales, jamais un cas codé.** Une correction s'écrit comme une règle de couvreur,
    avec un seuil nommé et commenté. Le commentaire dit pourquoi et cite le cas qui l'a montrée
    (« Hucqueliers », « AE 98 »). On la valide sur plusieurs villages (§6), pas sur le seul bâtiment.
@@ -133,6 +136,14 @@ le calcul est entier et la grille est gardée. Plus loin, c'est la version **all
    (`PART_CONTENUE_MIN`) est retiré, sauf s'il colle à moins de 0,8 fois son écart (`GAIN_CONTENU`) ;
    de deux corps qui se contiennent, le moins fidèle part. Sans cela, des faîtages croisés sur un même
    bloc (Seyssins AO 202 : quatre toits de deux sens sur le corps à étage).
+
+10. **Centré sauf preuve du contraire** (`toitCorps/centrage.ts::centreSaufPreuve`, la dernière question, spec §13.9) : un
+   faîtage à 50 cm ou plus de l'axe se prouve par trois choses à la fois : la crête se lit sur la mesure là où il est
+   (`creteMesuree`), les deux pans ont la même pente (`RAPPORT_PENTES_EGALES` : le grand pan descend plus bas), et aucun toit
+   centré ne colle mieux à l'écart symétrique. Sinon le même modèle recentré l'emporte, pignons relus (les formes seulement si
+   elles collent nettement mieux, ou lisent des croupes sans pignon à perdre). Un faîtage à 1 m ou plus sous le haut mesuré
+   (95e centile) est **écrasé** : le toit qui l'atteint en collant mieux (`GAIN_ECRASE`) le relève. Un fait qui pose un pignon
+   ne redéplace pas le faîtage (`pignons.ts` relit les hauteurs à la place décidée).
 
 ### Contour de biais (reprise, `corpsDeReprise`)
 
@@ -557,6 +568,12 @@ fichier de promenade jusqu'à la PR. Mode d'essai : `?regles=local`, menu Admin 
 
 ## 8. Pièges déjà rencontrés
 
+- **Comparer deux lectures à l'écart du modèle** (`c.ecart`, asymétrique) : c'est lui qui écrasait les quatre-pans et poussait
+  les faîtages contre un mur (Le Vésinet, 34 corps sur 105). `ecartAuCorps` seulement. Et ne pas remplacer un corps à pignons par
+  la lecture des formes pour quelques centimètres : AE 101 y perdait ses deux pignons (`meilleurDesDeux`).
+- **Un contour tracé à côté du toit** (Hardencourt 6501004, 70 cm) donne une crête nette hors de l'axe entre deux égouts de même
+  hauteur : ce n'est pas un toit asymétrique. Le toit est centré sur le contour ; le remède (déplacer le bâtiment sur la mesure,
+  un recalage fin) reste à faire.
 - **Modifier `decouperParHauteur`** (centile bas → haut) change AE 101 : c'est refusé.
 - **Un ajustement de croupes dans le modèle des corps** était lent et donnait de mauvais résultats.
   Les croupes passent par les formes simples.

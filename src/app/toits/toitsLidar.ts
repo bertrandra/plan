@@ -236,6 +236,11 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // annexes basses est coupe a ses marches (model/toitMesure.ts, Seyssins AO 202 : un pan a 1,6 m d'egout) ; un corps contenu dans
   // un autre n'y pose plus un second toit (PART_CONTENUE_MIN, GAIN_CONTENU : quatre faitages croises sur une maison). Tout est relu.
   { version: 8, reglages: '0f395d8a', faits: '2427f5f5', formes: '83c56e39' },
+  // Le faitage est le haut du toit, et il est au milieu sauf preuve du contraire (27 novembre 2026, « je vois beaucoup de toits ou
+  // le faitage n'est pas centre », facade/toits/toitCorps/centrage.ts) : un faitage hors de l'axe se prouve par la crete lue, des
+  // pentes egales et aucun toit centre qui colle mieux ; un toit ecrase sous le haut mesure est releve ; un fait qui pose un pignon
+  // ne redeplace plus le faitage. AE 101 : ses trois corps centres (decision du proprietaire). Tout est relu.
+  { version: 9, reglages: '96757c9c', faits: '2427f5f5', formes: '83c56e39' },
 ];
 
 /**

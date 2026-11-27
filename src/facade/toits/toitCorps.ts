@@ -24,10 +24,12 @@ import type { CorpsToit, PtBrut, ToitMesure } from '../../model/types.js';
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../../regles/toits/reglages.js';
 import { cm, type Repere, repere, point, hauteurCorpsEn, type Grille, mesuresDans, corpsAvecPignons, meilleureCoupe } from './toitCorps/ajustement.js';
 import { hauteurGrille, corpsDepuisFormes, corpsDeReprise } from './toitCorps/reprise.js';
+import { centreSaufPreuve } from './toitCorps/centrage.js';
 import { coupeDemiCroupe } from './toitFormes.js';
 
 export { PAS_FAITAGE_M, PENTE_MAX_DEG, ECART_ABERRANT_M, DEPASSEMENT_GARDE_M, HAUTEUR_PLAT_M, PENTE_PLAT_DEG, PAN_MIN_M, GAIN_PAN_SUR_PLAT, SURPLUS_PIGNON_M, LARGEUR_PIGNON_MIN_M, LARGEUR_PIGNON_MAX_M, PROFONDEUR_PIGNON_MIN_M, TOLERANCE_FAITAGE_M, GAIN_COUPE, ECART_COUPE_MIN_M, DIFFERENCE_COUPE_M, LARGEUR_CORPS_MIN_M, MESURES_MIN, repere, point, hauteurCorps, planCroupe, hauteurCorpsEn, mesuresDans, empreintePignon, ajusterCorps, rectangleTourne, corpsImpose, detecterPignons, corpsAvecPignons, meilleureCoupe, type Repere, type Grille, type Mesure } from './toitCorps/ajustement.js';
 export { HAUTEUR_BATIE_M, contourEquerre, PART_VIDE_RECALAGE, DECALAGE_MAX_M, partVideSous, decalageSurMesure } from './toitCorps/recalage.js';
+export { creteMesuree, hautMesure, pentesEgales, centreSaufPreuve } from './toitCorps/centrage.js';
 export { GAIN_APPENTIS_SECOURS, corpsDepuisFormes, boiteOrientee, completerSurContour, corpsEtendu } from './toitCorps/reprise.js';
 
 /**
@@ -372,6 +374,12 @@ function memeSens(a: readonly PtBrut[], b: readonly PtBrut[]): boolean {
  */
 function avecCroupesSiMieux(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[], grille: Grille | null, modele: CorpsToit | null): CorpsToit | null {
   const f = corpsDepuisFormes(grille ?? m, rect);
+  // Puis la derniere question : un faitage hors de l'axe ou loin sous le haut mesure se prouve (toitCorps/centrage.ts).
+  return centreSaufPreuve(m, contour, selonLesFormes(m, contour, modele, f), f, (x) => ecartAuCorps(m, x, contour));
+}
+
+/** Le modele des corps ou la lecture des formes : le sens du faitage, puis des croupes plutot que des pignons de bout. */
+function selonLesFormes(m: ToitMesure, contour: readonly PtBrut[], modele: CorpsToit | null, f: CorpsToit | null): CorpsToit | null {
   let c = modele;
   // Les formes voient le faitage dans l'autre sens : leur toit, ou le modele refait dans ce sens
   // (pignons compris), l'emporte s'il explique nettement mieux la mesure (GAIN_SENS). L'ecart est

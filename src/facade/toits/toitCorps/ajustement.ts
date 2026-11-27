@@ -240,11 +240,12 @@ export const rectangleTourne = tourne;
  * Le toit d'un corps dont le faitage est impose en `p` (0 ou la largeur : un appentis), ajuste sur la
  * mesure, ou un toit plat a la mediane des mesures (`'plat'`). Rien n'y est choisi : c'est ce que
  * demande un fait (facade/regles/toits/faits.ts), qui restreint les formes et laisse la mesure donner les
- * hauteurs. Null sans assez de mesures ou sans toit plausible a cette position.
+ * hauteurs. `exclure` : des empreintes dont les mesures ne comptent pas (les pignons), comme pour `ajusterCorps` : le toit centre
+ * sauf preuve du contraire s'ajuste ainsi (toitCorps/centrage.ts). Null sans assez de mesures ou sans toit plausible a cette position.
  */
-export function corpsImpose(m: ToitMesure, pts: readonly PtBrut[], contour: readonly PtBrut[], p: number | 'plat'): CorpsToit | null {
+export function corpsImpose(m: ToitMesure, pts: readonly PtBrut[], contour: readonly PtBrut[], p: number | 'plat', exclure: readonly PtBrut[][] = []): CorpsToit | null {
   const r = repere(pts);
-  const ms = mesuresDans(m, r, pts, contour);
+  const ms = mesuresDans(m, r, pts, contour, exclure);
   if (ms.length < S.MESURES_MIN) return null;
   if (p === 'plat') {
     const z = dixieme([...ms.map((x) => x.z)].sort((a, b) => a - b)[Math.floor(ms.length / 2)] ?? 0);
