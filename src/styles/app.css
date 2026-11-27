@@ -444,6 +444,10 @@
     touch-action:none; overscroll-behavior:none; overflow:hidden; margin:6px 0 16px;
   }
   #stage svg, #stage svg *{ touch-action:none; }
+  /* Barre d'espace tenue (interaction/pointeur.ts) : glisser deplace la vue, meme sur un objet ; la main le dit. Les objets posent
+     leur curseur en ligne, d'ou l'important. */
+  #stage[data-espace] svg, #stage[data-espace] svg *{ cursor:grab !important; }
+  #stage[data-espace] svg:active, #stage[data-espace] svg:active *{ cursor:grabbing !important; }
   #fitBtn{
     position:absolute; left:10px; bottom:10px; z-index:5; display:inline-flex; align-items:center; gap:6px;
     font-family:var(--sans); font-size:0.82rem;

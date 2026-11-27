@@ -813,13 +813,17 @@ Un test vérifie que chacun de ces identifiants existe toujours dans le DOM mont
 
 ## Annexe E — Gestes conservés
 
-Sélection au clic ou au toucher ; désélection par reclic sur l'objet sélectionné ; glisser du corps
-(refusé si verrouillé ou en lecture seule, borné à la parcelle si contraint) ; glisser d'un sommet
+Sélection au clic ou au toucher bref (sous 5 px à la souris, 10 px au doigt :
+`interaction/choixGeste.ts`) ; désélection par reclic sur l'objet sélectionné ; **un glisser qui commence
+sur un objet non sélectionné déplace la vue** (27 novembre 2026), comme sur le corps d'un objet qui ne se
+déplace jamais (terrain, cadastre et IGN, verrouillé, lecture seule) ; glisser du corps de l'objet
+sélectionné (borné à la parcelle si contraint) ; glisser d'un sommet
 (coin figé, voisin figé, mode rectangle) ; glisser d'une arête ; poignée de rayon (≥ 0,15 m) ;
 double-clic ou double-tap sur une arête (insère un point, sauf point de vue) ; double-clic sur un
 sommet (figer ou libérer) ; double-clic sur un objet (reculer d'un plan) ; double-tap sur un autre
-élément du même objet (reculer) ; glisser du fond à la souris ou à un doigt (déplacer la vue) ;
-molette (zoom ×1,1, 6 à 220 px/m) ; pincement (zoom centré) ; trois doigts (déplacer) ; blocage des
+élément du même objet (reculer) ; glisser du fond à la souris ou à un doigt (déplacer la vue), au bouton du milieu, ou barre
+d'espace tenue quand le plan a le focus ; molette (zoom ×1,1, 6 à 220 px/m) ; pincement (zoom centré,
+le milieu des doigts suit la main) ; trois doigts (déplacer) ; blocage des
 gestes natifs sur `#stage` ; clic droit (comme aujourd'hui) ; mode Cote `ref` et `target` ; mode
 Aligner ; lecture seule ; Échap (menus, dialogues, import cadastre, invite, plein écran — plus, après
 migration, pointages, actualisation IGN, textures, feuilles) ; Ctrl/Cmd+Z ; Ctrl+S (après M7) ; en

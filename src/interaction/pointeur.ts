@@ -3,7 +3,8 @@
 // Tout ce qui se declenche au doigt ou a la souris passe par ici : selection, glisser-deposer,
 // double-clic, molette, pincement a deux doigts, deplacement a trois. Le CALCUL de chacun de ces
 // gestes vit ailleurs - `interaction/drag.ts` pour le glisser, `interaction/navigation.ts` pour la
-// vue - et ce module ne fait que decider lequel s'applique.
+// vue - et la DECISION de celui qui s'applique a l'appui, dans `interaction/choixGeste.ts` : un
+// glisser deplace la vue, sauf sur l'objet deja choisi ; un toucher bref choisit. Ce module cable.
 //
 // Deux details qui expliquent la forme du code, et qui viennent du terrain :
 //
@@ -17,7 +18,7 @@
 //   touche, a condition que le tap precedent ait vise le meme objet, au meme endroit.
 
 import { confirmerSelection } from '../core/selectionAccueil.js';
-import { parcelleDuProjet, estPoseSurLeTerrain } from '../model/fonctions.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
 import { toucherForme } from '../core/controleurObjets.js';
 import { apresDeformation } from '../core/deformation.js';
 import { clotureDe, poserAcces, synchroniserAnciensChamps, coteLePlusProche } from '../model/cloture.js';
@@ -29,7 +30,8 @@ import { contourDeContrainte } from './editing.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe } from './navigation.js';
 import { estRectangle } from '../geometry/rect.js';
 import { mesure } from './outilMesure.js';
-import { definirCibleAlignement, MESSAGE_TERRAIN_REEL } from './outilAlignement.js';
+import { definirCibleAlignement } from './outilAlignement.js';
+import { aGlisse, cibleDuRole, corpsMobile, deciderGeste, formeModifiable } from './choixGeste.js';
 import { avecAccordDeRetouche, MESSAGE_RETOUCHE_PERMISE } from './retoucheTerrain.js';
 import { retoucheADemander } from '../model/retouche.js';
 import type { EtatApp } from '../core/state.js';
@@ -38,10 +40,19 @@ import { aDesSommets } from '../model/formes.js';
 import { sommetDe } from '../geometry/anneau.js';
 
 /**
- * Le geste en cours vu par ce module : celui de `drag.ts`, plus le deplacement de la vue (pan a un
- * doigt), qui n'a ni objet ni position monde — il ecrit dans la scene, pas dans le plan.
+ * Un appui qui sera un toucher ou un glisser : tant que le pointeur reste sous le seuil
+ * (interaction/choixGeste.ts), rien ne bouge ; lache la, c'est un toucher, qui choisit l'objet
+ * (`choisir`) ou ne fait rien de plus (l'objet est deja choisi, et fixe). L'appui garde sa date et sa
+ * place : un double-clic se reconnait depuis elles, comme quand l'appui choisissait aussitot.
  */
-type Geste = GlisserEnCours | { type: 'pan'; startScreen: PtEcran; startOrigin: PtBrut }
+interface ToucherEnAttente { key: string; choisir: boolean; typePointeur: string; time: number; x: number; y: number; client: PtEcran }
+
+/**
+ * Le geste en cours vu par ce module : celui de `drag.ts`, plus le deplacement de la vue (pan a un
+ * doigt), qui n'a ni objet ni position monde — il ecrit dans la scene, pas dans le plan. `toucher` :
+ * le pan n'a pas encore passe le seuil, et un lacher maintenant est un toucher sur cet objet.
+ */
+type Geste = GlisserEnCours | { type: 'pan'; startScreen: PtEcran; startOrigin: PtBrut; toucher?: ToucherEnAttente }
   /** Un portail ou un portillon qu'on fait glisser le long de la cloture (interaction/glisserAcces.ts). */
   | { type: 'acces'; indice: number; decalage: number; moved: boolean };
 
@@ -180,43 +191,42 @@ type Issue = 'rien' | 'avale' | 'suite';
 
 const objetDe = (etat: EtatApp, key: string | null | undefined): ObjetPlan | undefined => etat.objects.find(o=>o.key===key);
 
-/** Le corps d'un objet : le selectionner, le reculer au double-clic, ou commencer a le deplacer. */
+/**
+ * Le double-clic sur le corps d'un objet (le double-tap au doigt, ou qu'il tombe) : l'objet recule d'un plan au lieu d'etre choisi ou
+ * deplace (le `dblclick` natif est inutilisable, le preventDefault de l'appui le supprime).
+ *
+ * Sur tactile, le doigt couvre plusieurs dizaines de pixels et les zones de capture des aretes font 16 px : le second tap atterrit
+ * souvent sur une arete ou une poignee de la meme forme, jamais sur son interieur. On l'accepte donc quel que soit l'element touche,
+ * si le tap precedent a vise le corps du MEME objet et au meme endroit — c'est ce test de proximite qui evite de le confondre avec un
+ * double-tap d'arete (insertion de sommet). A la souris, seul le corps compte : un double-clic sur un cote y insere un sommet.
+ */
+function doubleClicObjet(p: EtatPointeur, e: PointerEvent, ds: DOMStringMap): boolean {
+  const auDoigt = e.pointerType === 'touch';
+  if(!ds.key || ds.key !== p.clicObjet.key || !(auDoigt || ds.role === 'obj')) return false;
+  // Un double-tap au doigt est plus lent qu'un double-clic de souris (lever, reposer le doigt) : une fenetre reglee pour la souris le
+  // manquerait souvent. Et deux taps eloignes sur la meme forme ne sont pas un double-tap : c'est un deplacement d'intention. La
+  // souris, elle, ne saute pas entre deux clics.
+  if(Date.now() - p.clicObjet.time >= (auDoigt ? 600 : 400)) return false;
+  if(auDoigt && Math.hypot(e.clientX - p.clicObjet.x, e.clientY - p.clicObjet.y) >= 35) return false;
+  p.clicObjet = CLIC_OBJET_VIDE;
+  p.clicCote = CLIC_VIDE;
+  p.clicSommet = CLIC_VIDE;
+  const recule = objetDe(p.etat, ds.key);
+  // Reculer un objet change l'ordre d'empilement, qui fait partie du projet : la lecture seule le refuse (D-18).
+  if(recule && !p.etat.lectureSeule) p.ctx.sendObjectBackward(recule);
+  return true;
+}
+
+/** Le corps de l'objet choisi, qui peut bouger (interaction/choixGeste.ts l'a dit) : commencer a le deplacer. */
 function surObjet(p: EtatPointeur, e: PointerEvent, ds: DOMStringMap, w: PtBrut): Issue {
   const { etat, ctx } = p;
   const key = ds.key;
   if(!key) return 'rien';
-  const nowObj = Date.now();
-  // Un double-tap au doigt est plus lent qu'un double-clic de souris (lever, reposer le doigt) :
-  // une fenetre reglee pour la souris le manquerait souvent.
-  const dblWindow = e.pointerType==='touch' ? 600 : 400;
-  // Au doigt, deux taps eloignes sur la meme forme ne sont pas un double-tap : c'est un
-  // deplacement d'intention. La souris, elle, ne saute pas entre deux clics.
-  const memeEndroit = e.pointerType!=='touch' ||
-    Math.hypot(e.clientX-p.clicObjet.x, e.clientY-p.clicObjet.y) < 35;
-  if(p.clicObjet.key===key && (nowObj-p.clicObjet.time)<dblWindow && memeEndroit){
-    // Second clic rapide sur le meme objet : il recule d'un plan au lieu d'etre selectionne ou
-    // deplace (le `dblclick` natif est inutilisable, le preventDefault plus bas le supprime).
-    p.clicObjet = CLIC_OBJET_VIDE;
-    const objDbl = objetDe(etat, key);
-    if(!objDbl) return 'avale';
-    // Reculer un objet change l'ordre d'empilement, qui fait partie du projet : c'est une
-    // modification comme une autre, et la lecture seule la refuse comme les autres.
-    if(!etat.lectureSeule) ctx.sendObjectBackward(objDbl);
-    return 'avale';
-  }
-  p.clicObjet = {key, time:nowObj, x:e.clientX, y:e.clientY};
-  if(key !== etat.selectedKey){
-    etat.selectedKey = key; etat.highlight = {type:null, index:null}; ctx.rebuildSelector(); ctx.render();
-    return 'avale';
-  }
+  p.clicObjet = {key, time:Date.now(), x:e.clientX, y:e.clientY};
   const obj = objetDe(etat, key);
-  if(!obj || obj.locked) return 'rien'; // verrouille : se selectionne et se lit, mais ne bouge pas
-  // Pose sur le terrain reel (cadastre, IGN) : il se selectionne, il ne se deplace pas (interaction/outilAlignement.ts).
-  if(estPoseSurLeTerrain(obj)){ ctx.signaler?.(MESSAGE_TERRAIN_REEL); return 'rien'; }
-  // Lecture seule : on selectionne, on regarde, on exporte — on ne deplace rien. Le refus est ici,
-  // avant l'historique, pour qu'aucun pas d'annulation ne soit empile pour un geste qui n'aura pas lieu.
-  if(etat.lectureSeule) return 'rien';
+  if(!obj || !corpsMobile(obj, etat.lectureSeule)) return 'rien';
   etat.highlight = {type:null, index:null};
+  // Le pas d'annulation se prend a l'appui, comme avant : un clic sans glisser deselectionne l'objet, sans rien ecrire.
   ctx.pushHistory(obj);
   p.geste = obj.type==='circle'
     ? {type:'circleMove', obj, startWorld:w, startCenter:{...obj.center}, moved:false}
@@ -321,25 +331,6 @@ function surRayon(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   return 'suite';
 }
 
-/**
- * Sur tactile, le doigt couvre plusieurs dizaines de pixels et les zones de capture des aretes
- * font 16 px : le second tap d'un double-tap atterrit souvent sur une arete ou une poignee de la
- * meme forme, jamais sur son interieur. On l'accepte donc quel que soit l'element touche, si le tap
- * precedent a vise le corps du MEME objet et au meme endroit — c'est ce test de proximite qui
- * evite de le confondre avec un double-tap d'arete (insertion de sommet).
- */
-function doubleTapObjet(p: EtatPointeur, e: PointerEvent, ds: DOMStringMap): boolean {
-  if(!(e.pointerType === 'touch' && ds.key && ds.key === p.clicObjet.key &&
-       (Date.now() - p.clicObjet.time) < 600 &&
-       Math.hypot(e.clientX - p.clicObjet.x, e.clientY - p.clicObjet.y) < 35)) return false;
-  p.clicObjet = CLIC_OBJET_VIDE;
-  p.clicCote = CLIC_VIDE;
-  p.clicSommet = CLIC_VIDE;
-  const recule = objetDe(p.etat, ds.key);
-  if(recule && !p.etat.lectureSeule) p.ctx.sendObjectBackward(recule); // la lecture seule refuse le recul (D-18)
-  return true;
-}
-
 /** Le point de depart d'un pan a trois doigts : la moyenne des positions, et l'origine de la scene. */
 interface DebutPan { avg0: PtEcran; origin0: PtEcran }
 
@@ -405,6 +396,36 @@ function brancherGestesDeVue(svg: SVGElement, stage: HTMLElement, etat: EtatApp,
   window.addEventListener('pointercancel', clearMulti);
 }
 
+/** Un champ ou l'espace s'ecrit : la barre d'espace y reste a la saisie. */
+const estChampDeSaisie = (el: EventTarget | null): boolean =>
+  el instanceof Element && (el.matches('input, textarea, select') || (el as HTMLElement).isContentEditable === true);
+
+/**
+ * La barre d'espace tenue : glisser deplace alors la vue, ou que ce soit sur le plan (comme dans les logiciels de dessin). Pas de
+ * raccourci global : seulement quand le plan est a l'ecran et que le focus n'est ni dans un champ, ni sur une commande (un bouton
+ * focalise s'actionne a l'espace, il garde ce geste).
+ */
+function brancherEspace(stage: HTMLElement): { tenue: () => boolean } {
+  let tenue = false;
+  const lacher = (): void => { tenue = false; delete stage.dataset.espace; };
+  const pourLePlan = (e: KeyboardEvent): boolean => {
+    if(e.code !== 'Space' || e.ctrlKey || e.metaKey || e.altKey) return false;
+    if(!stage.getClientRects().length) return false;
+    const actif = document.activeElement;
+    const libre = !actif || actif === document.body || actif === document.documentElement || stage.contains(actif);
+    return libre && !estChampDeSaisie(e.target) && !estChampDeSaisie(actif);
+  };
+  window.addEventListener('keydown', e=>{
+    if(!pourLePlan(e)) return;
+    // L'espace ferait defiler la page : le plan le prend, une fois par appui.
+    e.preventDefault();
+    if(!tenue){ tenue = true; stage.dataset.espace = ''; }
+  });
+  window.addEventListener('keyup', e=>{ if(e.code === 'Space') lacher(); });
+  window.addEventListener('blur', lacher);
+  return { tenue: () => tenue };
+}
+
 /**
  * Branche tous les evenements de pointeur sur le plan.
  *
@@ -418,22 +439,40 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
     return ctx.toWorld({x:e.clientX-rect.left, y:e.clientY-rect.top});
   };
 
+  const ecran = (e: PointerEvent): PtEcran => { const r = stage.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+  /** Deplacer la vue depuis cet appui ; `toucher` : un lacher sous le seuil sera un toucher sur cet objet. */
+  const commencerPan = (e: PointerEvent, toucher?: ToucherEnAttente): void => {
+    p.geste = {type:'pan', startScreen:ecran(e), startOrigin:{...etat.scene.origine}, ...(toucher ? {toucher} : {})};
+    e.preventDefault();
+  };
+  const espace = brancherEspace(stage);
+
   svg.addEventListener('pointerdown', e=>{
-    const ds = (e.target as HTMLElement).dataset;
+    const ds = (e.target as HTMLElement).dataset ?? {};
+    // Un acces de la cloture ne porte pas de cle : il appartient a la parcelle du projet (render/cloture.ts).
+    const obj = ds.role === 'acces' ? parcelleDuProjet(etat.objects) : objetDe(etat, ds.key);
+    const decision = deciderGeste({
+      cible: obj ? cibleDuRole(ds.role) : 'vide', bouton: e.button ?? 0, espace: espace.tenue(), outilEnCours: !!mesure.pointage,
+      lectureSeule: etat.lectureSeule,
+      objet: obj ? { choisi: obj.key === etat.selectedKey, corpsMobile: corpsMobile(obj, etat.lectureSeule), formeModifiable: formeModifiable(obj, etat.lectureSeule) } : undefined
+    });
+    if(decision === 'rien') return;
     // ---- Outil de cotation / d'alignement : tant qu'on designe un cote ou un point, le clic lui revient
-    if(mesure.pointage){ pointerPourLaMesure(ds, etat, ctx, worldFromEvent(e)); e.preventDefault(); return; }
-    if(!ds || !ds.role){
-      // Un clic ou un glisser sur le fond (grille, plan vide) deplace la vue.
-      const rect = stage.getBoundingClientRect();
-      p.geste = {type:'pan', startScreen:{x:e.clientX-rect.left, y:e.clientY-rect.top}, startOrigin:{...etat.scene.origine}};
-      e.preventDefault();
-      return;
-    }
-    const w = worldFromEvent(e);
+    if(decision === 'outil'){ pointerPourLaMesure(ds, etat, ctx, worldFromEvent(e)); e.preventDefault(); return; }
+    // Le bouton du milieu, l'espace tenue, le vide : la vue, sans autre effet.
+    if(!obj || e.button === 1 || espace.tenue()){ commencerPan(e); return; }
+    // Le double-clic (le double-tap) sur un objet le recule, qu'il soit choisi ou non, mobile ou fixe.
+    if(doubleClicObjet(p, e, ds)){ e.preventDefault(); return; }
+    const toucher = (choisir: boolean): ToucherEnAttente =>
+      ({ key: obj.key, choisir, typePointeur: e.pointerType, time: Date.now(), x: e.clientX, y: e.clientY, client: {x:e.clientX, y:e.clientY} });
+    // Un objet qui n'est pas choisi : un glisser deplace la vue, un toucher le choisit (au lacher).
+    if(decision === 'vueOuChoix'){ commencerPan(e, toucher(true)); return; }
     // Un geste sur l'objet deja choisi (le glisser, tirer un sommet) : la personne se sert de la selection posee a l'ouverture, elle
     // est a elle et la Vue 3D la gardera (core/selectionAccueil.ts).
     if(ds.key && ds.key === etat.selectedKey) confirmerSelection(etat);
-    if(doubleTapObjet(p, e, ds)){ e.preventDefault(); return; }
+    // L'objet choisi mais fixe (le terrain, le terrain reel, verrouille, la lecture seule) : la vue ; un toucher n'y change rien.
+    if(decision === 'vue'){ commencerPan(e, ds.key ? toucher(false) : undefined); return; }
+    const w = worldFromEvent(e);
     const issue: Issue =
       ds.role === 'obj' ? surObjet(p, e, ds, w)
       : ds.role === 'point' ? surSommet(p, ds, w)
@@ -441,11 +480,14 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
       : ds.role === 'radius' ? surRayon(p, ds, w)
       : ds.role === 'acces' ? surAcces(p, ds, w)
       : 'suite';
-    if(issue === 'rien') return;
+    // Le geste propre n'a pas lieu (un coin gele) : glisser ailleurs que sur ce qui bouge deplace la vue.
+    if(issue === 'rien'){ commencerPan(e); return; }
     if(issue === 'avale'){ e.preventDefault(); return; }
     if(p.geste) e.preventDefault();
     ctx.render();
   });
+  // Le bouton du milieu : sans cela, Windows ouvre son defilement automatique sur le plan.
+  svg.addEventListener('mousedown', e=>{ if(e.button === 1) e.preventDefault(); });
 
   window.addEventListener('pointermove', e=>{
     const geste = p.geste;
@@ -453,8 +495,13 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
     // Le deplacement de la vue n'est pas un glisser d'objet : il ecrit dans la scene, pas dans le
     // plan, et passe donc par interaction/navigation.ts.
     if(geste.type === 'pan'){
-      const rect = stage.getBoundingClientRect();
-      const cur = {x:e.clientX-rect.left, y:e.clientY-rect.top};
+      const t = geste.toucher;
+      if(t){
+        // Sous le seuil, c'est peut-etre encore un toucher : la vue ne bouge pas. Au-dela, elle rattrape le pointeur d'un coup.
+        if(!aGlisse(e.clientX - t.client.x, e.clientY - t.client.y, t.typePointeur)) return;
+        delete geste.toucher;
+      }
+      const cur = ecran(e);
       const avant = etat.scene;
       etat.scene = deplacer(etat.scene, geste.startOrigin, geste.startScreen, cur);
       vueChangee(ctx, avant);
@@ -485,6 +532,17 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
   });
   window.addEventListener('pointerup', ()=>{
     const geste = p.geste;
+    if(geste && geste.type === 'pan'){
+      p.geste = null;
+      const t = geste.toucher;
+      if(!t) return;
+      // Un toucher, pas un glisser : il compte pour un double-clic, et choisit l'objet s'il ne l'etait pas.
+      p.clicObjet = {key:t.key, time:t.time, x:t.x, y:t.y};
+      if(t.choisir && objetDe(etat, t.key)){
+        etat.selectedKey = t.key; etat.highlight = {type:null, index:null}; ctx.rebuildSelector(); ctx.render();
+      }
+      return;
+    }
     if(geste && geste.type === 'acces'){
       // La 3D et l'inspecteur suivent une fois le geste fini, pas a chaque image.
       if(geste.moved){

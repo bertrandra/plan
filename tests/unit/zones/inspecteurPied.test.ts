@@ -68,7 +68,8 @@ describe('le pied de l inspecteur', () => {
       const pli = m.hote.querySelector<HTMLDetailsElement>('.inspecteurPied details.gestesPlan')!;
       expect(pli.open).toBe(false);
       expect(pli.querySelector('summary')?.textContent).toBe('Gestes sur le plan');
-      expect(pli.querySelector('p.hint')?.textContent).toContain('Glissez un point');
+      // La regle des gestes du 27 novembre 2026 : choisir d'abord, puis glisser ; glisser ailleurs deplace la vue.
+      expect(pli.querySelector('p.hint')?.textContent).toMatch(/(Touchez|Cliquez) un objet pour le choisir, puis faites-le glisser\. Glissez ailleurs pour vous déplacer/);
       expect(m.hote.querySelectorAll('.inspecteurPied > p.hint:not(.refusPied)').length).toBe(0);
       act(() => m.racine.unmount()); m.hote.remove();
     }
