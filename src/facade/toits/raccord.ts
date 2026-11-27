@@ -51,6 +51,13 @@ const memeFaitage = (a: Place, b: Place): boolean => Math.abs(a.c.faitage - b.c.
  * a 6,4 m). En equerre, le haut mesure d'un rectangle n'est pas son faitage (le toit du voisin y entre) : il ne prouve rien.
  */
 const memeToit = (a: Place, b: Place): boolean => memeFaitage(a, b) || (a.haut !== null && b.haut !== null && Math.abs(a.haut - b.haut) <= S.MEME_FAITAGE_M);
+/**
+ * Deux corps dont les egouts se lisent a la meme hauteur, a MEME_EGOUT_M pres. Un corps plus bas que celui qu'il prolonge n'est
+ * pas le meme toit, meme quand le haut mesure de son rectangle dit le contraire : le toit du voisin, plus haut, entre dans son
+ * rectangle et en releve le haut, mais ses murs, eux, se lisent a leur hauteur (le proprietaire, Hardencourt 6501003, 27 novembre
+ * 2026 : « sur la partie droite le batiment est plus bas, il faut le respecter » ; ses egouts se lisent a 3,1 m contre 4,9 m).
+ */
+const memesEgouts = (a: Place, b: Place): boolean => Math.abs(Math.min(...a.c.egouts) - Math.min(...b.c.egouts)) <= S.MEME_EGOUT_M && Math.abs(Math.max(...a.c.egouts) - Math.max(...b.c.egouts)) <= S.MEME_EGOUT_M;
 /** Le corps a la hauteur de faitage `F`, s'il reste un toit : son faitage au-dessus de ses egouts. */
 const auFaitage = (c: CorpsToit, F: number): CorpsToit | null => (F - Math.max(...c.egouts) >= S.HAUTEUR_PLAT_M ? { ...c, faitage: F, pignons: c.pignons.map((g) => (g.faitage > F ? { ...g, faitage: F } : g)) } : null);
 
@@ -150,7 +157,8 @@ export function raccorderLesToits(batiments: readonly ToitARaccorder[]): Map<str
   for (const a of places) for (const w of places) {
     if (a === w || aire(w.r) > aire(a.r) || (aire(w.r) === aire(a.r) && (w.b < a.b || (w.b === a.b && w.k < a.k)))) continue;
     const p = prolonge(a, w);
-    if (!p || !memeToit(a, w)) continue;
+    // Le meme toit : memes faitages (ou memes hauts mesures) ET memes egouts. Un corps plus bas garde son toit.
+    if (!p || !memeToit(a, w) || !memesEgouts(a, w)) continue;
     if (!w.c.pignons.length && !w.c.croupes) {
       // Le meme batiment, aligne (le proprietaire, Hardencourt : « il s'agit du meme batiment qui est aligne ») : le corps prend
       // la section du grand, mur pour mur - son rectangle retrace dans le repere du grand, colle a son bout -, donc la meme ligne

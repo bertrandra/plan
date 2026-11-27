@@ -76,6 +76,17 @@ describe('le raccord bout a bout', () => {
   });
 });
 
+describe('un corps plus bas garde son toit', () => {
+  it('au bout d un corps, un batiment aux murs plus bas n en prend ni le faitage ni les egouts, meme si le haut mesure de son rectangle le dit aussi haut', () => {
+    // Le proprietaire (Hardencourt 6501003) : « sur la partie droite le batiment est plus bas, il faut le respecter ».
+    const bout = [p(20.3, 0.6), p(26, 0.6), p(26, 6.4), p(20.3, 6.4)];
+    const bas = corps(bout, 2.9, 5.8, 3.1);
+    // Le toit du grand corps entre dans le rectangle du petit : son haut mesure (6,9 m) est celui du voisin, pas le sien.
+    const r = raccorderLesToits([{ cle: 'a', corps: [corps(PRINCIPAL, 3, 7, 4)], hauts: [7] }, { cle: 'w', corps: [bas], hauts: [6.9] }]);
+    expect(r.size).toBe(0);
+  });
+});
+
 describe('une bosse etroite n est pas un pignon', () => {
   it('Hardencourt 6501004 : la longere n a plus de pignon de 1,5 m monte au faitage ; AE 101 garde les siens (2,0 et 2,9 m)', () => {
     const lire = (f: string) => { const d = JSON.parse(readFileSync(new URL(`../../../fixtures/toits/${f}.json`, import.meta.url), 'utf8')); return reconstruireCorps(d.toitMesure ?? toitMesureDepuisGrille(d.grille, d.contour)!, d.contour, { grille: d.grille })!; };

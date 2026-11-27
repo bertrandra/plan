@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Toits LiDAR : un corps plus bas garde son toit** (retour du propriétaire, 27 novembre 2026, Hardencourt : « sur la partie
+  droite le bâtiment est plus bas, il faut le respecter, ce n'est pas un L »). Bout à bout, un corps ne prend plus le toit de celui
+  qu'il prolonge sur la seule foi du haut mesuré de son rectangle, que le toit du voisin, plus haut, relève : il faut aussi que
+  leurs égouts se lisent à la même hauteur (`MEME_EGOUT_M`, 50 cm). Le bâtiment du bout (6501003), lu à 5,8 m de faîtage et 3,1 m
+  d'égout, n'est plus relevé à 6,4 et 4,9 m ; le corps principal et son aile en équerre restent raccordés. Version de lecture 11
+  (les toits sont relus). `facade/toits/raccord.ts`, `tests/unit/facade/toits/raccord.test.ts`.
 - **Toits LiDAR : une maison en L a un seul toit** (retours du propriétaire, 27 novembre 2026, 11 route du Guesclin à
   Hardencourt-Cocherel : « une maison en L avec des faîtages centrés, les deux corps fusionnent, je vois des pièces bizarres » ;
   `MD/spec-toit-ign.md` §13.10, `facade/toits/raccord.ts`). Sur la parcelle du projet, une aile en équerre contre un autre corps
