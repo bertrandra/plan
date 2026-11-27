@@ -46,6 +46,7 @@ import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { AdresseRecherchee, ImportCadastral } from '../../geo/cadastreObjets.js';
 import type { ObjetPlan, PtBrut, ZonagePlu } from '../../model/types.js';
 import type { ProjetValide } from '../../io/validation.js';
+import type { Cadre } from '../../geometry/cadreApercu.js';
 
 // Les erreurs du reseau en clair (util/erreurReseau.ts) : le sujet de la phrase, puis ce que la personne peut faire.
 const ADRESSES_IGN = 'Le service d’adresses de l’IGN';
@@ -146,6 +147,13 @@ export interface EtatImportCadastre {
   saisie: boolean;
   /** Ou en est la lecture de la position de l'appareil (« Utiliser ma position »). */
   position: EtatPosition;
+  /**
+   * Le cadre de l'apercu agrandi par la personne (geometry/cadreApercu.ts), `null` pour tout voir.
+   * Une preference d'affichage : garde d'une etape a l'autre et quand on change de parcelle (le
+   * cadre reste sur ce qu'on regardait, ramene dans le nouveau complet), remis a `null` par une
+   * nouvelle adresse, dont les lots n'ont plus rien de commun avec les precedents.
+   */
+  vueApercu: Cadre | null;
 }
 
 /**
@@ -205,6 +213,12 @@ export interface ImportCadastre {
   cocherMitoyennes(): void;
   toutDecocher(): void;
   survoler(idu: string | null): void;
+  /**
+   * Le cadre de l'apercu, que l'apercu tient a jour pendant ses gestes. Sans `signaler` : seul
+   * l'apercu le lit, et il se redessine lui-meme ; tout le dialogue a chaque cran de molette serait
+   * du travail pour rien.
+   */
+  reglerVueApercu(cadre: Cadre | null): void;
   basculerSimplifier(actif: boolean): void;
   basculerCaseIgn(cle: CaseIgn, actif: boolean): void;
   /** Le voisinage etendu : le demander lit le disque au palier du curseur, en plusieurs requetes. */
@@ -482,6 +496,8 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
   async function choisirAdresse(sug: AdresseRecherchee): Promise<void> {
     e.geo = sug;
     e.resumePret = false;
+    // Une autre adresse, d'autres lots : l'apercu repart de tout voir.
+    e.vueApercu = null;
     occuper(true, 'Recherche de la parcelle…');
     try {
       const pr = projecteurLocal(sug.lat, sug.lon);
@@ -621,7 +637,7 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
 }
 
 type GestesSelection = Pick<ImportCadastre, 'choisirPrincipale' | 'basculerVoisine' | 'basculerPropriete' | 'cocherMitoyennes'
-  | 'toutDecocher' | 'survoler' | 'basculerSimplifier' | 'basculerCaseIgn' | 'basculerVoisinageEtendu' | 'reglerRayonEtendu' | 'basculerAfficherEtendu'
+  | 'toutDecocher' | 'survoler' | 'reglerVueApercu' | 'basculerSimplifier' | 'basculerCaseIgn' | 'basculerVoisinageEtendu' | 'reglerRayonEtendu' | 'basculerAfficherEtendu'
   | 'basculerImportDirect' | 'allerA'>;
 
 /** Etapes 2 et 3 : la parcelle principale, les voisines, la propriete, les couches a importer. */
@@ -661,6 +677,7 @@ function gestesSelection(n: Noyau, ch: Chargements): GestesSelection {
     cocherMitoyennes() { e.adjacentes.forEach(c => e.selection.add(c.idu)); signaler(); },
     toutDecocher() { e.selection.clear(); signaler(); },
     survoler(idu) { if (e.survol !== idu) { e.survol = idu; signaler(); } },
+    reglerVueApercu(cadre) { e.vueApercu = cadre; },
     basculerSimplifier(actif) {
       e.simplifier = actif;
       // Retour a la geometrie source : re-projeter depuis les anneaux WGS84 conserves, plutot que de
@@ -820,7 +837,8 @@ export function creerImportCadastre(ctx: ContexteImportCadastre, fermer: () => v
     propriete: new Set(),
     voisinageEtendu: false, rayonEtendu: RAYON_ETENDU_DEFAUT_M, etenduMax: null, afficherEtendu: true,
     importDirect: importDirectMemorise(), resumePret: false,
-    saisie: false, position: { etat: 'aucune', adresse: '', precisionM: null }
+    saisie: false, position: { etat: 'aucune', adresse: '', precisionM: null },
+    vueApercu: null
   };
   let version = 0;
   const abonnes = new Set<() => void>();
