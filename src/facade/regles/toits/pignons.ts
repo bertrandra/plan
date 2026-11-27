@@ -108,8 +108,18 @@ export function pignonsAuxBouts(c: CorpsToit, pan: 0 | 1, pf: PignonsFait, m: To
   const provisoires: PignonToit[] = bornes.map(({ s0, s1 }) => ({ pan, debut: s0, fin: s1, faitage: c.faitage, profondeur: largeurPan }));
   // Le faitage reste ou la lecture l'a mis (au milieu sauf preuve du contraire, toitCorps/centrage.ts) : retirer les mesures d'un
   // pignon relit les hauteurs du pan, pas la place du faitage - cherchee de nouveau, elle repartait vers un mur (AE 101).
-  const reajuste = corpsImpose(m, c.pts, contour, c.posFaitage, [...gardes, ...provisoires].map((p) => empreintePignon(c, p))) ?? c;
+  const reajuste = avecLesMemesEgouts(c, corpsImpose(m, c.pts, contour, c.posFaitage, [...gardes, ...provisoires].map((p) => empreintePignon(c, p)))) ?? c;
   return { ...reajuste, pignons: [...gardes, ...poser(reajuste)] };
+}
+
+/**
+ * Le corps relu sans les mesures de ses pignons garde la symetrie que la lecture lui a donnee (toitCorps/centrage.ts) : un toit au
+ * meme egout des deux cotes le reste, a la moyenne des deux egouts relus. Un toit prouve asymetrique garde ses deux egouts.
+ */
+function avecLesMemesEgouts(avant: CorpsToit, relu: CorpsToit | null): CorpsToit | null {
+  if (!relu || avant.egouts[0] !== avant.egouts[1]) return relu;
+  const e = dixieme((relu.egouts[0] + relu.egouts[1]) / 2);
+  return relu.faitage - e >= S.HAUTEUR_PLAT_M ? { ...relu, egouts: [e, e] } : relu;
 }
 
 /**
@@ -130,7 +140,7 @@ export function pignonTraversant(c: CorpsToit, pan: 0 | 1, s0: number, s1: numbe
   const largeurPan = pan === 0 ? c.posFaitage : r.W - c.posFaitage;
   const provisoire: PignonToit = { pan, debut: a, fin: b, faitage: c.faitage, profondeur: largeurPan };
   // Un pignon qui prend plus que PART_LONGUEUR_MAX du pan ne laisse pas assez de mesure pour le relire : le pan reste tel que lu.
-  const reajuste = b - a <= PART_LONGUEUR_MAX * r.L ? (corpsImpose(m, c.pts, contour, c.posFaitage, [...c.pignons, provisoire].map((p) => empreintePignon(c, p))) ?? c) : c;
+  const reajuste = b - a <= PART_LONGUEUR_MAX * r.L ? (avecLesMemesEgouts(c, corpsImpose(m, c.pts, contour, c.posFaitage, [...c.pignons, provisoire].map((p) => empreintePignon(c, p)))) ?? c) : c;
   const lp = pan === 0 ? reajuste.posFaitage : repere(reajuste.pts).W - reajuste.posFaitage;
   return { ...reajuste, pignons: [...c.pignons, { pan, debut: cm(a), fin: cm(b), faitage: dixieme(reajuste.faitage), profondeur: cm(lp) }] };
 }

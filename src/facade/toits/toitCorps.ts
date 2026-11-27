@@ -24,12 +24,12 @@ import type { CorpsToit, PtBrut, ToitMesure } from '../../model/types.js';
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../../regles/toits/reglages.js';
 import { cm, type Repere, repere, point, hauteurCorpsEn, type Grille, mesuresDans, corpsAvecPignons, meilleureCoupe } from './toitCorps/ajustement.js';
 import { hauteurGrille, corpsDepuisFormes, corpsDeReprise } from './toitCorps/reprise.js';
-import { centreSaufPreuve } from './toitCorps/centrage.js';
+import { symetriqueSaufPreuve } from './toitCorps/centrage.js';
 import { coupeDemiCroupe } from './toitFormes.js';
 
 export { PAS_FAITAGE_M, PENTE_MAX_DEG, ECART_ABERRANT_M, DEPASSEMENT_GARDE_M, HAUTEUR_PLAT_M, PENTE_PLAT_DEG, PAN_MIN_M, GAIN_PAN_SUR_PLAT, SURPLUS_PIGNON_M, LARGEUR_PIGNON_MIN_M, LARGEUR_PIGNON_MAX_M, PROFONDEUR_PIGNON_MIN_M, TOLERANCE_FAITAGE_M, GAIN_COUPE, ECART_COUPE_MIN_M, DIFFERENCE_COUPE_M, LARGEUR_CORPS_MIN_M, MESURES_MIN, repere, point, hauteurCorps, planCroupe, hauteurCorpsEn, mesuresDans, empreintePignon, ajusterCorps, rectangleTourne, corpsImpose, detecterPignons, corpsAvecPignons, meilleureCoupe, type Repere, type Grille, type Mesure } from './toitCorps/ajustement.js';
 export { HAUTEUR_BATIE_M, contourEquerre, PART_VIDE_RECALAGE, DECALAGE_MAX_M, partVideSous, decalageSurMesure } from './toitCorps/recalage.js';
-export { creteMesuree, hautMesure, pentesEgales, centreSaufPreuve } from './toitCorps/centrage.js';
+export { creteMesuree, egoutsMesures, hautMesure, toitDehors, toitSymetrique, estAsymetrique, sansPreuveDAsymetrie, symetriqueSaufPreuve } from './toitCorps/centrage.js';
 export { GAIN_APPENTIS_SECOURS, corpsDepuisFormes, boiteOrientee, completerSurContour, corpsEtendu } from './toitCorps/reprise.js';
 
 /**
@@ -41,7 +41,11 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
   const rects = rectanglesDuContour(contour);
   // Un contour qui se decoupe tel quel garde le modele des corps ; la reprise ne sert qu'aux autres,
   // et lit la grille brute quand on la lui donne (la surface mesuree est bouchee hors du contour).
-  if (!rects) return corpsDeReprise(m, contour, options.grille ?? null);
+  if (!rects) {
+    // La reprise lit ses tranches par les formes, sinon par le modele : la meme derniere question pour chaque corps.
+    const g = options.grille ?? null;
+    return corpsDeReprise(m, contour, g)?.map((c) => symetriqueSaufPreuve(m, contour, c, corpsDepuisFormes(g ?? m, c.pts), (x) => ecartAuCorps(m, x, contour), g) ?? c) ?? null;
+  }
   const blocs: PtBrut[][] = [];
   // La coupe par le modele essaie chaque position : de loin la part la plus lourde. Le voisinage
   // (des dizaines de maisons, dans le delai de l'import) s'en passe : ses corps viennent des marches.
@@ -58,7 +62,11 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
     if (b.corps) refondus.push(b.corps);
     else couper(b.rect, 0);
   }
-  const corps = [...refondus, ...blocs.map((r) => avecCroupesSiMieux(m, r, contour, options.grille ?? null, corpsAvecPignons(m, r, contour)))].filter((c): c is CorpsToit => c !== null);
+  // Chaque corps, d'ou qu'il vienne (un bloc, une aile gardee entiere, une refonte), repond a la derniere question : symetrique
+  // sauf preuve du contraire, et son faitage au haut du toit (toitCorps/centrage.ts).
+  const g = options.grille ?? null;
+  const corps = [...refondus, ...blocs.map((r) => avecCroupesSiMieux(m, r, contour, g, corpsAvecPignons(m, r, contour)))].filter((c): c is CorpsToit => c !== null)
+    .map((c) => symetriqueSaufPreuve(m, contour, c, corpsDepuisFormes(g ?? m, c.pts), (x) => ecartAuCorps(m, x, contour), g) ?? c);
   return corps.length ? sansCorpsContenus(sansBandesRecouvertes(corps, contour), contour) : null;
 }
 
@@ -374,8 +382,7 @@ function memeSens(a: readonly PtBrut[], b: readonly PtBrut[]): boolean {
  */
 function avecCroupesSiMieux(m: ToitMesure, rect: readonly PtBrut[], contour: readonly PtBrut[], grille: Grille | null, modele: CorpsToit | null): CorpsToit | null {
   const f = corpsDepuisFormes(grille ?? m, rect);
-  // Puis la derniere question : un faitage hors de l'axe ou loin sous le haut mesure se prouve (toitCorps/centrage.ts).
-  return centreSaufPreuve(m, contour, selonLesFormes(m, contour, modele, f), f, (x) => ecartAuCorps(m, x, contour));
+  return selonLesFormes(m, contour, modele, f);
 }
 
 /** Le modele des corps ou la lecture des formes : le sens du faitage, puis des croupes plutot que des pignons de bout. */

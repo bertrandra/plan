@@ -7,22 +7,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
-- **Toits LiDAR : le faîtage est le haut du toit, au milieu sauf preuve du contraire** (retours du propriétaire, 27 novembre
-  2026 : « je vois beaucoup de toits où le faîtage n'est pas centré » ; `MD/spec-toit-ign.md` §13.9,
-  `facade/toits/toitCorps/centrage.ts`). Le modèle des corps écarte ce qui dépasse le pan : sur un quatre-pans, un pavillon ou
-  un deux-pans à lucarnes, il posait un toit bas au faîtage poussé contre un mur, parfois avec le vrai toit pour « pignon »
-  (Le Vésinet : 34 corps sur 105 à plus de 50 cm de l'axe, souvent 1 à 3 m). Désormais un faîtage hors de l'axe **se prouve** :
-  la crête se lit sur la mesure là où il est, les deux pans ont la même pente (le grand descend plus bas : un vrai toit
-  asymétrique) et aucun toit centré ne colle mieux. Sans cette preuve, le toit centré l'emporte dès qu'il tient la mesure, ses
-  pignons relus. Un toit dont le faîtage reste à un mètre ou plus sous le haut mesuré est relevé par celui qui l'atteint en
-  collant mieux. Toutes ces comparaisons se font à l'écart symétrique. Un pignon posé par un fait ou vu sur une photo ne
-  redéplace plus le faîtage. Douze seuils nommés dans `regles/toits/reglages.json`.
-  - **AE 101 change, par décision du propriétaire** (« un toit n'est pas centré et il devrait l'être ») : ses trois corps ont
-    leur faîtage dans l'axe (corps principal à 3,25 m sur 6,5 au lieu de 3,75 ; aile basse à 4,95 m sur 9,9 au lieu de 6,94 ;
-    annexe nord à 3,89 m sur 7,8 au lieu de 5,02) ; les deux pignons, l'appentis de la galerie et la bay window restent. Les
-    références suivent (`tests/fixtures/toits/vesinet-ae101.json`, le cas du corpus d'audit, l'étalon de la façade sud).
-  - Banc sur sept villages (850 bâtiments) : 64 bâtiments changent de forme, les « asymétrique » passent de 130 à 72 ; huit
-    toits à un pan, lus en deux pans au faîtage contre un mur, redeviennent des appentis.
+- **Toits LiDAR : un toit est symétrique sauf preuve du contraire** (retours du propriétaire, 27 novembre 2026 : « je vois
+  beaucoup de toits où le faîtage n'est pas centré » ; « la forme du toit est de la même hauteur à gauche et à droite, et
+  faîtage centré » ; `MD/spec-toit-ign.md` §13.9, `facade/toits/toitCorps/centrage.ts`). Un toit a son faîtage dans l'axe de son
+  corps et le même égout des deux côtés ; le LiDAR donne les hauteurs, le sens du faîtage et la forme. Le modèle des corps
+  laissait libres la place du faîtage et chaque égout : il suivait le bruit, le toit du voisin, un contour tracé à côté du toit,
+  et s'écrasait sur les quatre-pans. Désormais un toit asymétrique **se prouve** : il colle nettement mieux que le toit
+  symétrique, sa crête et la différence de ses égouts se lisent tout le long du corps, et le toit ne continue pas au-delà du mur
+  de son égout haut. Un toit à un pan se prouve de même (nettement mieux, ou la mesure monte d'un mur à l'autre tout le long).
+  Un toit dont le faîtage reste à un mètre ou plus sous le haut mesuré est relevé par celui qui l'atteint en collant mieux. Un
+  pignon posé par un fait ou vu sur une photo ne redéplace plus le faîtage. Quinze seuils nommés dans
+  `regles/toits/reglages.json`.
+  - **AE 101 change, par décision du propriétaire** : ses trois corps sont symétriques (corps principal : faîtage à 3,25 m sur
+    6,5 au lieu de 3,75, égouts 5,6 / 5,6 m au lieu de 6,1 / 5,0 ; aile basse : 4,95 m sur 9,9 au lieu de 6,94, égouts 3,5 m ;
+    annexe nord : 3,89 m sur 7,8 au lieu de 5,02, égouts 3,0 m). Les deux pignons depuis le faîtage, l'appentis de la galerie et
+    la bay window restent. La façade sud passe d'un égout de 5,0 m à 5,6 m. Les références suivent
+    (`tests/fixtures/toits/vesinet-ae101.json`, le cas du corpus d'audit, l'étalon de la façade sud).
+  - Banc sur sept villages (850 bâtiments) : les corps à deux pans symétriques passent de 224 à 495, les asymétriques de 418 à
+    137 ; toits plats (119) et toits à un pan (505 → 507) ne bougent pas ; 103 bâtiments changent de forme.
   - **Les toits déjà lus seront relus à l'ouverture** (version de lecture 9). Aucune quantité, aucun export ne change.
   - Reste à faire : quand le contour de la BD TOPO est tracé à côté du toit (moins d'un mètre), le toit est centré sur le
     contour et non sur la crête mesurée ; le remède est un recalage fin du bâtiment entier.

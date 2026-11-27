@@ -19,7 +19,7 @@
     {
      "assertion": "probleme",
      "tenue": false,
-     "motif": "toit.morceaux : le calcul a changé depuis le terrain (corps 8 corps → 7 corps), à revoir"
+     "motif": "toit.morceaux : le calcul a changé depuis le terrain (corps 8 corps → 6 corps), à revoir"
     }
    ],
    "nonVerifiees": []

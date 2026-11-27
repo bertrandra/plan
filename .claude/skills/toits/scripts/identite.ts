@@ -5,7 +5,7 @@
 // releve), compares a `corpsAvecFaits` : l'appentis de la facade sud, observe le 14 octobre 2026 ;
 // et les corps des autres fixtures, a comparer avant et apres une modification (rediriger vers un
 // fichier).
-// La reference d'AE 101 a change le 27 novembre 2026, par decision du proprietaire (faitages centres, MD/spec-toit-ign.md §13.9).
+// La reference d'AE 101 a change le 27 novembre 2026, par decision du proprietaire (toits symetriques, MD/spec-toit-ign.md §13.9).
 //
 //   npx tsx .claude/skills/toits/scripts/identite.ts > /tmp/toits/avant.txt     # avant la modification
 //   npx tsx .claude/skills/toits/scripts/identite.ts | diff /tmp/toits/avant.txt -
