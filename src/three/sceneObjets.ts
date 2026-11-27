@@ -30,6 +30,7 @@ import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
 import { traitSurSol, type SolRelief } from './relief3d.js';
 import type { ContexteScene3d, ContexteObjets } from './typesScene.js';
+import { chefDeLaMaison, habilleCommeSaMaison, pointDePose } from '../model/memeMaison.js';
 import { centreDe, groupeAuSol, opaciteDe, primitivesDans, texturesDe } from './ouvrages/pose.js';
 import { ajouterParasol } from './ouvrages/parasol.js';
 import { dessusDeTerrasse, piecesDeTerrasse } from './ouvrages/terrasse.js';
@@ -213,14 +214,18 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
   if (h <= 0) return;
   const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;
   // La pose sur le sol : du point le plus bas sous l'emprise jusqu'au sol au centre plus la hauteur.
-  const centre = centreDe(o);
+  // Plusieurs batiments, une seule maison (model/memeMaison.ts) : elle se pose sur le sol au centre de son plus grand batiment,
+  // pour que faitages et egouts raccordes soient a la meme altitude, et s'habille comme lui la ou rien n'a ete choisi a la main.
+  const chef = o.type === 'polygon' && estBatiment(o) ? chefDeLaMaison(o, co.objets) : o;
+  const habille = habilleCommeSaMaison(o, chef);
+  const centre = chef !== o && o.type === 'polygon' ? pointDePose(o, co.objets) : centreDe(o);
   const ySol = co.sol ? co.sol.hauteur(centre) : 0;
   const yBase = co.sol ? co.sol.basSous(footprint) : 0;
-  const bati = volumesEnBati(o, !!diag, h, footprint, co);
+  const bati = volumesEnBati(habille, !!diag, h, footprint, co);
   const pieces = piecesDeTerrasse(o, bati.volumes, h, etat.objects);
   const dessusTerrasse = dessusDeTerrasse(o, co.solMoteur);
-  pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, bati.couleurMur, false, opaciteDe(o), texturesDe(o), v.trous));
-  habillerLeBati(o, bati, h, centre, ySol, yBase, co);
+  pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, bati.couleurMur, false, opaciteDe(o), texturesDe(habille), v.trous));
+  habillerLeBati(habille, bati, h, centre, ySol, yBase, co);
   // Un massif plante ou une plate-bande : sa vegetation basse sur son dessus, et son mini-arbre (three/jardin3d.ts).
   const plante = plantationDe(o);
   if (plante) ajouterVegetationBasse({ scene: co.scene, versLocal: co.versLocal, qualite: vue3d.qualite, dateStr: soleilDuProjet.lire().dateStr }, o, footprint, plante, (dessusTerrasse ?? ySol + h), vegetationVisible(o));

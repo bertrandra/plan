@@ -33,6 +33,9 @@ import { isAbsolute } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { toitMesureDepuisGrille } from '../../../../src/model/toitMesure.ts';
+import { raccorderLesToits } from '../../../../src/facade/toits/raccord.ts';
+import { hautMesure } from '../../../../src/facade/toits/toitCorps.ts';
+import { mesuresDans, repere } from '../../../../src/facade/toits/toitCorps/ajustement.ts';
 import { corpsVraisemblables, mesureVraisemblable } from '../../../../src/app/toits/toitsLidar.ts';
 import { hauteurBdTopo } from '../../../../src/facade/regles/toits/vraisemblance.ts';
 import { rectanglesDuContour } from '../../../../src/model/volumesToit.ts';
@@ -79,6 +82,7 @@ const baiesPossibles: string[] = [];
 const lignes: string[] = [];
 const formes: Record<string, FormesBatiment> = {};
 const t0 = performance.now();
+const lus: { b: any; choix: ReturnType<typeof profilsDuBatiment>; fort: boolean; m: any; corps: any[] }[] = [];
 for (const b of D.batiments) {
   if (!b.grille) continue;
   const choix = profilsDuBatiment(b, lieu, profils);
@@ -90,6 +94,17 @@ for (const b of D.batiments) {
     const m = mesureVraisemblable(b, toitMesureDepuisGrille(b.grille, b.pts));
     return { m, corps: m ? corpsVraisemblables(b, corpsSelonFait(faitDuBatiment(b), corpsCalcules(m, b.pts, { coupes: fort, grille: b.grille, hauteurBdTopo: hauteurBdTopo(b) }), m, b.pts, b.grille)) ?? [] : [] };
   });
+  lus.push({ b, choix, fort, m, corps });
+}
+// Puis le raccord des toits qui se touchent, sur la parcelle du projet, comme app/toits/toitsLidar.ts::raccorderLesToitsDuProjet
+// (facade/toits/raccord.ts, spec §13.10). --sans-raccord : les corps tels que lus, pour comparer.
+const raccordes = process.argv.includes('--sans-raccord') ? new Map<string, any[]>() : raccorderLesToits(lus.filter((x) => x.b.principal && x.corps.length).map((x) => ({
+  cle: x.b.key, corps: x.corps,
+  hauts: x.corps.map((c: any) => { if (!x.m) return null; const ms = mesuresDans(x.m, repere(c.pts), c.pts, x.b.pts); return ms.length ? hautMesure(ms) : null; }),
+})));
+for (const x of lus) {
+  const { b, choix, fort, m } = x;
+  const corps = raccordes.get(b.key) ?? x.corps;
   for (const sa of saillies(b.pts)) baiesPossibles.push(`${b.key} ${sa.largeurM} x ${sa.saillieM} m, face a ${sa.azimutDeg} deg`);
   const reprise = !rectanglesDuContour(b.pts);
   if (reprise) nReprise++;
@@ -117,6 +132,7 @@ for (const b of D.batiments) {
 }
 const compteurs: CompteursBanc = { batiments: D.batiments.length, corps: nCorps, suspects: nSus, sansCorps: nSans, reprise: nReprise };
 console.log(nom, 'temps', (performance.now() - t0).toFixed(0), 'ms batiments', D.batiments.length, 'corps', nCorps, 'suspects', nSus, 'sans corps', nSans, 'contours en reprise', nReprise);
+if (raccordes.size) console.log('toits raccordes (parcelle du projet) :', [...raccordes.keys()].join(', '));
 console.log('bay windows possibles (saillies du contour) :', baiesPossibles.length, ...baiesPossibles.map((l) => '\n  ' + l));
 for (const l of lignesFormes(formes)) console.log(l);
 console.log('deduction des formes :', deduction.source === 'modele' ? 'model/formeToit.ts' : 'locale (tests/banc/toits/formes.ts, G1 absent)');
