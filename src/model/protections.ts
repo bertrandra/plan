@@ -151,7 +151,7 @@ export interface BatimentProtege {
     egoutChoisi?: 'saisie' | 'audit';
     verifieSurPlace?: { date: string } | null;
     toitLidarLu?: number | null;
-    corpsToit?: readonly { cheminees?: readonly unknown[]; lucarnes?: readonly unknown[]; elementsToit?: readonly unknown[]; terrasse?: unknown; ouvert?: boolean; saillie?: unknown }[] | null;
+    corpsToit?: readonly { cheminees?: readonly unknown[]; lucarnes?: readonly { source?: unknown }[]; elementsToit?: readonly unknown[]; terrasse?: unknown; ouvert?: boolean; saillie?: unknown }[] | null;
     couleurMurs?: { source?: unknown; materiau?: unknown; terrain?: unknown; photo?: unknown; lecture?: unknown } | null;
     facades?: readonly FacadeProtegee[] | null;
     profilFacades?: unknown;
@@ -196,8 +196,9 @@ export const NIVEAU_ORIGINE: Readonly<Record<Origine, Niveau>> = {
   defaut: 6,
 };
 
+// Une lucarne lue sur le LiDAR (facade/toits/lucarnesLues.ts) n'est pas un element pose : la lecture l'a ecrite, la lecture la refait.
 const aElements = (o: BatimentProtege): boolean => (o.batiment?.corpsToit ?? []).some((c) =>
-  !!c.cheminees?.length || !!c.lucarnes?.length || !!c.elementsToit?.length || !!c.terrasse || c.ouvert !== undefined || !!c.saillie);
+  !!c.cheminees?.length || !!c.lucarnes?.some((l) => l.source !== 'lidar') || !!c.elementsToit?.length || !!c.terrasse || c.ouvert !== undefined || !!c.saillie);
 
 /** Le contour : retouche, fige, verifie, dessine, recale ou lu sur le LiDAR, BD TOPO. */
 function origineDuContour(o: BatimentProtege, ctx: ContexteEcriture, fige: boolean, verifie: boolean): Origine {

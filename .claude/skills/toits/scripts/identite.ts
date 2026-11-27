@@ -11,6 +11,7 @@
 //   npx tsx .claude/skills/toits/scripts/identite.ts | diff /tmp/toits/avant.txt -
 import { readFileSync, readdirSync } from 'node:fs';
 import { corpsCalcules } from '../../../../src/facade/regles/toits/catalogue.ts';
+import { avecLucarnesLues } from '../../../../src/facade/toits/lucarnesLues.ts';
 import { corpsSelonFait } from '../../../../src/facade/regles/toits/faits.ts';
 import { faitDuBatiment } from '../../../../src/regles/toits/faits.ts';
 
@@ -20,7 +21,8 @@ for (const f of readdirSync(F).filter((x) => x.endsWith('.json')).sort()) {
   const d = JSON.parse(readFileSync(new URL(f, F), 'utf8'));
   if (!d.contour || !d.toitMesure) continue;
   for (const g of [undefined, d.grille]) {
-    const c = corpsCalcules(d.toitMesure, d.contour, { grille: g });
+    // Avec les lucarnes que la grille montre, comme app/toits/toitsLidar.ts::corpsLus (facade/toits/lucarnesLues.ts).
+    const lus = corpsCalcules(d.toitMesure, d.contour, { grille: g }), c = lus ? avecLucarnesLues(lus, g, d.contour) : lus;
     let etat = '';
     if (f === 'vesinet-ae101.json') {
       const meme = JSON.stringify(c) === JSON.stringify(d.corps);
@@ -32,7 +34,7 @@ for (const f of readdirSync(F).filter((x) => x.endsWith('.json')).sort()) {
   // Sous les faits livres : ce que l'application pose sur le batiment (app/toits/toitsLidar.ts::corpsLus).
   const fait = d.cleabs ? faitDuBatiment({ bdtopo: { cleabs: d.cleabs } }) : null;
   if (!fait) continue;
-  const c = corpsSelonFait(fait, corpsCalcules(d.toitMesure, d.contour, { grille: d.grille }), d.toitMesure, d.contour, d.grille);
+  const sous = corpsSelonFait(fait, corpsCalcules(d.toitMesure, d.contour, { grille: d.grille }), d.toitMesure, d.contour, d.grille), c = sous ? avecLucarnesLues(sous, d.grille, d.contour) : sous;
   let etat = '';
   if (f === 'vesinet-ae101.json') {
     const meme = JSON.stringify(c) === JSON.stringify(d.corpsAvecFaits);

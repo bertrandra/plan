@@ -49,6 +49,7 @@ import {
 import { corpsSelonFait } from '../../../../src/facade/regles/toits/faits.ts';
 import { saillies } from '../../../../src/facade/regles/toits/baies.ts';
 import { corpsCalcules } from '../../../../src/facade/regles/toits/catalogue.ts';
+import { avecLucarnesLues } from '../../../../src/facade/toits/lucarnesLues.ts';
 import { faitDuBatiment } from '../../../../src/regles/toits/faits.ts';
 
 const S = (process.env.TOITS_DOSSIER || '/tmp/toits').replace(/\/?$/, '/');
@@ -92,7 +93,9 @@ for (const b of D.batiments) {
   // app/toits/toitsLidar.ts::corpsLus.
   const { m, corps } = avecSeuilsToit(choix.surcharges, () => {
     const m = mesureVraisemblable(b, toitMesureDepuisGrille(b.grille, b.pts));
-    return { m, corps: m ? corpsVraisemblables(b, corpsSelonFait(faitDuBatiment(b), corpsCalcules(m, b.pts, { coupes: fort, grille: b.grille, hauteurBdTopo: hauteurBdTopo(b) }), m, b.pts, b.grille)) ?? [] : [] };
+    const lus = m ? corpsVraisemblables(b, corpsSelonFait(faitDuBatiment(b), corpsCalcules(m, b.pts, { coupes: fort, grille: b.grille, hauteurBdTopo: hauteurBdTopo(b) }), m, b.pts, b.grille)) ?? [] : [];
+    // Puis les lucarnes que la grille montre (facade/toits/lucarnesLues.ts), les contours des autres batiments en voisins.
+    return { m, corps: avecLucarnesLues(lus, b.grille, b.pts, D.batiments.filter((x: any) => x !== b && x.pts?.length >= 3).map((x: any) => x.pts)) };
   });
   lus.push({ b, choix, fort, m, corps });
 }
