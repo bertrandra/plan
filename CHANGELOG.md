@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.43.1] — 2026-11-27
+
+Version **corrective** au sens de `MD/RELEASE.md` : elle corrige la 5.43.0 sans fonction nouvelle. Le propriétaire l'a vu à
+Hardencourt (11 route du Guesclin) : « Actualiser IGN » sur son projet existant donnait le L en deux toits et une lucarne, alors
+qu'un projet neuf à la même adresse était juste. Relire un projet existant donne maintenant ce que donne un projet neuf (#783).
+**Rien n'est retiré ni mis derrière un droit.** **Aucune quantité ni aucun export ne change** : avant le changement de numéro, le
+code de `main` (bf4783e3) régénère les témoins de la 5.43.0 au bit près ; les neuf témoins qui portent le numéro ne changent qu'à
+lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ;
+`projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques (point 24
+de la fumée rejoué). Schéma inchangé (16), aucun champ nouveau. **La version de lecture des toits passe de 12 à 13 : les toits déjà
+lus sont relus une fois à la prochaine ouverture de chaque projet**, sauf ceux figés à la main ou vérifiés sur place. `deploy/` et
+`banc/` ne changent pas depuis la 5.43.0 ; dans `regles/`, seuls les seuils des toits (`regles/toits/reglages.json`) bougent ; la
+requête témoin de l'assistant est inchangée. Les requêtes n'ont pas été vérifiées contre la vraie API Claude : à faire sur `main`
+après la fusion de la version (« Vérifier l'API Claude »).
+
 ### Corrigé
 
 - **Relire un projet existant donne ce que donne un projet neuf** (retour du propriétaire à Hardencourt, 11 route du Guesclin, le
