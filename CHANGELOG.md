@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.43.0] — 2026-11-27
+
+Version **mineure** au sens de `MD/RELEASE.md` : la lecture des toits au LiDAR change ce que l'on voit (#775 : un toit est
+symétrique sauf preuve du contraire ; #776 et #777 : une maison en L a un seul toit, et les bâtiments raccordés sont une seule
+maison dans la Vue 3D ; #779 : un corps plus bas garde son toit ; #780 : les lucarnes se lisent sur la mesure, ce qui est une
+fonction nouvelle), ce qui donne un MINOR. **Rien n'est retiré ni mis derrière un droit.**
+**Aucune quantité ni aucun export ne change** : avant le changement de numéro, le code de `main` (4bd68ea4) régénère les témoins
+de la 5.42.0 au bit près ; les neuf témoins qui portent le numéro ne changent qu'à lui (la date de build reste le 30 octobre
+2026 ; preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `liste-achat.csv`,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques (point 24 de la fumée rejoué). Schéma inchangé (16), aucun
+champ nouveau. **La version de lecture des toits passe de 8 à 12 : les toits déjà lus sont relus à la prochaine ouverture de
+chaque projet**, sauf ceux figés à la main ou vérifiés sur place. **AE 101 change, par décision du propriétaire** (ses trois corps
+deviennent symétriques, détail ci-dessous). `deploy/` et `banc/` ne changent pas depuis la 5.42.0 ; dans `regles/`, seuls les
+seuils des toits (`regles/toits/reglages.json`), le taux de conformité et la réconciliation bougent ; la requête témoin de l'assistant est
+inchangée. Requêtes à vérifier contre l'API Claude sur `main` après la fusion de la version (« Vérifier l'API Claude ») : elles ne
+l'ont pas été pour le paquet du 27 novembre (#778).
+
 ### Ajouté
 
 - **Toits LiDAR : les lucarnes se lisent sur la mesure** (retour du propriétaire, 27 novembre 2026, 11 route du Guesclin à
