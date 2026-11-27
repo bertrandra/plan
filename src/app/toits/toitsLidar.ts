@@ -12,9 +12,9 @@ import { lireHauteursSousStrict, lireGrilleSous, echantillonsDeGrille, dallesLid
 import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../../model/volumesToit.js';
 import { PENTE_DEFAUT_DEG } from '../../model/toitBdTopo.js';
 import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../../model/toitMesure.js';
-import { decalageSurMesure, hautsMesures, partVideSous, raccorderLesToits } from '../../facade/toits/toitCorps.js';
+import { avecLucarnesLues, decalageSurMesure, hautsMesures, partVideSous, raccorderLesToits } from '../../facade/toits/toitCorps.js';
 import { centroid, pointInPolygon } from '../../geometry/basic.js';
-import { parcelleDuProjet, surParcelleDuProjet } from '../../model/fonctions.js';
+import { parcelleDuProjet, surParcelleDuProjet, toitLuAuLidar } from '../../model/fonctions.js';
 import { batimentsMitoyens } from '../../model/mitoyennete.js';
 import { partsACheval, douteACheval, type PartACheval } from '../../model/aCheval.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
@@ -94,7 +94,8 @@ async function recalerSurLidar(o: ObjetAToit & { pts: PtBrut[] }, grille: Grille
  */
 export function corpsParParcelle(o: ObjetAToit, parts: readonly PartACheval[], mesure: ToitMesure, grille: GrilleRelief | null, coupes = true): CorpsToit[] | null {
   const corps = parts.flatMap((p) => corpsCalcules(mesure, p.pts, { coupes, grille, hauteurBdTopo: hauteurBdTopo(o) }) ?? []);
-  return corps.length ? corpsVraisemblables(o, corps) : null;
+  const vrais = corps.length ? corpsVraisemblables(o, corps) : null;
+  return vrais && o.pts ? avecLucarnesLues(vrais, grille, o.pts) : vrais;
 }
 
 /**
@@ -117,10 +118,18 @@ export function toitAChevalApresCalcul(o: ObjetAToit, objets: readonly ObjetAToi
  * Les corps d'un batiment lus sur sa mesure (pentes droites, puis formes du catalogue :
  * facade/regles/toits/catalogue.ts), puis son fait en contrainte (regles/toits/faits.ts), puis les
  * garde-fous de vraisemblance : l'ordre de MD/spec-regles-toits.md §9.1. `coupes` faux : la version
- * allegee du voisinage.
+ * allegee du voisinage. En dernier, sur le toit retenu, les lucarnes que la grille brute montre sur ses pans
+ * (facade/toits/lucarnesLues.ts, §13.11) : un corps qui en porte deja d'un fait ou d'une photo garde les siennes. `voisins` : les
+ * contours des autres batiments, dont le toit peut entrer dans un pan (l'aile d'une maison en L n'est pas une lucarne).
  */
-export function corpsLus(o: ObjetAToit, mesure: ToitMesure, pts: readonly PtBrut[], grille: GrilleRelief | null, coupes = true): CorpsToit[] | null {
-  return corpsVraisemblables(o, corpsSelonFait(faitDuBatiment(o), corpsCalcules(mesure, pts, { coupes, grille, hauteurBdTopo: hauteurBdTopo(o) }), mesure, pts, grille));
+export function corpsLus(o: ObjetAToit, mesure: ToitMesure, pts: readonly PtBrut[], grille: GrilleRelief | null, coupes = true, voisins: readonly PtBrut[][] = []): CorpsToit[] | null {
+  const corps = corpsVraisemblables(o, corpsSelonFait(faitDuBatiment(o), corpsCalcules(mesure, pts, { coupes, grille, hauteurBdTopo: hauteurBdTopo(o) }), mesure, pts, grille));
+  return corps ? avecLucarnesLues(corps, grille, pts, voisins) : corps;
+}
+
+/** Les contours des autres batiments du plan : ceux dont le toit peut entrer dans un pan de `o`. */
+function contoursVoisins(o: ObjetAToit, objets: readonly ObjetAToit[]): PtBrut[][] {
+  return objets.filter((x) => x !== o && toitLuAuLidar(x) && (x.pts?.length ?? 0) >= 3).map((x) => x.pts as PtBrut[]);
 }
 
 
@@ -252,6 +261,10 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // faut le respecter ») : bout a bout, un corps ne prend le toit de celui qu'il prolonge que si leurs egouts se lisent aussi a la
   // meme hauteur (MEME_EGOUT_M). La version 10 l'avait releve de 3,1 a 4,9 m d'egout : tout est relu.
   { version: 11, reglages: '789969b8', faits: '2427f5f5', formes: '83c56e39' },
+  // Les lucarnes lues sur le LiDAR (27 novembre 2026, Hardencourt 6501004 : « sur la grande facade, sur le lidar je vois bien les 2
+  // chiens assis, pourquoi ont-ils disparu ? », facade/toits/lucarnesLues.ts) : une bosse etroite sur un pan, nette, partie du mur,
+  // est une lucarne posee sur ce pan (quatorze seuils nommes). Tout est relu.
+  { version: 12, reglages: 'ccb56752', faits: '2427f5f5', formes: '83c56e39' },
 ];
 
 /**
@@ -366,7 +379,7 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
   const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.batiment?.toit, mesure) : null;
   // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
   if (principal) {
-    champsBatiment(o).toitMesure = mesure; champsBatiment(o).volumesToit = volumes?.volumes ?? null; champsBatiment(o).corpsToit = mesure ? corpsLus(o, mesure, o.pts, grille) : null;
+    champsBatiment(o).toitMesure = mesure; champsBatiment(o).volumesToit = volumes?.volumes ?? null; champsBatiment(o).corpsToit = mesure ? corpsLus(o, mesure, o.pts, grille, true, contoursVoisins(o, objets)) : null;
     // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toits/toitsACheval.ts).
     toitAChevalApresCalcul(o, objets, grille);
   }
@@ -375,7 +388,7 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
   // lourde, §13.6) et sans garder la grille, qui alourdirait le projet de quelques Kio par maison.
   else if (voisins && grille) {
     const mesureVoisine = mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts));
-    champsBatiment(o).corpsToit = mesureVoisine ? corpsLus(o, mesureVoisine, o.pts, grille, mitoyen) : null;
+    champsBatiment(o).corpsToit = mesureVoisine ? corpsLus(o, mesureVoisine, o.pts, grille, mitoyen, contoursVoisins(o, objets)) : null;
     // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :
     // chez le voisin, la forme simple vaut mieux qu'un relief de feuillage.
     if (mitoyen) champsBatiment(o).toitMesure = o.batiment?.corpsToit ? mesureVoisine : null;

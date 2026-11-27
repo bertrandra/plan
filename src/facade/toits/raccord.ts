@@ -93,14 +93,24 @@ function prolongeAuBout(c: CorpsToit, r: Repere, bout: 0 | 1, D: number, croupe:
   const croupes: [number, number] = [c.croupes?.[0] ?? 0, c.croupes?.[1] ?? 0];
   croupes[bout] = cm(croupe);
   const out: CorpsToit = { ...c, pts, pignons };
+  // Ses lucarnes se comptent depuis `pts[0]`, comme ses pignons : elles gardent leur place sur le toit.
+  if (c.lucarnes && !bout) out.lucarnes = c.lucarnes.map((l) => ({ ...l, debutM: cm(l.debutM + D), finM: cm(l.finM + D) }));
   if (croupes[0] > 0 || croupes[1] > 0) out.croupes = croupes; else delete out.croupes;
   return out;
 }
 
-/** Le corps sans les pignons du pan `pan` que la bande `[s0, s1]` recouvre a moitie ou plus : c'etait le toit de l'aile. */
+/**
+ * Le corps sans les pignons du pan `pan` que la bande `[s0, s1]` recouvre a moitie ou plus : c'etait le toit de l'aile. De meme
+ * ses lucarnes lues sur la mesure (facade/toits/lucarnesLues.ts) ; celles d'un fait ou d'une photo restent.
+ */
 function sansPignonsSousLAile(c: CorpsToit, pan: 0 | 1, s0: number, s1: number): CorpsToit {
-  const gardes = c.pignons.filter((p) => p.pan !== pan || Math.min(p.fin, s1) - Math.max(p.debut, s0) < 0.5 * (p.fin - p.debut));
-  return gardes.length === c.pignons.length ? c : { ...c, pignons: gardes };
+  const dessous = (debut: number, fin: number): boolean => Math.min(fin, s1) - Math.max(debut, s0) >= 0.5 * (fin - debut);
+  const gardes = c.pignons.filter((p) => p.pan !== pan || !dessous(p.debut, p.fin));
+  const lucarnes = c.lucarnes?.filter((l) => l.source !== 'lidar' || l.pan !== pan || !dessous(l.debutM, l.finM));
+  if (gardes.length === c.pignons.length && lucarnes?.length === c.lucarnes?.length) return c;
+  const out: CorpsToit = { ...c, pignons: gardes };
+  if (lucarnes?.length) out.lucarnes = lucarnes; else delete out.lucarnes;
+  return out;
 }
 
 /**
@@ -159,10 +169,10 @@ export function raccorderLesToits(batiments: readonly ToitARaccorder[]): Map<str
     const p = prolonge(a, w);
     // Le meme toit : memes faitages (ou memes hauts mesures) ET memes egouts. Un corps plus bas garde son toit.
     if (!p || !memeToit(a, w) || !memesEgouts(a, w)) continue;
-    if (!w.c.pignons.length && !w.c.croupes) {
+    if (!w.c.pignons.length && !w.c.croupes && !w.c.lucarnes?.length) {
       // Le meme batiment, aligne (le proprietaire, Hardencourt : « il s'agit du meme batiment qui est aligne ») : le corps prend
       // la section du grand, mur pour mur - son rectangle retrace dans le repere du grand, colle a son bout -, donc la meme ligne
-      // de faitage et les memes lignes d'egout. Ses pignons et ses croupes, s'il en a, se comptent le long de son propre
+      // de faitage et les memes lignes d'egout. Ses pignons, ses croupes et ses lucarnes, s'il en a, se comptent le long de son propre
       // rectangle : il le garde alors, et ne prend que le faitage et les egouts.
       const ss = w.c.pts.map((q) => local(a.r, q).s);
       let s0 = Math.min(...ss), s1 = Math.max(...ss);

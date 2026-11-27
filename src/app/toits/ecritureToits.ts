@@ -19,6 +19,14 @@ export function toitAAjuster<T extends ObjetAToit>(o: T): o is T & { pts: PtBrut
   return ecrivainPeut(o, 'lidar', 'toit', { relireVerifies: true });
 }
 
+/** Le corps sans les lucarnes que la lecture du LiDAR y avait posees (facade/toits/lucarnesLues.ts) ; celles vues ou posees restent. */
+function sansLucarnesLues(c: CorpsToit): CorpsToit {
+  if (!c.lucarnes?.some((l) => l.source === 'lidar')) return c;
+  const gardees = c.lucarnes.filter((l) => l.source !== 'lidar'), sans: CorpsToit = { ...c };
+  if (gardees.length) sans.lucarnes = gardees; else delete sans.lucarnes;
+  return sans;
+}
+
 /**
  * Les corps neufs d'une lecture (LiDAR, fait du moteur) a la place des anciens. Ce qui est pose sur les corps (cheminees, lucarnes,
  * fenetres de toit, terrasse, appentis ouvert, saillies), la lecture ne l'ecrit jamais (model/protections.ts) : elle le reporte sur
@@ -27,5 +35,8 @@ export function toitAAjuster<T extends ObjetAToit>(o: T): o is T & { pts: PtBrut
 export function corpsRelus(o: ObjetAToit, anciens: readonly CorpsToit[] | null | undefined, nouveaux: CorpsToit[] | null, ecrivain: 'lidar' | 'faits'): CorpsToit[] | null {
   // Le niveau de ce qui etait pose se lit sur les anciens corps : vus ou poses a la main (2), la lecture (4) ne les ecrit pas.
   const avant: BatimentProtege = { ...o, batiment: { ...o.batiment, corpsToit: anciens ?? null } };
-  return ecrivainPeut(avant, ecrivain, 'elements') ? nouveaux : corpsAvecCeQuIlsPortaient(anciens, nouveaux);
+  if (ecrivainPeut(avant, ecrivain, 'elements')) return nouveaux;
+  // Les lucarnes que la lecture du LiDAR avait posees ne se reportent pas : elle vient de les relire sur les corps neufs.
+  const sansLues = ecrivain === 'lidar' ? anciens?.map(sansLucarnesLues) : anciens;
+  return corpsAvecCeQuIlsPortaient(sansLues, nouveaux);
 }

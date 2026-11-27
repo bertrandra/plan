@@ -89,6 +89,10 @@ fond (`app/toits/toitsFond.ts`), en file continue, chaque bâtiment lu marqué `
    3 × 3 l'imite) ; pas un toit de révolution dont l'égout passe la hauteur BD TOPO de plus de 1 m
    (`DEPASSEMENT_REVOLUTION_M` : un arbre, Le Vésinet 28267565). Le fait et les garde-fous passent
    après. C'est la même chaîne partout : `corpsLus`, `corpsParParcelle`, le rejeu, `banc.ts`, `identite.ts`.
+5 ter. **Lucarnes lues** (`facade/toits/lucarnesLues.ts`, spec §13.11, depuis le 27 novembre 2026) : en dernier, sur le toit
+   retenu, une bosse étroite sur un pan (+ 60 cm, 1,5 à 2,5 m de large, partie du mur, entre deux retombées, sur un pan plan) est
+   une lucarne `source: 'lidar'`, chien-assis par défaut. Sur la grille brute, jamais sous un autre toit. Elle cède à une lucarne
+   vue ou posée. Après un changement de seuil : compter les lucarnes par village et regarder les cartes des lucarnes isolées.
 6. **Ce que la 3D montre** (`modeToitActif`) : `modeToit` choisi ; sinon les corps, sinon les
    volumes, sinon la forme simple. `'mesure'` seulement si l'utilisateur la choisit.
 

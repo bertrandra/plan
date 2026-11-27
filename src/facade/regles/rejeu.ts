@@ -16,6 +16,7 @@
 // parcelles n'y sont pas), et le toit BD TOPO d'un batiment qu'aucune forme n'explique.
 
 import { corpsCalcules } from './toits/catalogue.js';
+import { avecLucarnesLues } from '../toits/lucarnesLues.js';
 import { ajusterToit } from '../toits/toitLidar.js';
 import { corpsVraisemblables, mesureVraisemblable, ajusteVraisemblable, elevationApresLecture, hauteurBdTopo } from './toits/vraisemblance.js';
 import { echantillonsDeGrille } from '../../geo/mnh.js';
@@ -73,7 +74,9 @@ function rejouer(c: CasAudit, faits: FaitsToits): RejeuCas {
   const ech = echantillonsDeGrille(grille, pts);
   const ajuste = ajusteVraisemblable(b, ajusteSelonFait(fait, pts, ech, ajusterToit(pts, ech)));
   const mesure = mesureVraisemblable(b, toitMesureDepuisGrille(grille, pts));
-  const corps = mesure ? corpsVraisemblables(b, corpsSelonFait(fait, corpsCalcules(mesure, pts, { coupes: true, grille, hauteurBdTopo: hauteur }), mesure, pts, grille)) : null;
+  const lus = mesure ? corpsVraisemblables(b, corpsSelonFait(fait, corpsCalcules(mesure, pts, { coupes: true, grille, hauteurBdTopo: hauteur }), mesure, pts, grille)) : null;
+  // Puis les lucarnes que la grille montre, comme app/toits/toitsLidar.ts::corpsLus (le cas ne connait pas ses voisins).
+  const corps = lus ? avecLucarnesLues(lus, grille, pts) : lus;
   const principal = estPrincipal(c.entrees.bdtopo);
   // Comme app/toits/toitsLidar.ts : le projet garde sa surface et en tire son egout ; un mitoyen ne garde la
   // surface qu'avec des corps, et son egout vient de la forme ajustee.

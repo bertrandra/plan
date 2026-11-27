@@ -31,6 +31,8 @@ export { PAS_FAITAGE_M, PENTE_MAX_DEG, ECART_ABERRANT_M, DEPASSEMENT_GARDE_M, HA
 export { HAUTEUR_BATIE_M, contourEquerre, PART_VIDE_RECALAGE, DECALAGE_MAX_M, partVideSous, decalageSurMesure } from './toitCorps/recalage.js';
 // Le raccord des toits qui se touchent se fait apres la lecture de chaque batiment (raccord.ts, spec §13.10).
 export { hautsMesures, raccorderLesToits, type ToitARaccorder } from './raccord.js';
+// Les lucarnes que la grille brute montre sur les pans, lues en dernier sur le toit retenu (lucarnesLues.ts, spec §13.11).
+export { avecLucarnesLues, lucarnesDuCorps, TYPE_LUCARNE_LUE } from './lucarnesLues.js';
 export { creteMesuree, egoutsMesures, hautMesure, toitDehors, toitSymetrique, estAsymetrique, sansPreuveDAsymetrie, symetriqueSaufPreuve } from './toitCorps/centrage.js';
 export { GAIN_APPENTIS_SECOURS, corpsDepuisFormes, boiteOrientee, completerSurContour, corpsEtendu } from './toitCorps/reprise.js';
 

@@ -1330,3 +1330,52 @@ qu'il prolonge que si leurs égouts se lisent aussi à la même hauteur (`MEME_E
 pas : le toit du voisin, plus haut, y entre et le relève, alors que ses murs se lisent à leur hauteur (3,1 m contre 4,9 m).
 
 Vérifié : `tests/unit/facade/toits/raccord.test.ts`. Version de lecture 11.
+
+### 13.11 Les lucarnes lues sur la mesure  *(27 novembre 2026)*
+
+Le propriétaire, Hardencourt 6501004 : « sur la grande façade, sur le lidar je vois bien les 2 chiens assis, pourquoi ont-ils
+disparu ? ». Le pignon lu sur moins de 2 m n'est plus dessiné (§13.10) ; c'était une lucarne, et le détecteur de pignons
+(+ 80 cm sur 1,5 à 6 m) n'en voyait d'ailleurs qu'une sur trois. `facade/toits/lucarnesLues.ts` les lit, en dernier, sur le toit
+retenu (`app/toits/toitsLidar.ts::corpsLus`, après le fait et les garde-fous ; le rejeu, le banc et `identite.ts` font de même).
+
+**La lecture**, sur la grille brute (la surface nettoyée écrête et lisse : une lucarne de 1,5 m n'y survit pas), pan par pan :
+
+1. Le surplus de chaque cellule au-dessus du pan ajusté, ramené au surplus médian de sa rangée (à même distance du mur). Un toit
+   tracé à côté de son contour ou un égout lu trop bas décalent tout un pan : cela ne fait pas une lucarne.
+2. Le long du faîtage, les tronçons où ce surplus passe `SURPLUS_LUCARNE_M` (60 cm). Un tronçon est une lucarne quand :
+   - il fait de `LARGEUR_LUCARNE_MIN_M` (1,5 m, trois cellules) à `LARGEUR_LUCARNE_MAX_M` (2,5 m) : plus étroit, une souche de
+     cheminée ; plus large, un pignon ou un autre toit ;
+   - la bosse part du bas du pan (`FACE_LUCARNE_MAX_M`, 1 m du mur), d'un seul tenant, sur `PROFONDEUR_LUCARNE_MIN_M` (1 m) au
+     moins, hors de la bande du faîtage (`RETRAIT_FAITAGE_LUCARNE_M`) ;
+   - de chaque côté, à un mètre au plus, le pan retombe sous la moitié du surplus : une bosse, pas une marche ;
+   - son haut ne passe pas le faîtage que la mesure montre de plus de `DEPASSEMENT_LUCARNE_M` (un arbre, une souche) et reste à
+     `HAUTEUR_LUCARNE_MIN_M` au-dessus de l'égout ;
+   - elle est à plus de `BOUT_SANS_LUCARNE_M` des bouts du corps, hors de ses croupes, et pas sous un pignon déjà lu ;
+   - le reste du pan est plan à `BRUIT_PAN_LUCARNE_M` (25 cm) près : une croupe lue en deux pans, deux toits sous un seul corps
+     font des bosses partout ;
+   - seule sur son pan, elle dépasse de `SURPLUS_LUCARNE_SEULE_M` (1 m) : des lucarnes en série se confirment l'une l'autre.
+3. Jamais là où un autre toit entre dans le pan : les cellules sous un autre corps du bâtiment ne comptent pas, et une bosse
+   devant laquelle un autre bâtiment est accolé au mur (`ACCOLE_M`) est son toit — l'aile d'une maison en L. Le raccord (§13.10)
+   retire de même les lucarnes lues qu'une aile recouvre, et garde les autres à leur place quand il prolonge un corps.
+
+Rien sur un toit plat ou presque (`MONTEE_PAN_LUCARNE_M`), un pan trop court (`PAN_LUCARNE_MIN_M`), un toit de révolution ou à
+profil brisé, un appentis ouvert, un élément de façade.
+
+**Le type.** À un point tous les 50 cm, la mesure ne distingue pas une jacobine d'un chien-assis. Elle dit seulement si le dessus
+monte vers l'intérieur du toit (`PENTE_RAMPANTE_MIN`, 0,5 m par mètre : une rampante) ; sinon la lucarne est un chien-assis
+(`TYPE_LUCARNE_LUE`), la plus courante sur les longères où la lecture a été réglée. Une photo ou un fait qui dit mieux l'emporte.
+
+**Qui l'emporte.** Une lucarne lue (`source: 'lidar'`) est celle de la lecture : elle n'est pas un élément posé
+(`model/protections.ts`), la relecture la refait ou la retire, et elle ne se reporte pas d'une lecture à l'autre
+(`app/toits/ecritureToits.ts`). Un corps qui porte une lucarne vue sur une photo, dite par un fait ou posée à la main garde les
+siennes, la mesure n'y ajoute rien ; à la relecture, celles-là l'emportent sur les lucarnes lues du corps neuf
+(`facade/regles/toits/elementsVus.ts`). Le mode Toit déplace ou retire une lucarne lue comme une autre : le toit est alors figé.
+
+**Mesuré** (banc du 27 novembre 2026, sept villages, 850 bâtiments) : Hardencourt 3 (les trois chiens-assis de 6501004, à
+8,5–10,5 m, 13,5–15 m et 17,5–19 m du bout sud-ouest, hauts de 6,2 à 6,4 m), Le Vésinet 3, Hucqueliers 0, Gordes 0, Beuvron 2,
+Versailles 9, Eguisheim 5. Les séries (Hardencourt, Versailles 244788 et 244784, Eguisheim 26326525) sont justes sur les cartes ;
+une lucarne isolée sur trois environ reste douteuse (Beuvron 22798678, Eguisheim 26326018 : le toit d'à côté ; Le Vésinet
+229084 : un corps mal ajusté). La lecture préfère en manquer : une lucarne d'un mètre ne se lit pas. AE 101 : aucune lucarne
+lue, `identite.ts` identique.
+
+Vérifié : `tests/unit/facade/toits/lucarnesLues.test.ts`. Version de lecture 12.

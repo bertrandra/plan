@@ -238,7 +238,10 @@ export function reporterElements(anciens: readonly CorpsToit[], nouveaux: readon
     const suite: CorpsToit = { ...n };
     let change = false;
     if (n.cheminees === undefined && ajout.cheminees.length) { suite.cheminees = ajout.cheminees; change = true; }
+    // Une lucarne vue ou posee l'emporte sur celles que la mesure vient de lire sur le corps neuf (facade/toits/lucarnesLues.ts).
+    const vues = ajout.lucarnes.filter((l) => l.source !== 'lidar'), neuvesLues = !!n.lucarnes?.length && n.lucarnes.every((l) => l.source === 'lidar');
     if (n.lucarnes === undefined && ajout.lucarnes.length) { suite.lucarnes = ajout.lucarnes; change = true; }
+    else if (neuvesLues && vues.length) { suite.lucarnes = vues; change = true; }
     if (n.elementsToit === undefined && ajout.elementsToit.length) { suite.elementsToit = ajout.elementsToit; change = true; }
     if (n.terrasse === undefined && ajout.terrasse) { suite.terrasse = ajout.terrasse; change = true; }
     if (n.ouvert === undefined && ajout.ouvert !== undefined) { suite.ouvert = ajout.ouvert; if (ajout.retraitM !== undefined) suite.retraitM = ajout.retraitM; change = true; }

@@ -5,6 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Toits LiDAR : les lucarnes se lisent sur la mesure** (retour du propriétaire, 27 novembre 2026, 11 route du Guesclin à
+  Hardencourt-Cocherel : « sur la grande façade, sur le lidar je vois bien les 2 chiens assis, pourquoi ont-ils disparu ? »).
+  Depuis la règle du pignon étroit, une bosse de moins de 2 m n'était plus dessinée du tout. Elle est maintenant lue sur la grille
+  brute, pan par pan, une fois le toit ajusté (`facade/toits/lucarnesLues.ts`, `MD/spec-toit-ign.md` §13.11) : une bosse qui
+  dépasse le pan d'au moins 60 cm, large de 1,5 à 2,5 m, partie du bas du pan sur un mètre au moins, entre deux retombées, sur un
+  pan par ailleurs plan, est une lucarne posée sur ce pan. Jamais au bout d'un corps, au-dessus du faîtage, sous un pignon déjà lu,
+  ni là où un autre toit entre dans le pan (un bâtiment accolé au mur : l'aile d'une maison en L). Seule sur son pan, elle doit
+  dépasser d'un mètre. Le type est le chien-assis, sauf un dessus qui monte nettement vers l'intérieur du toit (une rampante) :
+  à un point tous les 50 cm, le LiDAR ne distingue pas une jacobine d'un chien-assis. La longère d'Hardencourt (6501004) retrouve
+  trois chiens-assis sur son pan côté cour ; AE 101 ne change pas. Sur les sept villages du banc (850 bâtiments) : 22 lucarnes lues
+  sur 14 bâtiments ; les séries sont justes à l'œil, une lucarne isolée sur trois environ reste douteuse (le toit d'à côté, un
+  toit mal ajusté). Une lucarne lue est celle de la lecture : relue à chaque lecture, elle cède à une lucarne vue sur une photo,
+  dite par un fait ou posée à la main, et le mode Toit la déplace ou la retire (le toit est alors figé). Quatorze seuils nommés
+  dans `regles/toits/reglages.json` ; version de lecture 12 (les toits sont relus). Aucun changement de schéma.
+
 ### Corrigé
 
 - **Toits LiDAR : un corps plus bas garde son toit** (retour du propriétaire, 27 novembre 2026, Hardencourt : « sur la partie
