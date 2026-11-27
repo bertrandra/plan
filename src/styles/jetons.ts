@@ -12,7 +12,7 @@
 
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
-  | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'chaussee' | 'chaussee-bord' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
+  | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'chaussee' | 'chaussee-bord' | 'trottoir' | 'chaussee-reelle' | 'trottoir-reel' | 'bordure-reelle' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
   | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'ecart-plu' | 'insertion' | 'on-insertion' | 'insertion-bg' | 'toast-bg' | 'on-toast' | 'fond-3d' | 'trait-3d'
   | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte' | 'serie-1' | 'serie-2' | 'serie-3'
   | 'claude-angles' | 'claude-pointe' | 'claude-forme' | 'claude-appentis' | 'claude-corps' | 'claude-element' | 'claude-cache'
@@ -39,6 +39,13 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     // carte routiere. Il se detache de la photo aerienne (gris, verts, tuiles) comme du Plan IGN, ou les petites rues sont blanches.
     'chaussee': '#F2C14E',
     'chaussee-bord': '#6B4A12',
+    // Les trottoirs entre la chaussee et les parcelles (model/trottoirs.ts) : une pierre claire, sous l'ambre, bordee du meme brun.
+    'trottoir': '#E4DED2',
+    // Les couleurs « Reelles » des rues dessinees (menu Affichage, sous « Rues ») : l'enrobe, le beton du trottoir, le granit de la
+    // bordure. Sur la photo comme sur le Plan IGN ; le nom des rues reste lisible par son halo.
+    'chaussee-reelle': '#5A5E63',
+    'trottoir-reel': '#C8C2B5',
+    'bordure-reelle': '#EDEAE3',
     'accent': '#7A5C31',
     'on-accent': '#FFFDF8',
     'accent-light': '#EFE3C8',
@@ -106,6 +113,10 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'relief': '#C9A97A',
     'chaussee': '#B8862B',
     'chaussee-bord': '#0F0B06',
+    'trottoir': '#4A443B',
+    'chaussee-reelle': '#3E4246',
+    'trottoir-reel': '#8E897F',
+    'bordure-reelle': '#C9C4BA',
     'accent': '#E0B564',
     'on-accent': '#1C1610',
     'accent-light': '#4A3B22',
@@ -179,7 +190,11 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'hairline': { famille: 'traits', role: 'Filets entre les lignes' },
   'relief': { famille: 'traits', role: 'Courbes de niveau' },
   'chaussee': { famille: 'traits', role: 'Chaussée des rues dessinées (plan et Vue 3D)' },
-  'chaussee-bord': { famille: 'traits', role: 'Bord des chaussées sur le plan' },
+  'chaussee-bord': { famille: 'traits', role: 'Bord des chaussées et bordure des trottoirs sur le plan (couleurs « Plan »)' },
+  'trottoir': { famille: 'traits', role: 'Trottoirs des rues dessinées (couleurs « Plan »)' },
+  'chaussee-reelle': { famille: 'traits', role: 'Chaussée des rues dessinées, couleurs « Réelles » (enrobé)' },
+  'trottoir-reel': { famille: 'traits', role: 'Trottoirs des rues dessinées, couleurs « Réelles » (béton)' },
+  'bordure-reelle': { famille: 'traits', role: 'Bordure des trottoirs, couleurs « Réelles » (granit)' },
   'accent': { famille: 'accent', role: 'Sélection, état actif, bouton Créer, total' },
   'on-accent': { famille: 'accent', role: 'Texte sur l’accent' },
   'accent-light': { famille: 'accent', role: 'Actif doux, pastilles, survol' },
@@ -281,6 +296,7 @@ export const PAIRES_CONTRASTE: [NomJeton, NomJeton, number][] = [
   ['on-toast', 'toast-bg', 4.5],
   ['relief', 'stage-bg', 3],
   ['chaussee-bord', 'chaussee', 3],
+  ['bordure-reelle', 'chaussee-reelle', 3],
   ['ok', 'panel-bg', 3],
   ['alerte', 'panel-bg', 3],
   ['ecart-plu', 'stage-bg', 4.5],
