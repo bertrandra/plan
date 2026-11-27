@@ -29,6 +29,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - Reste à faire : quand le contour de la BD TOPO est tracé à côté du toit (moins d'un mètre), le toit est centré sur le
     contour et non sur la crête mesurée ; le remède est un recalage fin du bâtiment entier.
 
+## [5.42.0] — 2026-11-27
+
+Version **mineure** au sens de `MD/RELEASE.md` : le parcours simple du mode Toit (#772) ajoute une fonction (la carte de la
+maison touchée, trois réglages pour modifier, six pièces pour ajouter, deux commandes, l'auvent au catalogue), ce qui donne un
+MINOR. **Rien n'est retiré ni mis derrière un droit** : tout ce que le mode savait faire reste, rangé sous « Plus de réglages ».
+**Aucune quantité ni aucun export ne change** : avant le changement de numéro, le code de #772 régénère les témoins de la
+5.41.1 au bit près ; les neuf témoins qui portent le numéro ne changent qu'à lui (la date de build reste le 30 octobre 2026 ;
+preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `liste-achat.csv`,
+`moteur-piscine-pergola.json` et `glb-structure.json` sont identiques ; AE 101 identique. Schéma inchangé (16), aucun champ
+nouveau ; version de lecture des toits inchangée (8). `regles/`, `deploy/` et `banc/` ne changent pas depuis la 5.41.1 ; la
+requête témoin de l'assistant est inchangée. Requêtes à vérifier contre l'API Claude sur `main` après la fusion de la version
+(« Vérifier l'API Claude »).
+
 ### Ajouté
 
 - **Mode Toit : le parcours simple** (maquette du 27 novembre 2026, « je veux du simple » ; `MD/spec-mode-toit-3d.md`,
