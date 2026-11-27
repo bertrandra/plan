@@ -412,6 +412,60 @@ function brancherGestesDeVue(svg: SVGElement, stage: HTMLElement, etat: EtatApp,
   window.addEventListener('pointercancel', clearMulti);
 }
 
+/** Le lacher : la fin d'un pan (un toucher choisit), d'un glisser d'acces, de sommet ou de cote, d'un deplacement ou d'un double-clic. */
+function surLacher(p: EtatPointeur, e: PointerEvent): void {
+  const { etat, ctx } = p;
+  const geste = p.geste;
+  const double = p.double;
+  p.double = null;
+  // Le second appui d'un double-clic, lache sans avoir glisse : l'objet recule (et rien d'autre : ni choix, ni deselection).
+  const doubleSurPlace = !!double && !aGlisse(e.clientX - double.client.x, e.clientY - double.client.y, double.typePointeur);
+  if(geste && geste.type === 'pan'){
+    p.geste = null;
+    const t = geste.toucher;
+    if(double && doubleSurPlace && t){ reculer(p, double.key); return; }
+    if(!t) return;
+    // Un toucher, pas un glisser : il compte pour un double-clic, et choisit l'objet s'il ne l'etait pas.
+    p.clicObjet = {key:t.key, time:t.time, x:t.x, y:t.y};
+    if(t.choisir && objetDe(etat, t.key)){
+      etat.selectedKey = t.key; etat.highlight = {type:null, index:null}; ctx.rebuildSelector(); ctx.render();
+    }
+    return;
+  }
+  if(geste && geste.type === 'acces'){
+    // La 3D et l'inspecteur suivent une fois le geste fini, pas a chaque image.
+    if(geste.moved){
+      const parcelle = parcelleDuProjet(etat.objects);
+      if(parcelle) synchroniserAnciensChamps(parcelle);
+      ctx.apresAcces();
+    }
+    p.geste = null;
+    return;
+  }
+  if(geste && (geste.type==='point' || geste.type==='edge') && p.contourAvant){
+    // Un sommet ou un cote tire (un rectangle redimensionne) : les releves, les cotes et le toit lu suivent le contour deforme.
+    const dire = apresDeformation(etat, geste.obj as ObjetPlan, p.contourAvant);
+    if(dire) ctx.signaler?.(dire);
+  }
+  p.contourAvant = null;
+  if(double && doubleSurPlace && geste && (geste.type==='shapeMove' || geste.type==='circleMove')){
+    // Le tremblement d'un double-clic n'est pas un deplacement : l'objet revient ou il etait, puis recule.
+    appliquerGlisser(geste, geste.startWorld, null);
+    toucherForme(geste.obj);
+    p.geste = null;
+    reculer(p, double.key);
+    ctx.render();
+    return;
+  }
+  if(geste && (geste.type==='shapeMove' || geste.type==='circleMove') && !geste.moved){
+    // Un simple clic (sans glisser) sur l'objet deja selectionne : il se deselectionne.
+    etat.selectedKey = null;
+    ctx.rebuildSelector();
+    ctx.render();
+  }
+  p.geste = null;
+}
+
 /** Un champ ou l'espace s'ecrit : la barre d'espace y reste a la saisie. */
 const estChampDeSaisie = (el: EventTarget | null): boolean =>
   el instanceof Element && (el.matches('input, textarea, select') || (el as HTMLElement).isContentEditable === true);
@@ -547,57 +601,7 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
     toucherForme(geste.obj);
     ctx.render();
   });
-  window.addEventListener('pointerup', e=>{
-    const geste = p.geste;
-    const double = p.double;
-    p.double = null;
-    // Le second appui d'un double-clic, lache sans avoir glisse : l'objet recule (et rien d'autre : ni choix, ni deselection).
-    const doubleSurPlace = !!double && !aGlisse(e.clientX - double.client.x, e.clientY - double.client.y, double.typePointeur);
-    if(geste && geste.type === 'pan'){
-      p.geste = null;
-      const t = geste.toucher;
-      if(double && doubleSurPlace && t){ reculer(p, double.key); return; }
-      if(!t) return;
-      // Un toucher, pas un glisser : il compte pour un double-clic, et choisit l'objet s'il ne l'etait pas.
-      p.clicObjet = {key:t.key, time:t.time, x:t.x, y:t.y};
-      if(t.choisir && objetDe(etat, t.key)){
-        etat.selectedKey = t.key; etat.highlight = {type:null, index:null}; ctx.rebuildSelector(); ctx.render();
-      }
-      return;
-    }
-    if(geste && geste.type === 'acces'){
-      // La 3D et l'inspecteur suivent une fois le geste fini, pas a chaque image.
-      if(geste.moved){
-        const parcelle = parcelleDuProjet(etat.objects);
-        if(parcelle) synchroniserAnciensChamps(parcelle);
-        ctx.apresAcces();
-      }
-      p.geste = null;
-      return;
-    }
-    if(geste && (geste.type==='point' || geste.type==='edge') && p.contourAvant){
-      // Un sommet ou un cote tire (un rectangle redimensionne) : les releves, les cotes et le toit lu suivent le contour deforme.
-      const dire = apresDeformation(etat, geste.obj as ObjetPlan, p.contourAvant);
-      if(dire) ctx.signaler?.(dire);
-    }
-    p.contourAvant = null;
-    if(double && doubleSurPlace && geste && (geste.type==='shapeMove' || geste.type==='circleMove')){
-      // Le tremblement d'un double-clic n'est pas un deplacement : l'objet revient ou il etait, puis recule.
-      appliquerGlisser(geste, geste.startWorld, null);
-      toucherForme(geste.obj);
-      p.geste = null;
-      reculer(p, double.key);
-      ctx.render();
-      return;
-    }
-    if(geste && (geste.type==='shapeMove' || geste.type==='circleMove') && !geste.moved){
-      // Un simple clic (sans glisser) sur l'objet deja selectionne : il se deselectionne.
-      etat.selectedKey = null;
-      ctx.rebuildSelector();
-      ctx.render();
-    }
-    p.geste = null;
-  });
+  window.addEventListener('pointerup', e=>surLacher(p, e));
   window.addEventListener('pointercancel', ()=>{ p.geste = null; p.double = null; });
 
   brancherGestesDeVue(svg, stage, etat, ctx, () => { p.geste = null; p.double = null; });
