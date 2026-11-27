@@ -190,7 +190,7 @@ describe('reprise des contours de biais', () => {
     expect(corpsEtendu(c, { s0: 0, sL: 10, t0: 0, tW: 6 })).toBe(c);
   });
 
-  it('Gordes : une maison de village aux angles non droits recoit un toit construit, a un pan, decoupe sur son contour', () => {
+  it('Gordes : une maison de village aux angles non droits recoit un toit construit, decoupe sur son contour', () => {
     for (const k of ['16860179', '16860044']) {
       const r = JSON.parse(readFileSync(new URL(`../../../fixtures/toits/gordes-${k}.json`, import.meta.url), 'utf8')) as Releve;
       // Le contour ne se decoupe pas en rectangles : sans le dernier recours, la surface brute.
@@ -198,8 +198,11 @@ describe('reprise des contours de biais', () => {
       expect(corps).toHaveLength(1);
       const c = corps[0]!;
       const W = Math.hypot(c.pts[3]!.x - c.pts[0]!.x, c.pts[3]!.y - c.pts[0]!.y);
-      // Un pan : le faitage sur un mur.
-      expect(c.posFaitage === 0 || Math.abs(c.posFaitage - W) < 0.02).toBe(true);
+      // 16860044 : un pan, le faitage sur un mur (aucun toit symetrique ne s'y ajuste). 16860179 : le toit a un pan n'y colle que
+      // 9 % mieux que le toit symetrique, sa crete se lit aux deux tiers de la largeur et ses murs ne different que de 50 cm : pas de
+      // preuve, le toit est symetrique (MD/spec-toit-ign.md §13.9).
+      if (k === '16860044') expect(c.posFaitage === 0 || Math.abs(c.posFaitage - W) < 0.02).toBe(true);
+      else { expect(c.posFaitage).toBeCloseTo(W / 2, 1); expect(c.egouts[0]).toBe(c.egouts[1]); }
       expect(c.faitage - Math.min(...c.egouts)).toBeGreaterThan(0.8);
       expect(c.pignons).toEqual([]);
     }
@@ -245,9 +248,10 @@ describe('reprise des contours de biais', () => {
         expect(sous / n).toBeLessThanOrEqual(PART_RECOUVERTE_MAX);
       }
     }
-    // Le pavillon ouest de la longere : son aile nord reste entiere (4,4 m), sur le toit a 11 m.
+    // Le pavillon ouest de la longere : son aile nord reste entiere (4,4 m), sur le toit a 10,7 m (11 m quand son faitage se
+    // cherchait a 50 cm de l'axe ; le haut mesure est a 10,8 m).
     const { corps } = hucqueliers('37248484', true);
-    expect(corps.some((c) => c.faitage === 11)).toBe(true);
+    expect(corps.some((c) => c.faitage === 10.7)).toBe(true);
     expect(corps.some((c) => Math.abs(Math.min(...dimsDe(c)) - 4.4) < 0.05)).toBe(true);
   });
 });

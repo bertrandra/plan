@@ -1168,3 +1168,96 @@ Vérifié : `tests/unit/model/aCheval.test.ts` (parts, débord, doute) et
 réponse, enchaînement des dialogues, lecture seule). Dans le navigateur, à Hucqueliers, deux
 annexes à cheval sur la parcelle du projet donnent chacune leur question. Au 2 allée des Limites
 (AE 101), aucune question n'est posée.
+
+### 13.9 Un toit est symétrique sauf preuve du contraire
+
+*27 novembre 2026. Retours du propriétaire : « je vois beaucoup de toits où le faîtage n'est pas centré » ; « j'ai le cas sur
+AE 101 où un toit n'est pas centré et il devrait l'être » ; sur les cartes de hauteur d'Hardencourt-Cocherel : « les faîtages
+ont la même altitude et le faîtage est centré dans la réalité » ; « la forme du toit est de la même hauteur à gauche et à
+droite, et faîtage centré, je ne comprends pas ce que tu fais avec le LiDAR ».*
+
+**Le principe.** Un toit a son faîtage dans l'axe de son corps et **le même égout des deux côtés**. Le LiDAR sert à ce qu'il
+mesure bien : les hauteurs (l'égout, le faîtage), le sens du faîtage et la forme (deux pans, croupes, plat, un pan). Un toit
+asymétrique — faîtage hors de l'axe, égouts différents, un seul pan — est l'exception, et c'est à la mesure de la **prouver**.
+
+**Ce qui se passait.** Le modèle des corps (`toitCorps/ajustement.ts`) laissait libres la place du faîtage et chaque égout : il
+ajustait le bruit, la végétation, le toit du voisin et surtout un contour de la BD TOPO tracé à côté du toit (30 cm à 1 m, cas
+courant). Et comme il écarte ce qui dépasse le pan de plus de 40 cm (c'est ainsi qu'il voit les pignons), il s'écrasait : sur
+un quatre-pans, un pavillon ou un deux-pans à lucarnes, un toit bas au faîtage poussé contre un mur collait mieux à *son* écart
+qu'un toit juste (Le Vésinet 229075 : faîtage à 5,4 m contre un mur, haut mesuré à 7,5 m). Sur sept villages, 418 corps à deux
+pans sur 642 sortaient asymétriques.
+
+**La règle** (`facade/toits/toitCorps/centrage.ts::symetriqueSaufPreuve`, la dernière question posée au toit de chaque corps,
+après le modèle, les formes, les refontes et la reprise).
+
+- **Asymétrique** (`estAsymetrique`) : un seul pan, un faîtage à `DECENTRAGE_MIN_M` (0,5 m) ou plus de l'axe, ou des égouts qui
+  diffèrent d'`EGOUTS_EGAUX_M` (0,3 m) ou plus. Un toit plat ne l'est pas.
+- **La preuve d'un deux-pans asymétrique** (`sansPreuveDAsymetrie`, qui dit la pièce qui manque), toutes à la fois :
+  1. il **colle nettement mieux** que le toit symétrique, à l'écart symétrique (`GAIN_ASYMETRIQUE` : 0,8) ;
+  2. hors de l'axe, sa **crête se lit** là où il met le faîtage, tout le long (`creteMesuree` : au moins `CRETE_PROFILS_MIN`
+     profils de `CRETE_RELIEF_MIN_M` de relief, dispersion sous `CRETE_DISPERSION_MAX_M`, crête à `CRETE_ACCORD_M` du faîtage) ;
+  3. ses égouts diffèrent d'au moins `EGOUTS_DIFFERENTS_M` (1 m), et cette **différence se lit le long des deux murs**
+     (`egoutsMesures` : `PART_PROFILS_ACCORD` des profils dans le même sens) ;
+  4. **le toit ne continue pas au-delà du mur de son égout haut** (`toitDehors` : à `TOIT_DEHORS_M` du mur, dehors, au plus
+     `PART_TOIT_DEHORS_MAX` de bâti). Sinon ce n'est pas un toit asymétrique : c'est un toit symétrique dont le contour ne
+     couvre qu'un morceau.
+- **La preuve d'un toit à un pan** : il colle nettement mieux (`GAIN_ASYMETRIQUE`), ou il colle au moins aussi bien et la
+  mesure monte d'un mur à l'autre tout le long (`EGOUTS_DIFFERENTS_M`, `PART_PROFILS_ACCORD`). On ne regarde pas dehors : un
+  appentis s'adosse à un toit plus haut. Face à un pan, un autre toit à un pan n'est pas un essai (la question est « un pan ou
+  deux »).
+- **Le toit symétrique** (`toitSymetrique`) : le *même modèle*, faîtage imposé au milieu, **un seul égout** (la moyenne des
+  deux égouts ajustés, au dixième), pignons relus sans leurs mesures (`corpsImpose`). La lecture des formes simples, symétrique
+  par construction, ne le remplace que si elle colle nettement mieux (`GAIN_CROUPES`) ou, sans pignon à perdre, si elle lit des
+  croupes à `TOLERANCE_CROUPES_CENTRE` près ; les mêmes dans l'autre sens s'ils collent nettement mieux (`GAIN_SENS`). Quand
+  aucun toit symétrique ne s'ajuste (trop plat, trop raide), le corps garde son toit.
+- **Écrasé** : un faîtage à `ECRASEMENT_M` (1 m) ou plus sous le haut mesuré de son rectangle (95e centile). Le toit qui porte
+  le faîtage au moins `RELEVE_MIN_M` plus haut l'emporte si son écart symétrique tombe à `GAIN_ECRASE`. Et un toit symétrique
+  lui-même écrasé ne remplace pas un toit qui atteint le haut (Gordes 38818671).
+- **Tout se compare à l'écart symétrique** (`ecartAuCorps`). L'écart du modèle compte peu ce qui dépasse le pan.
+- **Un fait ne redéplace pas le faîtage et garde la symétrie.** Un pignon posé par un fait ou vu sur une photo
+  (`facade/regles/toits/pignons.ts`) relit les hauteurs du pan sans ses mesures, à la place de faîtage décidée et au même égout.
+- **L'égout du toit n'est pas la hauteur de chaque mur.** L'appentis adossé d'un fait (`appentis.ts::auMurLu`) relit le corps à
+  ses deux égouts libres et garde, pour SON mur, le plus bas : sans cela le débord du grand toit passait sous le plafond de
+  l'appentis et se lisait comme son pan (AE 101, la galerie, qui ne bouge pas).
+
+**AE 101** (décision du propriétaire, la référence change une fois de plus) : ses trois corps du calcul sont symétriques. La
+mesure ne prouvait rien d'autre : sur le corps principal, le toit symétrique colle aussi bien (0,53 m contre 0,54) et la
+différence des égouts ne se lit que sur 68 % des profils, pour 60 cm.
+
+| Corps | Avant | Après |
+|---|---|---|
+| Principal, 9,9 × 6,5 m (calcul seul) | faîtage 7,5 m à 4,00 m, égouts 6,1 / 5,0 m, deux pignons | faîtage 7,6 m à 3,25 m, égouts 5,7 / 5,7 m, deux pignons |
+| Principal, sous ses faits | faîtage 7,6 m à 3,75 m, égouts 6,1 / 5,0 m, deux pignons de 3,7 m | faîtage 7,5 m à 3,25 m, égouts 5,6 / 5,6 m, deux pignons de 3,7 m |
+| Aile basse, 4,2 × 9,9 m | faîtage 4,3 m à 6,94 m, égouts 3,1 / 3,2 m | faîtage 4,1 m à 4,95 m, égouts 3,5 / 3,5 m |
+| Annexe nord, 5,9 × 7,8 m | faîtage 4,5 m à 5,02 m, égouts 2,7 / 3,1 m | faîtage 4,3 m à 3,89 m, égouts 3,0 / 3,0 m |
+
+Les deux pignons depuis le faîtage, l'appentis de la galerie (3,2 / 2,4 m) et la bay window ne bougent pas. **Conséquence à
+connaître** : la façade sud portait un égout à 5,0 m, elle porte 5,6 m ; le gabarit de son étalon suit
+(`tests/fixtures/facades-reel/etalons/ae101-sud.json`).
+
+**Banc** (27 novembre 2026, sept villages, 850 bâtiments ; corps à deux pans symétriques / asymétriques, avant → après) :
+
+| Village | Symétriques | Asymétriques | Un pan | Plats |
+|---|---|---|---|---|
+| Le Vésinet | 26 → 63 | 42 → 6 | 24 → 23 | 13 → 13 |
+| Hardencourt | 8 → 20 | 13 → 2 | 6 → 5 | 0 → 0 |
+| Hucqueliers | 19 → 43 | 40 → 14 | 37 → 37 | 16 → 16 |
+| Gordes | 19 → 51 | 60 → 23 | 121 → 127 | 19 → 19 |
+| Beuvron-en-Auge | 31 → 88 | 80 → 24 | 82 → 80 | 15 → 15 |
+| Versailles | 46 → 78 | 61 → 28 | 49 → 50 | 32 → 32 |
+| Eguisheim | 75 → 152 | 122 → 40 | 186 → 185 | 24 → 24 |
+
+Les toits plats ne bougent pas (AE 103 compris), les toits à un pan non plus (505 → 507 : les appentis des garages et les pans
+provençaux de Gordes restent). 103 bâtiments changent de forme ; les « asymétrique » passent de 130 à 47 ; les suspects ne
+bougent pas (554 → 555). Ceux qui restent asymétriques sont prouvés (Le Vésinet 229091 : 25,8 × 7,7 m, égouts à 6,1 et 8,1 m) ou
+n'ont aucun toit symétrique qui s'ajuste (tranches étroites, toits presque plats : Le Vésinet 228919, 229066, 229114, 229089,
+229012 ; Hardencourt 6498062).
+
+**Ce que la règle coûte, et ce qu'elle ne fait pas.** Quand le contour de la BD TOPO est tracé à côté du toit (Hardencourt
+6501004 : 70 cm), le toit symétrique est centré sur le contour, donc à côté de la crête mesurée : son écart à la mesure monte
+(0,30 → 0,47 m) alors que le toit dessiné est le bon. Le remède est de déplacer le bâtiment entier sur la mesure, comme le
+recalage (§13.7), dont le seuil ne voit pas un décalage de moins d'un mètre : un recalage fin par la crête, à faire.
+
+Vérifié : `tests/unit/facade/toits/faitageCentre.test.ts` (relevés réels du Vésinet et d'Hardencourt, toits de synthèse, chaque
+pièce de la preuve), `toitCorpsReprise.test.ts` (AE 101 au centimètre, à sa nouvelle référence ; Gordes), `faits.test.ts` (la
+galerie, matin et soir), `identite.ts`. Version de lecture 9 : tous les toits sont relus.

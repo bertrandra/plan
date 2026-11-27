@@ -45,7 +45,7 @@ describe('la silhouette arbitrée corps par corps', () => {
     const { o, p } = proposer({ 12: 'rampe' });
     expect(p.find((x) => x.id === 'maison:toit')).toBeUndefined();
     const aile = p.find((x) => x.id === 'maison:toit:2');
-    expect(aile).toMatchObject({ source: 'arbitrage', avant: 'asymétrique', effet: { type: 'corpsDuToit', corps: 2 } });
+    expect(aile).toMatchObject({ source: 'arbitrage', avant: 'deux pans', effet: { type: 'corpsDuToit', corps: 2 } });
     expect(aile?.objet).toMatch(/^Forme du toit de maison, corps 3 /);
     // La photo seule ne decide pas : la proposition attend la personne.
     expect(aile?.reserve).toMatch(/Photo de façade seul ne décide pas/);

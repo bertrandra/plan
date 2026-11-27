@@ -14,11 +14,11 @@
 // Le corps produit est un appentis ordinaire (faitage sur le mur, `posFaitage` = 0, rive de tete
 // contre la facade) : la 3D le dessine comme les autres (three/toitCorps3d.ts).
 
-import { hauteursMursCorps, type Grille } from '../../toits/toitCorps.js';
+import { corpsImpose, empreintePignon, hauteursMursCorps, type Grille } from '../../toits/toitCorps.js';
 import { segmentEnFacade } from '../../../geometry/facadeExterieure.js';
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../../../regles/toits/reglages.js';
 import type { AppentisFait } from '../../../regles/toits/faits.js';
-import type { CorpsToit, PtBrut } from '../../../model/types.js';
+import type { CorpsToit, PtBrut, ToitMesure } from '../../../model/types.js';
 
 /** Un cote de corps porte la facade designee si sa normale sortante est a moins de cela de l'azimut du fait. */
 export const TOLERANCE_FACADE_DEG = R.TOLERANCE_FACADE_DEG;
@@ -157,16 +157,30 @@ export function appentisVers(c: CorpsToit, ap: AppentisFait): boolean {
 }
 
 /**
+ * La facade, a l'egout de SON mur. Un toit symetrique porte le meme egout des deux cotes (toitCorps/centrage.ts) : c'est le toit
+ * du corps, pas la hauteur de chaque mur. Quand ce mur-ci se lit plus bas, le debord du grand toit, vu devant le mur, passait
+ * sous le plafond de l'appentis et se lisait comme son pan (AE 101, la galerie). On relit donc le corps a son faitage, pignons
+ * ecartes, chaque egout libre, et on garde le plus bas des deux pour ce mur.
+ */
+function auMurLu(f: FacadeDeCorps | null, corps: readonly CorpsToit[], contour: readonly PtBrut[], m: ToitMesure | null): FacadeDeCorps | null {
+  const c = f ? corps[f.corps] : undefined;
+  if (!f || !c || !m) return f;
+  const libre = corpsImpose(m, c.pts, contour, c.posFaitage, c.pignons.map((p) => empreintePignon(c, p)));
+  const lu = libre ? hauteursMursCorps(libre)[f.cote] : undefined;
+  return lu !== undefined && lu < f.egout ? { ...f, egout: lu } : f;
+}
+
+/**
  * Les corps avec les appentis adosses que demande l'observation, chacun contre la facade qu'elle
  * designe, aux cotes lues ou donnees. Un appentis que ni la mesure ni le fait ne cotent n'est pas
  * ajoute (`ecartsAuFait` le dit). Les facades se cherchent sur les corps lus, pas sur les appentis
  * qu'on vient d'ajouter.
  */
-export function avecAppentis(appentis: readonly AppentisFait[] | undefined, corps: CorpsToit[] | null, contour: readonly PtBrut[], grille: Grille | null): CorpsToit[] | null {
+export function avecAppentis(appentis: readonly AppentisFait[] | undefined, corps: CorpsToit[] | null, contour: readonly PtBrut[], grille: Grille | null, m: ToitMesure | null = null): CorpsToit[] | null {
   if (!appentis?.length || !corps?.length) return corps;
   const out = [...corps];
   for (const ap of appentis) {
-    const f = facadeDesignee(corps, contour, ap.facade.azimutDeg, ap.facade.toleranceDeg);
+    const f = auMurLu(facadeDesignee(corps, contour, ap.facade.azimutDeg, ap.facade.toleranceDeg), corps, contour, m);
     const cotes = f ? cotesAppentis(f, grille, ap) : null;
     if (f && cotes) out.push(corpsAppentis(f, cotes));
   }

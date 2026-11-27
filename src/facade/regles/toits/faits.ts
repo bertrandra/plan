@@ -177,7 +177,7 @@ export function corpsSousContrainte(f: FaitToit, corps: CorpsToit[] | null, m: T
   const principaux = avecPointesDesMurs(f.observation.pointesDesMurs, avecBoutsDesMurs(f.observation.boutsDesMurs, avecPignons(f.observation.pignons, corpsPrincipauxSousContrainte(f, corps, m, contour, grille), m, contour), { m, contour }), { m, contour });
   // Les saillies vues sur un mur (lot L1) s'ajoutent a la fin : les rangs des corps d'avant ne bougent pas.
   // Les fenetres de toit et panneaux vus sur un mur (lot L2) se posent sur le pan de son corps, apres le reste : seuls ses elementsToit changent.
-  return avecElementsToitDesMurs(f.observation.elementsToitDesMurs, avecSailliesDesMurs(f.observation.sailliesDesMurs, avecElementsDesMurs(f.observation.elementsDesMurs, avecBaies(f.observation.baies, avecAppentis(f.observation.appentis, principaux, contour, grille), contour, grille))));
+  return avecElementsToitDesMurs(f.observation.elementsToitDesMurs, avecSailliesDesMurs(f.observation.sailliesDesMurs, avecElementsDesMurs(f.observation.elementsDesMurs, avecBaies(f.observation.baies, avecAppentis(f.observation.appentis, principaux, contour, grille, m), contour, grille))));
 }
 
 /** Les corps lus, le corps principal relu dans les formes et le sens observes, le nombre de corps tenu. */
