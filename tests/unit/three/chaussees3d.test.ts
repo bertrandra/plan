@@ -1,9 +1,13 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE_NS from 'three';
-import { ajouterChaussees3d, geometrieChaussees, couleurChaussee, NOM_CHAUSSEES_3D, DECALAGE_CHAUSSEE_M, ATTENUATION_3D } from '../../../src/three/chaussees3d.js';
-import { ajouterNomsDesRues3d } from '../../../src/three/rues3d.js';
+import {
+  ajouterChaussees3d, geometrieChaussees, geometrieTrottoirs, couleurChaussee, couleurRue, NOM_CHAUSSEES_3D, NOM_TROTTOIRS_3D, NOM_BORDURES_3D, DECALAGE_CHAUSSEE_M,
+  HAUTEUR_TROTTOIR_M, LARGEUR_BORDURE_M, ATTENUATION_3D,
+} from '../../../src/three/chaussees3d.js';
+import { ajouterNomsDesRues3d, hauteurPlaque, HAUTEUR_NOM_RUE_3D_M } from '../../../src/three/rues3d.js';
 import { SANS_OMBRE, HORS_EXPORT, COUCHES_SOL } from '../../../src/three/primitives.js';
 import { JETONS } from '../../../src/styles/jetons.js';
+import { profilerRues } from '../../../src/model/trottoirs.js';
 import type { ChausseeRue, PtBrut } from '../../../src/model/types.js';
 
 // Les rues dessinees en Vue 3D (option « Rues », MD/spec-rues.md §7) : des rubans drapes sur le relief, en une maille mate.
@@ -12,7 +16,9 @@ beforeAll(() => { Object.assign(globalThis, { THREE: THREE_NS }); });
 const versLocal = (p: PtBrut) => ({ x: p.x, z: -p.y });
 /** Un sol en pente : un metre de plus tous les dix metres vers l'est. */
 const pente = (p: PtBrut) => p.x / 10;
-const rue: ChausseeRue = { nature: 'Route à 1 chaussée', largeurM: 6, pts: [{ x: 0, y: 0 }, { x: 40, y: 0 }] };
+const chaussee: ChausseeRue = { nature: 'Route à 1 chaussée', largeurM: 6, pts: [{ x: 0, y: 0 }, { x: 40, y: 0 }] };
+/** Sans parcelle connue : la chaussee d'avant, sur l'axe, a sa largeur lue. */
+const rue = profilerRues([chaussee], [])[0]!;
 
 describe('geometrieChaussees', () => {
   it('drape chaque sommet du ruban sur le sol, recoupe pour suivre la pente, avec un disque a chaque bout', () => {
@@ -93,5 +99,63 @@ describe('le nom des rues sur les rues dessinees', () => {
     expect(plaque.position.y).toBeCloseTo(0.5 + 0.08, 6);
     expect(plaque.rotation.x).toBeCloseTo(-Math.PI / 2, 9);
     expect((plaque.material as THREE_NS.Material).polygonOffset).toBe(false);
+  });
+});
+
+describe('les trottoirs en Vue 3D', () => {
+  const parcelles = [{ pts: [{ x: -10, y: 5 }, { x: 50, y: 5 }, { x: 50, y: 30 }, { x: -10, y: 30 }], projet: true }];
+  const profils = profilerRues([{ ...chaussee, pts: [{ x: 0, y: 0 }, { x: 40, y: 0 }] }], parcelles);
+  it('drape le dessus 15 cm au-dessus de la chaussee, jusqu a la limite, avec une face de bordure', () => {
+    const { dalles, bordures } = geometrieTrottoirs(profils, versLocal, pente);
+    const pos = dalles!.getAttribute('position');
+    let yMax = -Infinity, dessus = 0;
+    for (let k = 0; k < pos.count; k++) {
+      const x = pos.getX(k), y = -pos.getZ(k), h = pos.getY(k) - pente({ x, y });
+      // Le trottoir est au nord de l'axe, entre la chaussee (3 m) et la limite (5 m).
+      expect(y).toBeGreaterThan(3 - 1e-6);
+      expect(y).toBeLessThanOrEqual(5 + 1e-6);
+      yMax = Math.max(yMax, y);
+      if (Math.abs(h - (DECALAGE_CHAUSSEE_M + HAUTEUR_TROTTOIR_M)) < 1e-5) dessus++;
+      // Les autres sommets sont ceux de la face qui descend au sol a la limite.
+      else { expect(h).toBeCloseTo(0, 5); expect(y).toBeCloseTo(5, 5); }
+    }
+    expect(yMax).toBeCloseTo(5, 5);
+    expect(dessus).toBeGreaterThan(0);
+    // La bordure : du bord de la chaussee (a sa hauteur) au dessus du trottoir, sur 15 cm de large.
+    const b = bordures!.getAttribute('position');
+    for (let k = 0; k < b.count; k++) {
+      const y = -b.getZ(k), h = b.getY(k) - pente({ x: b.getX(k), y });
+      expect(y).toBeGreaterThan(3 - 1e-6);
+      expect(y).toBeLessThanOrEqual(3 + LARGEUR_BORDURE_M + 1e-6);
+      expect(h).toBeGreaterThan(DECALAGE_CHAUSSEE_M - 1e-6);
+    }
+  });
+  it('pose trois mailles aux couleurs choisies, hors export', () => {
+    const scene = new THREE_NS.Scene();
+    ajouterChaussees3d(scene, versLocal, profils, { couleurs: 'reelles' });
+    expect(scene.children.map((m) => m.name)).toEqual([NOM_CHAUSSEES_3D, NOM_TROTTOIRS_3D, NOM_BORDURES_3D]);
+    const couleur = (i: number) => ((scene.children[i] as THREE_NS.Mesh).material as THREE_NS.MeshStandardMaterial).color;
+    expect(couleur(0).equals(new THREE_NS.Color(JETONS.clair['chaussee-reelle']).multiplyScalar(ATTENUATION_3D))).toBe(true);
+    expect(couleur(1).equals(new THREE_NS.Color(JETONS.clair['trottoir-reel']).multiplyScalar(ATTENUATION_3D))).toBe(true);
+    expect(couleur(2).equals(new THREE_NS.Color(JETONS.clair['bordure-reelle']).multiplyScalar(ATTENUATION_3D))).toBe(true);
+    expect(scene.children.every((m) => m.userData[HORS_EXPORT] === true && m.userData[SANS_OMBRE] === true)).toBe(true);
+    expect(couleurRue('trottoir')).toBe(JETONS.clair.trottoir);
+    expect(couleurRue('bordure')).toBe(JETONS.clair['chaussee-bord']);
+  });
+  it('pose le nom au milieu de la chaussee, sa plaque dans sa largeur', () => {
+    const doc = { createElement: () => ({ width: 0, height: 0, getContext: () => ({ measureText: (t: string) => ({ width: t.length * 10 }), strokeText() {}, fillText() {} }) }) } as unknown as Document;
+    const etroite = profilerRues([{ ...chaussee, pts: [{ x: -20, y: 0 }, { x: 30, y: 0 }] }], [
+      { pts: [{ x: -30, y: 4 }, { x: 40, y: 4 }, { x: 40, y: 30 }, { x: -30, y: 30 }], projet: true },
+      { pts: [{ x: -30, y: -2 }, { x: 40, y: -2 }, { x: 40, y: -30 }, { x: -30, y: -30 }], projet: false }]);
+    const scene = new THREE_NS.Scene();
+    ajouterNomsDesRues3d(scene, versLocal, [{ nom: 'Allée des Limites', troncons: [[{ x: -20, y: 0 }, { x: 30, y: 0 }]] }], { hauteurSol: pente, doc, surChaussees: true, profils: etroite });
+    const plaque = scene.children[0] as THREE_NS.Mesh;
+    // 6 m entre les limites, l'axe a 1 m au sud du milieu : la chaussee de 3,20 m centree en y = 1.
+    expect(-plaque.position.z).toBeCloseTo(1, 6);
+    (plaque.geometry as THREE_NS.PlaneGeometry).computeBoundingBox();
+    const bb = (plaque.geometry as THREE_NS.PlaneGeometry).boundingBox!;
+    expect(bb.max.y - bb.min.y).toBeCloseTo(hauteurPlaque({ nom: '', x: 0, y: 0, angleDeg: 0, largeurM: 3.2 }), 6);
+    expect(hauteurPlaque({ nom: '', x: 0, y: 0, angleDeg: 0, largeurM: 3.2 })).toBeCloseTo(2.8, 6);
+    expect(hauteurPlaque({ nom: '', x: 0, y: 0, angleDeg: 0 })).toBe(HAUTEUR_NOM_RUE_3D_M);
   });
 });
