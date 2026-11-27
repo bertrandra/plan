@@ -149,9 +149,12 @@ export function ruesTracees(parcelle: ObjetPlan | null | undefined): boolean {
  */
 export function tracerRues(parcelle: ObjetPlan, oui: boolean): void {
   const v = parcelle.voisinage3d ?? {};
-  const rues: { afficher: boolean; tracer?: true } = { afficher: v.rues?.afficher ?? false, ...(oui ? { tracer: true as const } : {}) };
+  // Les reglages des trottoirs et des couleurs (model/trottoirs.ts) restent, cochee ou non : ils seront retrouves a la prochaine fois.
+  const rues: NonNullable<typeof v.rues> = { ...(v.rues ?? {}), afficher: v.rues?.afficher ?? false };
+  delete rues.tracer;
+  if (oui) rues.tracer = true;
   // Une parcelle dont la case etait le seul reglage du voisinage revient sans reglage : le fichier garde sa forme d'avant.
-  if (!oui && !rues.afficher && Object.keys(v).every((k) => k === 'rues')) delete parcelle.voisinage3d;
+  if (!oui && !rues.afficher && Object.keys(rues).every((k) => k === 'afficher') && Object.keys(v).every((k) => k === 'rues')) delete parcelle.voisinage3d;
   else parcelle.voisinage3d = { ...v, rues };
 }
 

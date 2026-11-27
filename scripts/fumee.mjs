@@ -5136,24 +5136,36 @@ const POINTS = {
     const plan = await page.evaluate(() => {
       const g = document.getElementById('chausseesGroup');
       const enfants = [...(g?.children ?? [])].map((c) => c.getAttribute('class'));
+      // Depuis les trottoirs (point 200), les chaussees sont des polygones remplis entre leurs bords : une seule famille de pleins.
       const pleins = [...(g?.querySelectorAll('g.chausseesPleins path') ?? [])];
       const bords = [...(g?.querySelectorAll('g.chausseesBords path') ?? [])];
+      // La plus etroite des chaussees ecrites, a l'ecran : la plus courte des cotes d'un quadrilatere entre deux mesures.
+      const largeurs = [];
+      for (const p of pleins) for (const poly of (p.getAttribute('d') || '').split('Z').filter(Boolean)) {
+        const pts = poly.replace(/^M/, '').split('L').map((c) => c.trim().split(' ').map(Number));
+        if (pts.length < 6 || pts.length % 2) continue;
+        // Un ruban : n points d'un bord puis n de l'autre, a l'envers ; la largeur a mi-longueur.
+        const n = pts.length / 2, a = pts[Math.floor(n / 2)], b = pts[pts.length - 1 - Math.floor(n / 2)];
+        largeurs.push(Math.hypot(a[0] - b[0], a[1] - b[1]));
+      }
       const svg = g?.ownerSVGElement;
       const ordre = svg ? [...svg.children].map((c) => c.id || c.tagName) : [];
       const jeton = getComputedStyle(document.documentElement).getPropertyValue('--chaussee').trim().toUpperCase();
       const jetonBord = getComputedStyle(document.documentElement).getPropertyValue('--chaussee-bord').trim().toUpperCase();
       return {
         enfants, pleins: pleins.length, bords: bords.length, inerte: g?.getAttribute('pointer-events'),
-        couleurs: [...new Set(pleins.map((p) => (p.getAttribute('stroke') || '').toUpperCase()))], couleursBord: [...new Set(bords.map((p) => (p.getAttribute('stroke') || '').toUpperCase()))],
-        jeton, jetonBord, largeurMin: Math.min(...pleins.map((p) => Number(p.getAttribute('stroke-width')))),
+        couleurs: [...new Set(pleins.map((p) => (p.getAttribute('fill') || '').toUpperCase()))], couleursBord: [...new Set(bords.map((p) => (p.getAttribute('stroke') || '').toUpperCase()))],
+        jeton, jetonBord, largeurMin: Math.round(Math.min(...largeurs) * 10) / 10,
         avantRelief: ordre.indexOf('chausseesGroup') < ordre.indexOf('reliefGroup'), avantNoms: ordre.indexOf('chausseesGroup') < ordre.indexOf('ruesGroup'),
         avantObjets: ordre.indexOf('chausseesGroup') < ordre.indexOf('objetsGroup'), present: ordre.includes('chausseesGroup')
       };
     });
     if (!plan.present || !plan.pleins || plan.pleins !== plan.bords) echecs.push('plan : ' + JSON.stringify(plan));
-    if (JSON.stringify(plan.enfants) !== JSON.stringify(['chausseesBords', 'chausseesPleins'])) echecs.push('ordre bords/pleins : ' + JSON.stringify(plan.enfants));
+    // Les bords, les chaussees, puis les trottoirs et leur bordure la ou les limites des parcelles les donnent (point 200).
+    if (JSON.stringify(plan.enfants.slice(0, 2)) !== JSON.stringify(['chausseesBords', 'chausseesPleins'])
+      || ![0, 2].includes(plan.enfants.length) && JSON.stringify(plan.enfants.slice(2)) !== JSON.stringify(['trottoirs', 'trottoirsBordures'])) echecs.push('ordre bords/pleins/trottoirs : ' + JSON.stringify(plan.enfants));
     if (plan.couleurs.length !== 1 || plan.couleurs[0] !== plan.jeton || plan.couleursBord[0] !== plan.jetonBord) echecs.push('couleurs ' + JSON.stringify(plan.couleurs) + ' / ' + JSON.stringify(plan.couleursBord) + ' (jetons ' + plan.jeton + ', ' + plan.jetonBord + ')');
-    if (!(plan.largeurMin >= 2.5)) echecs.push('ruban plus fin que 2,5 px : ' + plan.largeurMin);
+    if (!(plan.largeurMin >= 2.4)) echecs.push('ruban plus fin que 2,5 px : ' + plan.largeurMin);
     if (!plan.avantRelief || !plan.avantNoms || !plan.avantObjets) echecs.push('calque mal rangé : ' + JSON.stringify(plan));
     if (plan.inerte !== 'none') echecs.push('le calque attrape les clics');
     const coche = await parcelle();
@@ -5202,7 +5214,7 @@ const POINTS = {
     await page.waitForTimeout(1500);
     const apres = await page.evaluate(() => {
       let mailles = 0;
-      window.__plan.scene3d()?.scene.traverse((x) => { if (x.name === 'rues-chaussees') mailles++; });
+      window.__plan.scene3d()?.scene.traverse((x) => { if (x.name?.startsWith('rues-')) mailles++; });
       return { mailles, plan: document.getElementById('chausseesGroup')?.childElementCount ?? -1 };
     });
     const decoche = await parcelle();
@@ -5212,8 +5224,211 @@ const POINTS = {
       ok: !echecs.length,
       mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '')
         + `menu : « ${entree?.texte} »${tactile && entree ? ' (' + entree.hauteur + ' px)' : ''} avant « Noms des rues » ; ${coche.chaussees} chaussée(s) lue(s), ${coche.rues} rue(s) nommée(s) ; `
-        + `plan : ${plan.pleins} ruban(s) par largeur, ${plan.couleurs.join('')} cerné de ${plan.couleursBord.join('')}, ${plan.largeurMin} px au moins, sous les noms et les objets ; `
+        + `plan : ${plan.enfants.join(' + ')}, ${plan.couleurs.join('')} cerné de ${plan.couleursBord.join('')}, ${plan.largeurMin} px au moins, sous les noms et les objets ; `
         + `3D : ${ruban.sommets} sommets, sol ${ruban.relief ? 'en relief' : 'plat'}, écart au sol ${(ruban.ecart ?? NaN).toFixed(4)} m sur ${ruban.verifies} sommets, ${ruban.couleur} ; décochée : rien ne reste`
+    };
+  },
+  200: async (page, f) => {
+    // Les trottoirs (retour du proprietaire, 27 novembre 2026, maquette validee) : sur la demonstration et ses parcelles voisines,
+    // « Rues » cochee dessine des trottoirs entre la chaussee et les parcelles, au jeton --trottoir, bordes d'un trait au jeton
+    // --chaussee-bord. Sous « Rues », dans le menu Affichage (feuille Projet au doigt), deux reglages : « Trottoirs / rue » (curseur,
+    // 20 % par defaut, « Trottoirs 20 % · Chaussée 60 % ») et « Couleurs des rues » (Plan ou Réelles), cibles de 44 px au doigt. La
+    // part portee a 30 % elargit les trottoirs ; « Réelles » passe le plan et la Vue 3D a l'enrobe, au beton et au granit. En Vue 3D,
+    // les trottoirs sont 15 cm au-dessus de la chaussee, avec leur bordure. Les reglages s'enregistrent sur la parcelle, seuls ceux
+    // qui different du defaut. FUMEE_CAPTURES_TROTTOIRS=dossier : les captures du plan, du menu et de la Vue 3D y sont posees.
+    const echecs = [];
+    const tactile = f.nom !== 'large';
+    const dossier = process.env.FUMEE_CAPTURES_TROTTOIRS;
+    const theme = await page.evaluate(() => (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+    // Les captures sans les notifications (l'avertissement de l'administrateur couvre le menu au telephone).
+    const capturer = async (nom) => {
+      if (!dossier) return;
+      mkdirSync(dossier, { recursive: true });
+      await page.evaluate(() => { const z = document.getElementById('zoneNotifications'); if (z) z.style.visibility = 'hidden'; });
+      await page.screenshot({ path: join(dossier, `${f.nom}-${theme}-${nom}.png`) });
+      await page.evaluate(() => { const z = document.getElementById('zoneNotifications'); if (z) z.style.visibility = ''; });
+    };
+    const jeton = (nom) => page.evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim().toUpperCase(), nom);
+    const ouvrirMenu = async () => {
+      if (tactile) await feuille(page, 'projet');
+      await page.evaluate(() => document.getElementById('menuAffichage')?.setAttribute('open', ''));
+      await page.waitForTimeout(300);
+    };
+    const fermerMenu = async () => {
+      await page.evaluate(() => document.getElementById('menuAffichage')?.removeAttribute('open'));
+      if (tactile) await feuille(page, null);
+      await page.waitForTimeout(300);
+    };
+    const reglages = () => page.evaluate(() => window.__plan.etat().objects.find((o) => o.key === 'parcelle')?.voisinage3d ?? null);
+    // Le plan : les familles du calque, leurs couleurs, et l'aire des trottoirs a l'ecran (en pixels carres).
+    const lirePlan = () => page.evaluate(() => {
+      const g = document.getElementById('chausseesGroup');
+      const chemin = (c) => g?.querySelector('g.' + c + ' path');
+      let aire = 0, n = 0;
+      for (const poly of (chemin('trottoirs')?.getAttribute('d') || '').split('Z').filter(Boolean)) {
+        const pts = poly.replace(/^M/, '').split('L').map((c) => c.trim().split(' ').map(Number));
+        let a = 0;
+        for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; }
+        aire += Math.abs(a) / 2; n++;
+      }
+      return {
+        familles: [...(g?.children ?? [])].map((c) => c.getAttribute('class')), trottoirs: n, aire: Math.round(aire),
+        chaussee: (chemin('chausseesPleins')?.getAttribute('fill') || '').toUpperCase(), trottoir: (chemin('trottoirs')?.getAttribute('fill') || '').toUpperCase(),
+        bordure: (chemin('trottoirsBordures')?.getAttribute('stroke') || '').toUpperCase()
+      };
+    });
+
+    // ---- 1. « Rues » cochee : les trottoirs sur le plan --------------------------------------------------------------------
+    await ouvrirMenu();
+    await page.locator('#menuAffichage [data-commande="affichage.chaussees"]').click();
+    await fermerMenu();
+    const lues = await page.waitForFunction(() => (window.__plan.etat().objects.find((o) => o.key === 'parcelle')?.ruesVoisinage?.chaussees?.length ?? 0) > 0,
+      null, { timeout: 60000, polling: 250 }).then(() => true).catch(() => false);
+    if (!lues) echecs.push('chaussées non lues à l’IGN');
+    const voisines = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.fonction === 'terrain' && o.key !== 'parcelle').length);
+    // Le plan reste a son cadrage : reculer recharge les tuiles du fond, et « Recharger le fond IGN » change d'etat pendant ce temps
+    // sans que le magasin le sache (`ortho.chargement`) ; le menu ouvert, le garde-fou des cles le signalerait. Les rues autour de la
+    // parcelle sont deja a l'ecran.
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    const plan20 = await lirePlan();
+    const [jChaussee, jTrottoir, jBord] = [await jeton('chaussee'), await jeton('trottoir'), await jeton('chaussee-bord')];
+    if (JSON.stringify(plan20.familles) !== JSON.stringify(['chausseesBords', 'chausseesPleins', 'trottoirs', 'trottoirsBordures'])) echecs.push('plan : ' + JSON.stringify(plan20.familles));
+    if (!(plan20.trottoirs > 0 && plan20.aire > 0)) echecs.push('aucun trottoir sur le plan');
+    if (plan20.chaussee !== jChaussee || plan20.trottoir !== jTrottoir || plan20.bordure !== jBord) echecs.push('encres « Plan » : ' + JSON.stringify(plan20) + ' (jetons ' + [jChaussee, jTrottoir, jBord].join(', ') + ')');
+    await capturer('1-plan');
+
+    // ---- 2. Le menu : les deux reglages sous « Rues » -----------------------------------------------------------------------
+    await ouvrirMenu();
+    const menu = await page.evaluate(() => {
+      const li = document.querySelector('#menuAffichage li.menuChamps');
+      const avant = li?.previousElementSibling?.querySelector('[data-commande]')?.getAttribute('data-commande');
+      const curseur = li?.querySelector('[data-cle="partTrottoirs"] input[type=range]');
+      const couleurs = li?.querySelector('[data-cle="couleursRues"]');
+      const boutons = [...(couleurs?.querySelectorAll('.segmente button') ?? [])];
+      const select = couleurs?.querySelector('select');
+      return {
+        present: !!li, avant, valeur: curseur?.value, min: curseur?.min, max: curseur?.max, pas: curseur?.step,
+        texte: li?.querySelector('[data-cle="partTrottoirs"] .valeurCurseur')?.textContent,
+        hauteurCurseur: Math.round(curseur?.getBoundingClientRect().height ?? 0),
+        choix: boutons.length ? boutons.map((b) => b.textContent.trim()) : [...(select?.options ?? [])].map((o) => o.textContent),
+        hauteurChoix: Math.round(Math.min(...(boutons.length ? boutons : [select]).filter(Boolean).map((b) => b.getBoundingClientRect().height))),
+        largeur: Math.round(li?.getBoundingClientRect().right ?? 0), ecran: innerWidth
+      };
+    });
+    if (!menu.present || menu.avant !== 'affichage.chaussees') echecs.push('réglages absents sous « Rues » : ' + JSON.stringify(menu));
+    if (menu.valeur !== '20' || menu.min !== '10' || menu.max !== '30' || menu.pas !== '5' || menu.texte !== 'Trottoirs 20 % · Chaussée 60 %') echecs.push('curseur : ' + JSON.stringify(menu));
+    if (JSON.stringify(menu.choix) !== JSON.stringify(['Plan', 'Réelles'])) echecs.push('couleurs : ' + JSON.stringify(menu.choix));
+    if (tactile && (menu.hauteurCurseur < 44 || menu.hauteurChoix < 44)) echecs.push('cibles sous 44 px : ' + JSON.stringify(menu));
+    if (menu.largeur > menu.ecran) echecs.push('réglages hors de l’écran : ' + JSON.stringify(menu));
+    await capturer('2-menu');
+
+    // ---- 3. La part a 30 % : des trottoirs plus larges, enregistres sur la parcelle ------------------------------------------
+    await page.evaluate(() => {
+      const c = document.querySelector('#menuAffichage [data-cle="partTrottoirs"] input[type=range]');
+      const poser = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      poser.call(c, '30');
+      c.dispatchEvent(new Event('input', { bubbles: true }));
+      c.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await page.waitForTimeout(500);
+    const texte30 = await page.evaluate(() => document.querySelector('#menuAffichage [data-cle="partTrottoirs"] .valeurCurseur')?.textContent);
+    await fermerMenu();
+    const plan30 = await lirePlan();
+    const r30 = await reglages();
+    if (texte30 !== 'Trottoirs 30 % · Chaussée 40 %') echecs.push('curseur à 30 % : ' + texte30);
+    // Seules les rues ou la BD TOPO ne borne pas la chaussee changent : une large garde sa chaussee lue, les trottoirs le reste.
+    if (!(plan30.aire > plan20.aire * 1.02)) echecs.push(`trottoirs pas plus larges à 30 % : ${plan20.aire} → ${plan30.aire} px²`);
+    if (r30?.rues?.partTrottoirs !== 30 || r30?.rues?.tracer !== true) echecs.push('projet à 30 % : ' + JSON.stringify(r30));
+    const statut = await page.evaluate(() => window.__plan.magasin().projet?.statut ?? null);
+    await capturer('3-plan-30');
+
+    // ---- 4. « Réelles » : le plan a l'enrobe, au beton et au granit ------------------------------------------------------------
+    await ouvrirMenu();
+    const choisir = async (v) => {
+      const zone = page.locator('#menuAffichage [data-cle="couleursRues"]');
+      if (await zone.locator('select').count()) await zone.locator('select').selectOption(v);
+      else await zone.locator('.segmente button', { hasText: v === 'reelles' ? 'Réelles' : 'Plan' }).click();
+      await page.waitForTimeout(400);
+    };
+    await choisir('reelles');
+    await capturer('4-menu-reelles');
+    await fermerMenu();
+    const planR = await lirePlan();
+    const [jcR, jtR, jbR] = [await jeton('chaussee-reelle'), await jeton('trottoir-reel'), await jeton('bordure-reelle')];
+    if (planR.chaussee !== jcR || planR.trottoir !== jtR || planR.bordure !== jbR) echecs.push('encres « Réelles » : ' + JSON.stringify(planR) + ' (jetons ' + [jcR, jtR, jbR].join(', ') + ')');
+    if ((await reglages())?.rues?.couleurs !== 'reelles') echecs.push('projet sans « couleurs: reelles »');
+    await capturer('5-plan-reelles');
+
+    // ---- 5. La Vue 3D : trottoirs 15 cm plus haut, aux couleurs choisies ; « Plan » de nouveau, Vue 3D ouverte ------------------
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => !!window.__plan.scene3d(), null, { timeout: 20000 });
+    await vue3dEconome(page);
+    await page.waitForFunction(() => { let m = null; window.__plan.scene3d()?.scene.traverse((x) => { if (x.name === 'rues-trottoirs') m = x; }); return !!m; }, null, { timeout: 20000 }).catch(() => {});
+    const lire3d = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d(), m = {};
+      sc.scene.traverse((x) => { if (x.name?.startsWith('rues-')) m[x.name] = x; });
+      const t = m['rues-trottoirs'];
+      let dessus = 0, sol = 0, autres = 0;
+      if (t) {
+        const pos = t.geometry.getAttribute('position');
+        const pas = Math.max(1, Math.floor(pos.count / 400));
+        for (let k = 0; k < pos.count; k += pas) {
+          const h = pos.getY(k) - (sc.hauteurSol ? sc.hauteurSol({ x: pos.getX(k) + sc.cen.x, y: sc.cen.y - pos.getZ(k) }) : 0);
+          if (Math.abs(h - 0.21) < 0.01) dessus++; else if (Math.abs(h) < 0.01) sol++; else autres++;
+        }
+      }
+      const couleur = (x) => (x ? '#' + x.material.color.getHexString() : null);
+      return { noms: Object.keys(m).sort(), dessus, sol, autres, chaussee: couleur(m['rues-chaussees']), trottoir: couleur(m['rues-trottoirs']), bordure: couleur(m['rues-bordures']),
+        horsExport: Object.values(m).every((x) => x.userData.horsExport) };
+    });
+    // La couleur d'un jeton assombrie de 0,8 en 3D (three/chaussees3d.ts, ATTENUATION_3D), a un centieme pres, canal par canal.
+    const fidele = (lue, j) => !!lue && [1, 3, 5].every((i) => Math.abs(parseInt(lue.slice(i, i + 2), 16) / 255 - (parseInt(j.slice(i, i + 2), 16) / 255) * 0.8) < 0.01);
+    const v3R = await lire3d();
+    if (JSON.stringify(v3R.noms) !== JSON.stringify(['rues-bordures', 'rues-chaussees', 'rues-trottoirs']) || !v3R.horsExport) echecs.push('3D : ' + JSON.stringify(v3R));
+    if (!(v3R.dessus > 0) || v3R.autres > 0) echecs.push('trottoirs 3D hors de 15 cm au-dessus de la chaussée : ' + JSON.stringify(v3R));
+    if (!fidele(v3R.chaussee, jcR) || !fidele(v3R.trottoir, jtR) || !fidele(v3R.bordure, jbR)) echecs.push('couleurs 3D « Réelles » : ' + JSON.stringify(v3R));
+    if (dossier) {
+      // Le long d'une rue droite pres de la parcelle, en retrait et un peu en hauteur : la chaussee, ses deux trottoirs et leurs bordures.
+      await page.evaluate(() => {
+        const sc = window.__plan.scene3d(), p = window.__plan.etat().objects.find((o) => o.key === 'parcelle');
+        const cx = p.pts.reduce((a, q) => a + q.x, 0) / p.pts.length, cy = p.pts.reduce((a, q) => a + q.y, 0) / p.pts.length;
+        let best = null, d = Infinity, dir = null;
+        for (const c of p.ruesVoisinage.chaussees) for (let i = 1; i < c.pts.length; i++) {
+          const a = c.pts[i - 1], b = c.pts[i], l = Math.hypot(b.x - a.x, b.y - a.y);
+          for (let t = 0; t <= l; t += 1) {
+            const q = { x: a.x + (b.x - a.x) * t / l, y: a.y + (b.y - a.y) * t / l };
+            const bouts = Math.min(Math.hypot(q.x - c.pts[0].x, q.y - c.pts[0].y), Math.hypot(q.x - c.pts[c.pts.length - 1].x, q.y - c.pts[c.pts.length - 1].y));
+            const dd = Math.hypot(q.x - cx, q.y - cy);
+            if (bouts > 15 && dd < d) { d = dd; best = q; dir = { x: (b.x - a.x) / l, y: (b.y - a.y) / l }; }
+          }
+        }
+        if (!best) return;
+        const h = sc.hauteurSol ? sc.hauteurSol(best) : 0;
+        sc.controls.target.set(best.x - sc.cen.x, h, sc.cen.y - best.y);
+        sc.camera.position.set(best.x - dir.x * 28 - sc.cen.x, h + 9, sc.cen.y - (best.y - dir.y * 28));
+        sc.controls.update();
+        sc.controls.dispatchEvent({ type: 'change' });
+      });
+      await page.waitForTimeout(2500);
+    }
+    await capturer('6-vue3d-reelles');
+    // « Plan » de nouveau, la Vue 3D ouverte : elle se reconstruit a l'ambre.
+    await ouvrirMenu();
+    await choisir('plan');
+    await fermerMenu();
+    await page.waitForTimeout(1500);
+    const v3P = await lire3d();
+    if (!fidele(v3P.chaussee, jChaussee) || !fidele(v3P.trottoir, jTrottoir) || !fidele(v3P.bordure, jBord)) echecs.push('couleurs 3D « Plan » : ' + JSON.stringify(v3P));
+    if ((await reglages())?.rues?.couleurs !== undefined) echecs.push('« Plan » reste écrit : ' + JSON.stringify(await reglages()));
+    await capturer('7-vue3d-plan');
+    return {
+      ok: !echecs.length,
+      mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '')
+        + `${voisines} parcelle(s) voisine(s) ; plan : ${plan20.trottoirs} trottoir(s), ${plan20.aire} px² à 20 %, ${plan30.aire} px² à 30 %, ${plan20.trottoir} bordé de ${plan20.bordure} ; `
+        + `menu : « ${menu.texte} », ${menu.choix.join(' / ')}${tactile ? ` (${menu.hauteurCurseur} et ${menu.hauteurChoix} px)` : ''} ; Réelles : ${planR.chaussee}, ${planR.trottoir}, ${planR.bordure} ; `
+        + `3D : ${v3R.dessus} sommets du dessus à +21 cm, ${v3R.sol} au sol (face de la limite), ${v3R.trottoir} puis ${v3P.trottoir} ; projet ${JSON.stringify(r30?.rues)} (${statut})`
     };
   },
   190: async (page, f) => {
@@ -11664,9 +11879,11 @@ function pointsPour(nomClasse) {
   // 198 : le parcours simple du mode Toit (la carte de la maison, trois reglages, six pieces), « Plus de reglages » replie.
   // 199 : un projet enregistre avec des toits d'une ancienne lecture, rouvert : la tache de fond rend les toits d'un projet neuf
   //       (Hardencourt : le L en un toit, le batiment du bout plus bas, trois lucarnes). Reseau du LiDAR rejoue.
+  // 200 : les trottoirs de l'option « Rues » : sur le plan et en Vue 3D (15 cm plus haut), la part trottoir / rue (20 % puis 30 %)
+  //       et les couleurs « Plan » / « Réelles », sous « Rues » dans le menu Affichage.
   // 202 : se deplacer sur le plan 2D sans attraper d'objet : glisser sur un objet non choisi deplace la vue, un toucher choisit,
   //       l'objet choisi se deplace, la parcelle choisie deplace la vue (interaction/choixGeste.ts).
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 202];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 202];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -79,7 +79,7 @@ export function monterZones({ magasin, commandes, projet, explorateur, inspecteu
   // identifiant (curseurs du fond orthophoto), qui doivent donc exister au retour.
   const createRoot = racine(magasin);
   flushSync(() => {
-  createRoot(conteneur('zoneBarre')).render(<BarreApplication magasin={magasin} commandes={commandes} projet={projet} tiroir={tiroir} />);
+  createRoot(conteneur('zoneBarre')).render(<BarreApplication magasin={magasin} commandes={commandes} projet={projet} tiroir={tiroir} inspecteur={inspecteur} />);
   createRoot(conteneur('zonePalette')).render(<Palette magasin={magasin} commandes={commandes} />);
   createRoot(conteneur('zoneExplorateur')).render(<Explorateur magasin={magasin} commandes={commandes} explorateur={explorateur} />);
   createRoot(conteneur('zoneSurimpression')).render(<Surimpression magasin={magasin} commandes={commandes} pointage={pointage} />);
