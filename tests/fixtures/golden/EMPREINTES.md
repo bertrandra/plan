@@ -553,24 +553,24 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
 `tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
-ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, à la 5.12.0 le même jour, à la 5.13.0 le même jour encore, à la 5.13.1 le 7 novembre 2026, à la 5.14.0 le même jour, à la 5.15.0 le même jour encore, à la 5.16.0 le 8 novembre 2026, à la 5.17.0 le même jour, à la 5.18.0 le même jour encore, à la 5.19.0 le 9 novembre 2026, à la 5.20.0 le même jour, à la 5.21.0 le même jour encore, à la 5.22.0, toujours le 9 novembre, à la 5.22.1 le même jour, à la 5.23.0 le 12 novembre 2026, à la 5.24.0 le même jour, à la 5.25.0 le même jour encore, à la 5.26.0, toujours le 12 novembre, à la 5.27.0 le 14 novembre 2026, à la 5.27.1 le même jour, à la 5.28.0 le 15 novembre 2026, à la 5.29.0 le même jour, à la 5.29.1 le même jour encore, à la 5.30.0, toujours le 15 novembre, à la 5.31.0 le même jour, à la 5.32.0 le même jour encore, à la 5.33.0 le 16 novembre 2026, à la 5.34.0 le même jour, à la 5.35.0 le même jour encore, à la 5.36.0 le 17 novembre 2026, puis à la 5.37.0 le 21 novembre 2026, à la 5.38.0 le même jour, à la 5.39.0 le 23 novembre 2026, à la 5.40.0 le 25 novembre 2026, à la 5.41.0 le même jour, à la 5.41.1 le 26 novembre 2026, à la 5.42.0 le 27 novembre 2026, et à la 5.43.0 le même jour.
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, à la 4.0.0 le 28 octobre 2026, à la 5.0.0 le 29 octobre 2026, à la 5.1.0 le 30 octobre 2026, à la 5.2.0 le même jour, à la 5.3.0 le même jour encore, à la 5.4.0, toujours le 30 octobre, à la 5.4.1 le même jour, à la 5.5.0 le 3 novembre 2026, à la 5.6.0 le même jour, à la 5.7.0 le 4 novembre 2026, à la 5.8.0 le même jour, à la 5.9.0 le même jour encore, à la 5.10.0 le 5 novembre 2026, à la 5.11.0 le même jour, à la 5.11.1 le 6 novembre 2026, à la 5.12.0 le même jour, à la 5.13.0 le même jour encore, à la 5.13.1 le 7 novembre 2026, à la 5.14.0 le même jour, à la 5.15.0 le même jour encore, à la 5.16.0 le 8 novembre 2026, à la 5.17.0 le même jour, à la 5.18.0 le même jour encore, à la 5.19.0 le 9 novembre 2026, à la 5.20.0 le même jour, à la 5.21.0 le même jour encore, à la 5.22.0, toujours le 9 novembre, à la 5.22.1 le même jour, à la 5.23.0 le 12 novembre 2026, à la 5.24.0 le même jour, à la 5.25.0 le même jour encore, à la 5.26.0, toujours le 12 novembre, à la 5.27.0 le 14 novembre 2026, à la 5.27.1 le même jour, à la 5.28.0 le 15 novembre 2026, à la 5.29.0 le même jour, à la 5.29.1 le même jour encore, à la 5.30.0, toujours le 15 novembre, à la 5.31.0 le même jour, à la 5.32.0 le même jour encore, à la 5.33.0 le 16 novembre 2026, à la 5.34.0 le même jour, à la 5.35.0 le même jour encore, à la 5.36.0 le 17 novembre 2026, puis à la 5.37.0 le 21 novembre 2026, à la 5.38.0 le même jour, à la 5.39.0 le 23 novembre 2026, à la 5.40.0 le 25 novembre 2026, à la 5.41.0 le même jour, à la 5.41.1 le 26 novembre 2026, à la 5.42.0 le 27 novembre 2026, à la 5.43.0 le même jour, et à la 5.43.1 le même jour encore.
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `5327d616176e3ff455d6338db037a0956bca0467b196efb4a61aeb2db7948a7b` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `c23e6229677c96a709e164177f132cd33712bcd498fc925e0e8ab7e056df1712` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `851bf53e98129b462e5e02fc7daf4bf854fd830ba88588e238dfc504030a9296` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 324 | `344fd6ce53ae2d8574de34ef38ed644e82a1d00174ef5f07e3cf5d6c72abc74c` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 110 | `c87023b905f330699f76c1569dc15b7fd08fae6dd4772f4f3af90d59042b2337` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 365 | `d8008da37aa19e790b2a6cf81da2ee3c26681b1ea7aecf7f32755da9564b7980` |
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `aca5cbf7a80ae9d4bf6772a103eb4a373e9bb9edc898deca4b5999895a6e89eb` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `9ee50596016fa714ef64a8cc1400534d55b2620861459415f0f34cd30fd8ef11` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 164 | `1cc9ffbcc544d11a1a142bdb7432ebf81e90b71584483d3ba4905f2eeaf95dbd` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 258 | `5f0f35e89cece65fb318e7a6d9cde02108344a1ee66f017ca70d5652710af3fb` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** (recapturé le 29 octobre 2026 par le point 24, voir « Version 5.0.0 ») | 470 | `6b876e99db436a2789d1e3951b33d5c974bcf7c59418c86b931e7dde8d5accad` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
-| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `6220a386df808ac9cf56b7fdcee9663441b9f8e6eddf32c28183248c5ec5ec6e` (brut) |
-| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `b86b28016ca6c12b05d4fe76ab79ea8e39c291fe4c83ca6fdcddec51d4584410` (brut) |
+| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 882 | `586a1bf88a8e03f5e8f16e0cd614b7493dd49b9ff85440af64bd1ea721fdaa3a` (brut) |
+| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 288 | `fb6fc93b77e029b8d4bf876c28875c7897bcaeebdec9b95889aac101a1b93117` (brut) |
 | [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
 | [`liste-achat.csv`](liste-achat.csv) | `construireListeAchatCSV` (démonstration, deux terrasses), ajouté le 16 novembre 2026 | 1 680 | `7e00c7ea42b84535f73026cc5038ba37396a39e69c3d8e4a521f8aaec06b69db` |
-| [`liste-achat.pdf`](liste-achat.pdf) | `construireListeAchatPDF` (démonstration, 2 pages), ajouté le 16 novembre 2026 | 16 340 | `6f858d5324adf8a68420d3d34f9d8dfba2c00ae92bbd5945c078e73688d949a6` |
-| [`devis.pdf`](devis.pdf) | `construireDevisPDF` (démonstration, 1 page ; émetteur, client et TVA 20 % donnés par le test), ajouté le 16 novembre 2026 | 12 528 | `decaaf924f4916b25669af1b846119a22049e6a89bb5f9673a19b1c97eb92230` |
+| [`liste-achat.pdf`](liste-achat.pdf) | `construireListeAchatPDF` (démonstration, 2 pages), ajouté le 16 novembre 2026 | 16 340 | `e77b80d640fe5b89cffad33bb74092f694fe208ace1d6a1194b3617240c8ced0` |
+| [`devis.pdf`](devis.pdf) | `construireDevisPDF` (démonstration, 1 page ; émetteur, client et TVA 20 % donnés par le test), ajouté le 16 novembre 2026 | 12 528 | `18defdb6d6f05e21c79ec86a6373127866c286664b75e72aaa8a438862e70d73` |
 
 ## La rupture du 29 août 2026
 
@@ -2126,3 +2126,33 @@ occurrence par fichier texte, deux dans `plan.pdf` et `devis.pdf`, trois dans `l
 | `note-calcul.pdf` (brute) | `e352230b…` | `b86b2801…` |
 | `devis.pdf` (normalisée) | `8576f0cb…` | `decaaf92…` |
 | `liste-achat.pdf` (normalisée) | `7736a01b…` | `6f858d53…` |
+
+## Version 5.43.1 (27 novembre 2026) — relire un projet existant comme un projet neuf, seul le numéro bouge
+
+Ce qui est entré depuis la 5.43.0 : une correction de la relecture des toits (#783 : relire un projet existant donne ce que donne
+un projet neuf — la relecture en tâche de fond lit ensemble les bâtiments de la parcelle qui se touchent, le raccord ne joint que
+des toits fraîchement lus et tient les toits réglés à la main ou vérifiés sur place pour un contexte fixe, une lucarne observée ne
+remplace que la lucarne lue à sa place). C'est la forme des toits lus sur la mesure : ni une quantité de la terrasse, ni un export
+du plan, et aucun témoin ne lit un toit au LiDAR (la maison du témoin porte un toit saisi). Rien ne change dans le moteur de
+structure, les quantités ou un export : `projet.json`, `moteur-piscine-pergola.json`, `quantites-demo.txt` et `liste-achat.csv` ne
+bougent pas, et `glb-structure.json` non plus (point 24 de la fumée rejoué sur le code de `main`, bureau, thème clair : 1 143
+nœuds, 955 mailles, 1 454 matériaux, 16 textures et 16 images, 3 954 accesseurs, 3 970 vues tampon, comme le témoin ; fichier
+inchangé). Schéma inchangé (16), aucun champ nouveau ; la version de lecture des toits passe de 12 à 13 (les toits déjà lus sont
+relus une fois à l'ouverture). Avant le changement de numéro, le code de `main` (bf4783e3) régénère les témoins de la 5.43.0 au
+bit près (cinq par `regeneration.test.ts` avec `SORTIE`, comparés à l'octet ; les autres par `REECRIRE_EMPREINTES=1`, sans aucune
+différence). Les neuf témoins qui portent le numéro passent à `5.43.1` ; la date de build reste `2026-10-30`. **La preuve forte,
+neuf sur neuf** : `5.43.1` → `5.43.0` remis dans les octets frais rend les fichiers de la 5.43.0 **au bit près**, tailles
+identiques à l'octet (une occurrence par fichier texte, deux dans `plan.pdf` et `devis.pdf`, trois dans `liste-achat.pdf`, quatre
+dans `dossier.pdf` et `note-calcul.pdf`, neuf dans `dossier-piscine.pdf`).
+
+| Fixture | Empreinte 5.43.0 | Empreinte 5.43.1 |
+|---|---|---|
+| `resume.txt` (normalisée) | `5327d616…` | `344fd6ce…` |
+| `plan.svg` (normalisée) | `c23e6229…` | `c87023b9…` |
+| `plan.dxf` (normalisée) | `851bf53e…` | `d8008da3…` |
+| `plan.pdf` (normalisée) | `aca5cbf7…` | `1cc9ffbc…` |
+| `dossier.pdf` (normalisée) | `9ee50596…` | `5f0f35e8…` |
+| `dossier-piscine.pdf` (brute) | `6220a386…` | `586a1bf8…` |
+| `note-calcul.pdf` (brute) | `b86b2801…` | `fb6fc93b…` |
+| `devis.pdf` (normalisée) | `decaaf92…` | `18defdb6…` |
+| `liste-achat.pdf` (normalisée) | `6f858d53…` | `e77b80d6…` |
