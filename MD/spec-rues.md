@@ -174,3 +174,78 @@ sans), `tests/unit/model/rues.test.ts` (l'option et sa forme dans le fichier),
 disques, matériau, noms inclinés), `tests/unit/app/ecouteurs/affichage.test.ts` et
 `voisinage.test.ts` (sans Ctrl+Z, « modifié », lecture la première fois, en lecture seule). Fumée :
 point 197.
+
+## 8. Les trottoirs, la part trottoir / rue et les couleurs (5.44.0)
+
+Retour du propriétaire (27 novembre 2026), sur maquette validée : la chaussée de la BD TOPO
+débordait sur les parcelles là où la rue est étroite, et rien ne montrait les trottoirs. Plan les
+dessine maintenant entre la chaussée et les parcelles, en 2D et en Vue 3D, et la chaussée se
+réduit pour garder la proportion trottoir / rue.
+
+**La règle** (`model/trottoirs.ts`, fonction pure `partagerRue`, testée dans
+`tests/unit/model/trottoirs.test.ts`). E est l'espace entre la limite d'une parcelle et celle d'en
+face, mesuré perpendiculairement au tronçon. Avec la part p réglée (20 % par défaut) :
+
+| Étape | Calcul |
+|---|---|
+| Trottoir voulu | t = max(1,40 m, p × E) (`TROTTOIR_MIN_M` : le passage accessible) |
+| Chaussée | c = min(largeur BD TOPO, max(3 m, E − 2t)) (`CHAUSSEE_MIN_M` ; une voie que la BD TOPO dit plus étroite que 3 m, un chemin, garde sa largeur) |
+| Trottoirs | (E − c) / 2 chacun : plus larges quand la BD TOPO est plus étroite |
+| Rue partagée | si E − 2 × 1,40 < 3 m (moins de 5,80 m) : pas de trottoir, chaussée = min(BD TOPO, E) |
+
+Exemples : 10 m → 2 / 6 / 2 ; 8 m → 1,60 / 4,80 / 1,60 ; 6 m → 1,40 / 3,20 / 1,40 ; 5 m → sans
+trottoir ; 16 m avec une BD TOPO de 7 m → 4,50 / 7 / 4,50.
+
+**La mesure** (`profilerRues`). Chaque tronçon est mesuré en travers tous les 2 m
+(`PAS_PROFIL_M`, aux sommets aussi, la normale sur la bissectrice d'un coude) : un rayon de chaque
+côté jusqu'à la première limite de parcelle connue — celle du projet, et les parcelles voisines
+importées du cadastre (`parcellesConnues`) —, à 20 m de l'axe au plus (`PORTEE_LIMITE_M` : au-delà,
+le rayon traverse un carrefour ou longe une rue qui part). Un rayon qui croise d'abord l'axe d'une
+autre rue ne compte pas : au-delà, ce n'est plus cette rue (un carrefour, la place entre deux rues
+qui se rejoignent), et un trottoir posé là recouvrirait l'autre chaussée. Une médiane sur cinq mesures voisines
+efface une entrée de garage ou un coin de parcelle ; une majorité de mesures sans limite garde
+l'ouverture (un carrefour). Un axe posé dans une parcelle ne mesure rien à cet endroit.
+
+- **Les deux limites connues** : la chaussée se pose **au milieu de l'espace** (elle ne suit plus
+  l'axe de la BD TOPO s'il est décentré) et ne déborde plus ; un trottoir de chaque côté jusqu'à la
+  limite.
+- **Une seule** : la rue est supposée symétrique autour de son axe (E = 2 × la distance mesurée).
+  Le trottoir ne se dessine que **le long de la parcelle du projet** ; le long d'une voisine seule,
+  pas de trottoir, la chaussée tient dans l'espace supposé (min(BD TOPO, E)).
+- **Aucune à portée** : la chaussée d'avant, sur l'axe, à sa largeur lue, sans trottoir.
+
+**Les réglages** (`ui/champs/rues.ts`), dans le menu Affichage **sous « Rues »**, visibles quand
+elle est cochée (feuille Projet au doigt) : « Trottoirs / rue », un curseur de 10 % à 30 % par pas
+de 5 % (`PART_TROTTOIRS_MIN`, `_MAX`, `_PAS`) qui se lit « Trottoirs 20 % · Chaussée 60 % » ; et
+« Couleurs des rues », **Plan** (défaut : chaussée ambre `--chaussee`, trottoir pierre claire
+`--trottoir`, bordure brune `--chaussee-bord`) ou **Réelles** (enrobé `--chaussee-reelle`, béton
+`--trottoir-reel`, granit `--bordure-reelle`), pour le plan et la Vue 3D. Ce sont des descripteurs
+de champs rendus par le composant de l'inspecteur, écrits par son service : ils suivent la règle
+de « Rues » (préférence d'affichage, ni Ctrl+Z, permis en lecture seule, **projet à enregistrer**,
+`sale: false` et `enregistre`). Rangés à côté de l'option, sur la parcelle :
+`voisinage3d.rues.partTrottoirs` (seulement s'il diffère de 20) et `voisinage3d.rues.couleurs:
+'reelles'` (seulement « Réelles ») ; décocher « Rues » les garde pour la prochaine fois. Un projet
+existant garde son allure : l'ambre, plus les trottoirs. Les jetons sont dans `styles/jetons.ts`,
+`app.css`, `render/theme.ts` (`encresDesRues`) et les modèles de palette (les mêmes dans chaque
+modèle) ; la palette de l'admin les montre, famille « Traits ».
+
+**Le plan** (`render/chaussees.ts`) : les chaussées en polygones entre leurs bords (2,5 px au moins
+de loin), un disque à chaque bout de tronçon, cernées d'un bord de 1,2 px, puis les trottoirs par
+dessus, puis un trait de bordure de 1,2 px entre trottoir et chaussée (groupes `chausseesBords`,
+`chausseesPleins`, `trottoirs`, `trottoirsBordures`). Les profils sont gardés d'un dessin à l'autre
+(`core/profilsRues.ts`) tant que les chaussées, la part et les contours des parcelles sont les mêmes.
+Le nom des rues suit sa chaussée décalée (`etiquettesSurChaussees`).
+
+**La Vue 3D** (`three/chaussees3d.ts`) : la chaussée drapée entre ses bords à 6 cm du sol ; les
+trottoirs drapés 15 cm plus haut (`HAUTEUR_TROTTOIR_M`), de la chaussée à la limite de la parcelle,
+avec une face de bordure montant du bord de la chaussée, coiffée d'une bande de 15 cm à la couleur
+de la bordure, et une face qui descend au sol à la limite. Trois mailles mates (`rues-chaussees`,
+`rues-trottoirs`, `rues-bordures`), dans la couche des chemins, hors export, sans ombre portée.
+Les plaques des noms se posent au milieu de la chaussée et tiennent dans sa largeur (3,20 m au plus,
+1,50 m au moins, `hauteurPlaque`).
+
+**Les exports.** Aucun ne change : ni les quantités, ni les empreintes de `tests/fixtures/golden/`.
+
+**Vérifié.** `tests/unit/model/trottoirs.test.ts`, `tests/unit/core/profilsRues.test.ts`,
+`tests/unit/render/chaussees.test.ts`, `tests/unit/three/chaussees3d.test.ts`,
+`tests/unit/ui/champsRues.test.ts`. Fumée : points 197 et 200.

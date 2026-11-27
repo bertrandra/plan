@@ -57,11 +57,11 @@ const SERIES = {
 };
 
 /** Les familles des lectures de Claude ne bougent pas non plus : la meme couleur a l'E8 et dans l'etape, d'un modele a l'autre. */
-// Les rues dessinees (option « Rues ») : un ambre cerne de brun, celui d'une carte routiere, le meme dans chaque modele - il se pose
-// sur la photo aerienne et le Plan IGN, pas sur l'interface.
+// Les rues dessinees (option « Rues ») : un ambre cerne de brun, celui d'une carte routiere, ses trottoirs, et les couleurs « Reelles »,
+// les memes dans chaque modele - elles se posent sur la photo aerienne et le Plan IGN, pas sur l'interface.
 const CHAUSSEES = {
-  clair: { 'chaussee': '#F2C14E', 'chaussee-bord': '#6B4A12' },
-  sombre: { 'chaussee': '#B8862B', 'chaussee-bord': '#0F0B06' }
+  clair: { 'chaussee': '#F2C14E', 'chaussee-bord': '#6B4A12', 'trottoir': '#E4DED2', 'chaussee-reelle': '#5A5E63', 'trottoir-reel': '#C8C2B5', 'bordure-reelle': '#EDEAE3' },
+  sombre: { 'chaussee': '#B8862B', 'chaussee-bord': '#0F0B06', 'trottoir': '#4A443B', 'chaussee-reelle': '#3E4246', 'trottoir-reel': '#8E897F', 'bordure-reelle': '#C9C4BA' }
 };
 
 const LECTURES = {
@@ -163,7 +163,7 @@ const MODELES = [
 
 // L'ordre des jetons, celui de jetons.ts : les fichiers se comparent d'un coup d'oeil.
 const ORDRE = ['ink', 'ink-soft', 'paper', 'paper-deep', 'stage-bg', 'stage-trame', 'panel-bg', 'panel-2', 'segment-bg', 'input-bg',
-  'border', 'rule', 'hairline', 'relief', 'chaussee', 'chaussee-bord', 'accent', 'on-accent', 'accent-light', 'on-accent-light', 'on-ink', 'ok', 'danger', 'danger-bg', 'alerte', 'ecart-plu',
+  'border', 'rule', 'hairline', 'relief', 'chaussee', 'chaussee-bord', 'trottoir', 'chaussee-reelle', 'trottoir-reel', 'bordure-reelle', 'accent', 'on-accent', 'accent-light', 'on-accent-light', 'on-ink', 'ok', 'danger', 'danger-bg', 'alerte', 'ecart-plu',
   'insertion', 'on-insertion', 'insertion-bg', 'toast-bg', 'on-toast', 'fond-3d', 'trait-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte', 'serie-1', 'serie-2', 'serie-3',
   'claude-angles', 'claude-pointe', 'claude-forme', 'claude-appentis', 'claude-corps', 'claude-element', 'claude-cache', 'claude-parement', 'claude-zone', 'claude-ouverture'];
 const ordonne = (o) => Object.fromEntries(ORDRE.map(k => [k, o[k]]));

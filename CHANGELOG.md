@@ -7,6 +7,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Des trottoirs entre les parcelles et la chaussée** dans l'option « Rues » (retour du propriétaire, 27 novembre 2026, maquette
+  validée). La chaussée de la BD TOPO débordait sur les parcelles là où la rue est étroite : chaque tronçon est maintenant mesuré en
+  travers tous les 2 m, de la limite d'une parcelle à celle d'en face (parcelle du projet et parcelles voisines du cadastre), et
+  l'espace se partage en deux trottoirs et une chaussée. Un trottoir prend au moins 1,40 m et sa part de l'espace (20 % par défaut) ;
+  la chaussée prend le reste sans dépasser sa largeur lue ni descendre sous 3 m ; sous 5,80 m, la rue reste partagée, sans trottoir.
+  La chaussée se pose au milieu de l'espace et ne déborde plus. Sans la parcelle d'en face, la rue est supposée symétrique et le
+  trottoir ne se dessine que le long de la parcelle du projet ; sans limite à portée, la chaussée reste celle d'avant
+  (`model/trottoirs.ts`, fonction pure testée ; `MD/spec-rues.md` §8). Sur le plan, les trottoirs en rubans sous les objets, un
+  trait de bordure fin ; en Vue 3D, drapés sur le relief 15 cm au-dessus de la chaussée, avec leur bordure, jusqu'aux limites des
+  parcelles. Le nom des rues suit sa chaussée.
+- **Deux réglages sous « Rues »** (menu Affichage, feuille Projet au doigt), visibles quand elle est cochée : « Trottoirs / rue »
+  (10 à 30 % par pas de 5, « Trottoirs 20 % · Chaussée 60 % ») et « Couleurs des rues », **Plan** (l'ambre d'avant, trottoir pierre
+  claire, bordure brune ; par défaut, un projet existant garde son allure) ou **Réelles** (enrobé, béton, granit), sur le plan et en
+  Vue 3D. Comme « Rues » : préférences d'affichage sans Ctrl+Z, permises en lecture seule, qui marquent le projet à enregistrer ;
+  seules les valeurs autres que celles par défaut s'écrivent (`voisinage3d.rues.partTrottoirs`, `couleurs`). Quatre jetons
+  nouveaux (`--trottoir`, `--chaussee-reelle`, `--trottoir-reel`, `--bordure-reelle`), dans la palette de l'admin et ses modèles.
+  Aucune quantité, aucun export ni aucune empreinte ne change. Fumée : point 197 adapté, point 200 nouveau.
 - **Zoom et déplacement dans l'aperçu des parcelles de l'import par adresse** (demande du propriétaire : « je dois pouvoir zoomer
   sur le plan pour sélectionner la ou les parcelles pendant les étapes »). Aux étapes 2 et 3 et dans le résumé de l'import direct :
   molette centrée sur le pointeur et glisser à la souris, pincer et glisser au doigt, boutons « Agrandir », « Réduire » et « Tout

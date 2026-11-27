@@ -550,6 +550,13 @@ export interface ReglagesVoisinage3d {
      * preference d'affichage, decochee par defaut ; seule la valeur cochee s'ecrit.
      */
     tracer?: true;
+    /**
+     * La part de l'espace entre les parcelles prise par chaque trottoir, en pour cent (menu Affichage, sous « Rues » ;
+     * model/trottoirs.ts) : absente, 20 %. Seule une autre valeur s'ecrit.
+     */
+    partTrottoirs?: number;
+    /** Les couleurs des rues dessinees : absentes, celles du plan (l'ambre) ; `reelles`, enrobe, beton et granit. */
+    couleurs?: 'reelles';
   };
   /**
    * Les toits des maisons voisines : en corps et pignons reconstruits sur le LiDAR (`corps`, le defaut,

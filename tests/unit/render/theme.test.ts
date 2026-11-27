@@ -19,6 +19,9 @@ describe('les encres du plan suivent la palette', () => {
     expect(theme.SVG_PASTILLE_TEXTE).toBe(j['on-ink']);
     expect(theme.SVG_CHAUSSEE).toBe(j.chaussee);
     expect(theme.SVG_CHAUSSEE_BORD).toBe(j['chaussee-bord']);
+    expect(theme.SVG_TROTTOIR).toBe(j.trottoir);
+    expect(theme.encresDesRues('plan')).toEqual({ chaussee: j.chaussee, trottoir: j.trottoir, bordure: j['chaussee-bord'] });
+    expect(theme.encresDesRues('reelles')).toEqual({ chaussee: j['chaussee-reelle'], trottoir: j['trottoir-reel'], bordure: j['bordure-reelle'] });
   });
 
   it('se reprennent dans la palette du serveur, et le plan est prie de se redessiner', () => {

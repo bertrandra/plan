@@ -5,7 +5,7 @@
     color-scheme: light dark;
     --ink:#2B2117; --ink-soft:#6B5A41; --paper:#F7F2E7; --paper-deep:#EFE8D8;
     --stage-bg:#F1EBDC; --stage-trame:#D9CDB2; --panel-bg:#FFFDF8; --panel-2:#F7F2E7;
-    --segment-bg:#F1EBDC; --input-bg:#FFFDF8; --border:#E4D9C1; --rule:#D9CDB2; --hairline:#EFE6D3; --relief:#8C6B3F; --chaussee:#F2C14E; --chaussee-bord:#6B4A12;
+    --segment-bg:#F1EBDC; --input-bg:#FFFDF8; --border:#E4D9C1; --rule:#D9CDB2; --hairline:#EFE6D3; --relief:#8C6B3F; --chaussee:#F2C14E; --chaussee-bord:#6B4A12; --trottoir:#E4DED2; --chaussee-reelle:#5A5E63; --trottoir-reel:#C8C2B5; --bordure-reelle:#EDEAE3;
     --accent:#7A5C31; --on-accent:#FFFDF8; --accent-light:#EFE3C8; --on-accent-light:#5E4623;
     --on-ink:#FFFDF8; --ok:#3F7A4A; --danger:#8E2A1C; --danger-bg:#FBF1EE; --alerte:#A8442F; --ecart-plu:#A34A08;
     --insertion:#1F5FA8; --on-insertion:#FFFDF8; --insertion-bg:#E4EEF9;
@@ -32,7 +32,7 @@
     :root{
       --ink:#F1E7D0; --ink-soft:#BFAE8C; --paper:#1C1610; --paper-deep:#231C14;
       --stage-bg:#1C1610; --stage-trame:#3A2F22; --panel-bg:#262017; --panel-2:#2F271C;
-      --segment-bg:#1C1610; --input-bg:#2F271C; --border:#3E3325; --rule:#4A3F30; --hairline:#332A1F; --relief:#C9A97A; --chaussee:#B8862B; --chaussee-bord:#0F0B06;
+      --segment-bg:#1C1610; --input-bg:#2F271C; --border:#3E3325; --rule:#4A3F30; --hairline:#332A1F; --relief:#C9A97A; --chaussee:#B8862B; --chaussee-bord:#0F0B06; --trottoir:#4A443B; --chaussee-reelle:#3E4246; --trottoir-reel:#8E897F; --bordure-reelle:#C9C4BA;
       --accent:#E0B564; --on-accent:#1C1610; --accent-light:#4A3B22; --on-accent-light:#F1D9A6;
       --on-ink:#1C1610; --ok:#6BBF7A; --danger:#F2A493; --danger-bg:#3A1E18; --alerte:#E08A6E; --ecart-plu:#F2A65A;
       --insertion:#7DB4F0; --on-insertion:#1C1610; --insertion-bg:#1D2B3B;
@@ -382,14 +382,14 @@
     position:absolute; top:100%; left:0; z-index:60; margin:4px 0 0; padding:4px; list-style:none; min-width:240px;
     background:var(--panel-bg); border:1px solid var(--border); border-radius:10px; box-shadow:var(--ombre-menu);
   }
-  details.menu li button{
+  details.menu li:not(.menuChamps) button{
     display:flex; align-items:center; gap:8px; width:100%; padding:8px 10px; text-align:left;
     background:transparent; color:var(--ink); border:none; border-radius:8px; font-size:0.8rem; min-height:36px;
   }
-  details.menu li button:hover{ background:var(--accent-light); opacity:1; }
+  details.menu li:not(.menuChamps) button:hover{ background:var(--accent-light); opacity:1; }
   details.menu .coche{ display:inline-block; width:1.1em; color:var(--accent); font-weight:700; }
   details.menu li button kbd{ margin-left:auto; font-family:var(--sans); font-size:0.68rem; color:var(--ink-soft); }
-  details.menu li button:disabled{ opacity:0.4; cursor:not-allowed; }
+  details.menu li:not(.menuChamps) button:disabled{ opacity:0.4; cursor:not-allowed; }
   details.menu li.separateur{ height:1px; background:var(--rule); margin:4px 6px; }
   /* Un groupe d'entrees effacees (une capacite manquante, le mode expert eteint) ne laisse pas deux filets de suite, ni un filet en bas. */
   details.menu li.separateur + li.separateur, details.menu li.separateur:not(:has(~ li:not(.separateur))){ display:none; }
@@ -400,6 +400,14 @@
   details.menu li.menuReglage input[type=number]{ width:64px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--ink); }
   details.menu li.menuReglage input[type=range]{ flex:1; min-width:90px; }
   details.menu li.menuReglage .valeur{ min-width:40px; text-align:right; font-variant-numeric:tabular-nums; color:var(--ink-soft); }
+  /* Les reglages sous une option (« Rues » : la part des trottoirs, les couleurs ; ui/champs/rues.ts) : les champs de l'inspecteur,
+     en retrait sous l'option qu'ils reglent. Les boutons y gardent leur forme de champ, pas celle d'une entree de menu. */
+  details.menu li.menuChamps{ padding:0 6px 6px 28px; width:360px; max-width:calc(100vw - 48px); box-sizing:border-box; }
+  details.menu li.menuChamps .champ{ grid-template-columns:96px 1fr; }
+  details.menu li.menuChamps input[type=range]{ accent-color:var(--accent); }
+  details.menu li.menuChamps .champCurseur{ flex-wrap:wrap; }
+  details.menu li.menuChamps .champCurseur .valeurCurseur{ flex-basis:100%; text-align:left; white-space:nowrap; font-size:0.72rem; color:var(--ink-soft); }
+  html:not([data-classe="large"]) details.menu li.menuChamps input[type=range]{ min-height:44px; }
   /* Le titre d'un choix exclusif du menu (le fond) : en petites capitales, comme les en-tetes de section. */
   details.menu li.menuTitre{ padding:6px 12px 2px; font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
   details.menu li.menuAide{ padding:4px 12px 6px; font-family:var(--serif); font-style:italic; font-size:0.7rem; color:var(--ink-soft); max-width:260px; }

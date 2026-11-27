@@ -7,6 +7,7 @@
 
 import type * as THREE_NS from 'three';
 import { etiquettesDesRues } from '../model/rues.js';
+import { etiquettesSurChaussees, type EtiquetteSurChaussee, type ProfilRue } from '../model/trottoirs.js';
 import { SANS_OMBRE, poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 import { DECALAGE_CHAUSSEE_M } from './chaussees3d.js';
 import type { RueVoisine, PtBrut } from '../model/types.js';
@@ -53,6 +54,19 @@ export interface OptionsRues3d {
    * la pente (le sol lu aux deux bouts du nom), au-dessus de lui et devant lui au test de profondeur.
    */
   surChaussees?: boolean;
+  /**
+   * Les profils des rues dessinees (model/trottoirs.ts) : chaque nom se pose au milieu de la chaussee sous lui (elle a pu se decaler
+   * vers le milieu de l'espace entre les parcelles), et sa plaque tient dans sa largeur, sans monter sur les trottoirs.
+   */
+  profils?: readonly ProfilRue[];
+}
+
+/** Ce qu'une plaque laisse de chaussee de chaque cote, et la hauteur sous laquelle un nom ne se lit plus. */
+const MARGE_PLAQUE_M = 0.2, HAUTEUR_NOM_MIN_M = 1.5;
+
+/** La hauteur de la plaque d'un nom : celle d'origine, ou moins pour tenir dans la chaussee sous lui. */
+export function hauteurPlaque(e: EtiquetteSurChaussee): number {
+  return e.largeurM === undefined ? HAUTEUR_NOM_RUE_3D_M : Math.max(HAUTEUR_NOM_MIN_M, Math.min(HAUTEUR_NOM_RUE_3D_M, e.largeurM - 2 * MARGE_PLAQUE_M));
 }
 
 /** La couche de profondeur des noms poses sur les rues dessinees : juste au-dessus de celle des chemins, ou est le ruban. */
@@ -64,7 +78,8 @@ export function ajouterNomsDesRues3d(scene: THREE_NS.Object3D, versLocal: VersLo
   const doc = options.doc ?? document;
   const images = new Map<string, { materiau: THREE_NS.MeshBasicMaterial; rapport: number } | null>();
   let posees = 0;
-  for (const e of etiquettesDesRues(rues, cadre)) {
+  const etiquettes: EtiquetteSurChaussee[] = options.profils?.length ? etiquettesSurChaussees(etiquettesDesRues(rues, cadre), options.profils) : etiquettesDesRues(rues, cadre);
+  for (const e of etiquettes) {
     if (!images.has(e.nom)) {
       const img = imageDuNom(doc, e.nom);
       const materiau = img ? new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(img.canvas), transparent: true, depthWrite: false }) : null;
@@ -73,11 +88,12 @@ export function ajouterNomsDesRues3d(scene: THREE_NS.Object3D, versLocal: VersLo
     }
     const im = images.get(e.nom);
     if (!im) continue;
-    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(HAUTEUR_NOM_RUE_3D_M * im.rapport, HAUTEUR_NOM_RUE_3D_M), im.materiau);
+    const h = hauteurPlaque(e);
+    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(h * im.rapport, h), im.materiau);
     plaque.name = NOM_RUE_3D;
     plaque.userData[SANS_OMBRE] = true;
     const l = versLocal(e);
-    const longueur = HAUTEUR_NOM_RUE_3D_M * im.rapport;
+    const longueur = h * im.rapport;
     if (surChaussees && hauteurSol) {
       // Sur le ruban : la plaque suit la pente de la voie, le sol lu aux deux bouts du nom, et passe au-dessus du ruban.
       const a = (e.angleDeg * Math.PI) / 180, ux = Math.cos(a), uy = Math.sin(a);
