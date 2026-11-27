@@ -110,6 +110,28 @@ describe('les gestes du plan 2D', () => {
     expect(p.ctx.sendObjectBackward).toHaveBeenCalledTimes(1);
   });
 
+  it('toucher un objet puis le glisser aussitot n est pas un double-clic : la vue suit, ou l objet choisi', () => {
+    const p = plan();
+    p.geste(p.elements.parcelle, [[150, 150]], 'touch');
+    expect(p.etat.selectedKey).toBe('parcelle');
+    p.geste(p.elements.parcelle, [[152, 150], [192, 170]], 'touch');
+    expect(p.ctx.sendObjectBackward).not.toHaveBeenCalled();
+    expect(p.etat.scene.origine).toEqual({ x: 40, y: 20 });
+    p.geste(p.elements.terrasse, [[1, 1]], 'touch');
+    p.geste(p.elements.terrasse, [[1, 1], [21, 11]], 'touch');
+    expect(p.ctx.sendObjectBackward).not.toHaveBeenCalled();
+    expect(p.terrasse.pts[0]).toEqual({ x: 20, y: 10 });
+  });
+
+  it('le double toucher sur l objet choisi, meme tremble, le recule sans le deplacer', () => {
+    const p = plan('terrasse');
+    p.geste(p.elements.terrasse, [[1, 1]], 'touch');
+    p.etat.selectedKey = 'terrasse';
+    p.geste(p.elements.terrasse, [[1, 1], [4, 3]], 'touch');
+    expect(p.ctx.sendObjectBackward).toHaveBeenCalledTimes(1);
+    expect(p.terrasse.pts[0]).toEqual({ x: 0, y: 0 });
+  });
+
   it('le bouton du milieu deplace la vue, meme sur l objet choisi', () => {
     const p = plan('terrasse');
     const pts = p.terrasse.pts.map((q) => ({ ...q }));

@@ -178,6 +178,12 @@ interface EtatPointeur {
   clicObjet: DernierClicObjet;
   /** Le contour au debut d'un glisser de sommet ou de cote : a la fin, ce qui en depend suit (core/deformation.ts). */
   contourAvant: PtBrut[] | null;
+  /**
+   * Le second appui d'un double-clic sur le corps d'un objet, tant qu'il n'est pas lache : lache sur place, l'objet recule ; s'il
+   * glisse, c'est le geste ordinaire (deplacer la vue ou l'objet choisi). Toucher un objet puis le faire glisser aussitot est le
+   * geste de la regle (interaction/choixGeste.ts) : il ne doit pas reculer l'objet.
+   */
+  double: { key: string; client: PtEcran; typePointeur: string } | null;
 }
 
 const CLIC_VIDE: DernierClic = {key:null, index:null, time:0};
@@ -200,21 +206,27 @@ const objetDe = (etat: EtatApp, key: string | null | undefined): ObjetPlan | und
  * si le tap precedent a vise le corps du MEME objet et au meme endroit — c'est ce test de proximite qui evite de le confondre avec un
  * double-tap d'arete (insertion de sommet). A la souris, seul le corps compte : un double-clic sur un cote y insere un sommet.
  */
-function doubleClicObjet(p: EtatPointeur, e: PointerEvent, ds: DOMStringMap): boolean {
+function doubleClicObjet(p: EtatPointeur, e: PointerEvent, ds: DOMStringMap): 'non' | 'recule' | 'enAttente' {
   const auDoigt = e.pointerType === 'touch';
-  if(!ds.key || ds.key !== p.clicObjet.key || !(auDoigt || ds.role === 'obj')) return false;
+  if(!ds.key || ds.key !== p.clicObjet.key || !(auDoigt || ds.role === 'obj')) return 'non';
   // Un double-tap au doigt est plus lent qu'un double-clic de souris (lever, reposer le doigt) : une fenetre reglee pour la souris le
   // manquerait souvent. Et deux taps eloignes sur la meme forme ne sont pas un double-tap : c'est un deplacement d'intention. La
   // souris, elle, ne saute pas entre deux clics.
-  if(Date.now() - p.clicObjet.time >= (auDoigt ? 600 : 400)) return false;
-  if(auDoigt && Math.hypot(e.clientX - p.clicObjet.x, e.clientY - p.clicObjet.y) >= 35) return false;
+  if(Date.now() - p.clicObjet.time >= (auDoigt ? 600 : 400)) return 'non';
+  if(auDoigt && Math.hypot(e.clientX - p.clicObjet.x, e.clientY - p.clicObjet.y) >= 35) return 'non';
   p.clicObjet = CLIC_OBJET_VIDE;
   p.clicCote = CLIC_VIDE;
   p.clicSommet = CLIC_VIDE;
-  const recule = objetDe(p.etat, ds.key);
-  // Reculer un objet change l'ordre d'empilement, qui fait partie du projet : la lecture seule le refuse (D-18).
+  // Sur le corps, la decision attend le lacher (`double`) ; sur une arete ou une poignee (le second tap du doigt y tombe), tout de suite.
+  if(ds.role === 'obj'){ p.double = { key: ds.key, client: {x:e.clientX, y:e.clientY}, typePointeur: e.pointerType }; return 'enAttente'; }
+  reculer(p, ds.key);
+  return 'recule';
+}
+
+/** Reculer un objet d'un plan. Cela change l'ordre d'empilement, qui fait partie du projet : la lecture seule le refuse (D-18). */
+function reculer(p: EtatPointeur, key: string): void {
+  const recule = objetDe(p.etat, key);
   if(recule && !p.etat.lectureSeule) p.ctx.sendObjectBackward(recule);
-  return true;
 }
 
 /** Le corps de l'objet choisi, qui peut bouger (interaction/choixGeste.ts l'a dit) : commencer a le deplacer. */
@@ -222,8 +234,12 @@ function surObjet(p: EtatPointeur, e: PointerEvent, ds: DOMStringMap, w: PtBrut)
   const { etat, ctx } = p;
   const key = ds.key;
   if(!key) return 'rien';
-  p.clicObjet = {key, time:Date.now(), x:e.clientX, y:e.clientY};
+  // Le second appui d'un double-clic ne compte pas pour un troisieme.
+  if(!p.double) p.clicObjet = {key, time:Date.now(), x:e.clientX, y:e.clientY};
   const obj = objetDe(etat, key);
+  // Lecture seule : on selectionne, on regarde, on exporte — on ne deplace rien. Garde redoublee (choixGeste.ts l'a deja dit), avant
+  // l'historique, pour qu'aucun pas d'annulation ne soit empile pour un geste qui n'aura pas lieu.
+  if(etat.lectureSeule) return 'rien';
   if(!obj || !corpsMobile(obj, etat.lectureSeule)) return 'rien';
   etat.highlight = {type:null, index:null};
   // Le pas d'annulation se prend a l'appui, comme avant : un clic sans glisser deselectionne l'objet, sans rien ecrire.
@@ -433,7 +449,7 @@ function brancherEspace(stage: HTMLElement): { tenue: () => boolean } {
  * la meme distinction que dans le DOM, et elle evite qu'un pincement soit pris pour un glisser.
  */
 export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: EtatApp, ctx: ContextePointeur): void {
-  const p: EtatPointeur = { etat, ctx, geste: null, clicCote: CLIC_VIDE, clicSommet: CLIC_VIDE, clicObjet: CLIC_OBJET_VIDE, contourAvant: null };
+  const p: EtatPointeur = { etat, ctx, geste: null, clicCote: CLIC_VIDE, clicSommet: CLIC_VIDE, clicObjet: CLIC_OBJET_VIDE, contourAvant: null, double: null };
   const worldFromEvent = (e: PointerEvent): PtBrut => {
     const rect = stage.getBoundingClientRect();
     return ctx.toWorld({x:e.clientX-rect.left, y:e.clientY-rect.top});
@@ -462,7 +478,8 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
     // Le bouton du milieu, l'espace tenue, le vide : la vue, sans autre effet.
     if(!obj || e.button === 1 || espace.tenue()){ commencerPan(e); return; }
     // Le double-clic (le double-tap) sur un objet le recule, qu'il soit choisi ou non, mobile ou fixe.
-    if(doubleClicObjet(p, e, ds)){ e.preventDefault(); return; }
+    p.double = null;
+    if(doubleClicObjet(p, e, ds) === 'recule'){ e.preventDefault(); return; }
     const toucher = (choisir: boolean): ToucherEnAttente =>
       ({ key: obj.key, choisir, typePointeur: e.pointerType, time: Date.now(), x: e.clientX, y: e.clientY, client: {x:e.clientX, y:e.clientY} });
     // Un objet qui n'est pas choisi : un glisser deplace la vue, un toucher le choisit (au lacher).
@@ -530,11 +547,16 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
     toucherForme(geste.obj);
     ctx.render();
   });
-  window.addEventListener('pointerup', ()=>{
+  window.addEventListener('pointerup', e=>{
     const geste = p.geste;
+    const double = p.double;
+    p.double = null;
+    // Le second appui d'un double-clic, lache sans avoir glisse : l'objet recule (et rien d'autre : ni choix, ni deselection).
+    const doubleSurPlace = !!double && !aGlisse(e.clientX - double.client.x, e.clientY - double.client.y, double.typePointeur);
     if(geste && geste.type === 'pan'){
       p.geste = null;
       const t = geste.toucher;
+      if(double && doubleSurPlace && t){ reculer(p, double.key); return; }
       if(!t) return;
       // Un toucher, pas un glisser : il compte pour un double-clic, et choisit l'objet s'il ne l'etait pas.
       p.clicObjet = {key:t.key, time:t.time, x:t.x, y:t.y};
@@ -559,6 +581,15 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
       if(dire) ctx.signaler?.(dire);
     }
     p.contourAvant = null;
+    if(double && doubleSurPlace && geste && (geste.type==='shapeMove' || geste.type==='circleMove')){
+      // Le tremblement d'un double-clic n'est pas un deplacement : l'objet revient ou il etait, puis recule.
+      appliquerGlisser(geste, geste.startWorld, null);
+      toucherForme(geste.obj);
+      p.geste = null;
+      reculer(p, double.key);
+      ctx.render();
+      return;
+    }
     if(geste && (geste.type==='shapeMove' || geste.type==='circleMove') && !geste.moved){
       // Un simple clic (sans glisser) sur l'objet deja selectionne : il se deselectionne.
       etat.selectedKey = null;
@@ -567,7 +598,7 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
     }
     p.geste = null;
   });
-  window.addEventListener('pointercancel', ()=>{ p.geste = null; });
+  window.addEventListener('pointercancel', ()=>{ p.geste = null; p.double = null; });
 
-  brancherGestesDeVue(svg, stage, etat, ctx, () => { p.geste = null; });
+  brancherGestesDeVue(svg, stage, etat, ctx, () => { p.geste = null; p.double = null; });
 }
