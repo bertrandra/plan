@@ -1261,3 +1261,68 @@ recalage (§13.7), dont le seuil ne voit pas un décalage de moins d'un mètre :
 Vérifié : `tests/unit/facade/toits/faitageCentre.test.ts` (relevés réels du Vésinet et d'Hardencourt, toits de synthèse, chaque
 pièce de la preuve), `toitCorpsReprise.test.ts` (AE 101 au centimètre, à sa nouvelle référence ; Gordes), `faits.test.ts` (la
 galerie, matin et soir), `identite.ts`. Version de lecture 9 : tous les toits sont relus.
+
+### 13.10 Le raccord des toits qui se touchent
+
+*27 novembre 2026. Retours du propriétaire sur le 11 route du Guesclin, Hardencourt-Cocherel : « tu mets un pignon au raccord
+des deux toits, ce qui n'est pas juste, il faut raccorder les deux corps avec les deux faîtages » ; « il s'agit d'une maison en
+L avec des faîtages centrés, les deux corps fusionnent, je vois des pièces bizarres, ce n'est pas réel ».*
+
+Chaque bâtiment de la BD TOPO se lit seul, et chaque corps aussi. Une maison en L y est souvent deux bâtiments accolés : l'aile
+s'arrêtait au mur du corps par un pignon, et les deux faîtages, lus chacun de son côté, n'avaient pas la même hauteur.
+
+**La règle** (`facade/toits/raccord.ts::raccorderLesToits`, après la lecture, sur les bâtiments de la parcelle du projet que la
+lecture peut écrire ; aucun champ nouveau, le schéma ne change pas).
+
+- **En équerre** : une aile dont le bout s'appuie (à `ACCOLE_M`, 0,6 m) sur le mur d'un long pan d'un autre corps, faîtage en
+  travers du sien, les deux toits symétriques. Deux faîtages lus à `MEME_FAITAGE_M` (0,5 m) l'un de l'autre sont à la même
+  hauteur, deux égouts à `MEME_EGOUT_M` (0,5 m) aussi : ceux du plus grand corps.
+  - **Au coin du corps, mêmes faîtages et mêmes égouts : un retour d'angle.** Le rectangle de l'aile traverse le corps jusqu'à
+    son mur du fond (5 cm avant) et s'y ferme par une croupe ; le corps se ferme au coin par une croupe. Chaque croupe est le
+    pan extérieur de l'autre : la 3D, où le plus haut l'emporte, dessine un arêtier au coin extérieur, une noue au coin
+    intérieur, des pans continus, et aucun mur ni pignon entre les deux.
+  - **Ailleurs** (un T, une aile plus basse) : l'aile se prolonge jusqu'où son faîtage rencontre le pan du corps (jusqu'à son
+    faîtage quand ils sont à la même hauteur). Son bout, sous le toit du corps, ne se voit pas.
+  - Les pignons que la mesure avait lus sur le pan, en face de l'aile, étaient le toit de l'aile : retirés.
+- **Bout à bout** : un corps qui en prolonge un autre (même section à `SECTION_PROLONGEE_M`, 1 m) en prend le faîtage et les
+  égouts, quand les faîtages lus ou les hauts mesurés s'accordent.
+- **Une bosse étroite n'est pas un pignon** (`toitCorps.ts::sansPignonsEtroits`, `LARGEUR_PIGNON_LU_MIN_M` : 2 m) : un pignon
+  que la mesure lit seule, de moins de 2 m le long du mur, est une lucarne ou une cheminée. Il n'est plus dessiné (il n'est pas
+  encore lu comme une lucarne du catalogue). Les pignons d'un fait ou d'une photo gardent leur seuil (1,5 m).
+
+**Hardencourt, 11 route du Guesclin** (6501004 la longère, 6500957 l'aile, 6501003 le corps du bout) :
+
+| Corps | PR 1 | Raccordé |
+|---|---|---|
+| Longère, 24,0 × 5,7 m | faîtage 6,4 m dans l'axe, égouts 4,9 m, un pignon de 1,5 m | faîtage 6,4 m, égouts 4,9 m, croupe au coin, aucun pignon |
+| Aile, 4,8 × 5,1 m | faîtage 6,0 m dans l'axe, égouts 5,1 m | faîtage 6,4 m, égouts 4,9 m, prolongée de 5,65 m, croupe au fond |
+| Corps du bout | faîtage 5,8 m, égouts 3,1 m | faîtage 6,4 m, égouts 4,9 m (le toit de la longère) |
+
+**AE 101 ne bouge pas** (ses deux pignons font 2,0 et 2,9 m ; `identite.ts`). Banc sur sept villages : hors de la parcelle
+d'Hardencourt, aucun corps ne change que par les pignons étroits retirés (19 sur 76 : Le Vésinet 4, Hardencourt 1,
+Hucqueliers 1, Gordes 1, Beuvron 3, Versailles 4, Eguisheim 5) ; formes et suspects identiques.
+
+**Une seule maison, dans la scène** (`model/memeMaison.ts` ; le propriétaire, sur les captures : « j'ai l'impression que les deux
+toitures du L ne sont pas à la même hauteur » ; « il s'agit du même bâtiment qui est aligné »). Le modèle était juste (trois
+corps à 6,4 m de faîtage et 4,9 m d'égout), la scène non : chaque bâtiment se posait sur le sol lu en SON centre. À Hardencourt,
+relief affiché : l'aile à +0,52 m, la longère à +0,42 m, le corps du bout à +0,11 m, donc des faîtages à 6,92, 6,82 et 6,51 m
+et des égouts à 5,42, 5,32 et 5,01 m — 41 cm d'écart pour un même toit.
+
+- **Un seul sol.** Deux bâtiments de la parcelle du projet sont la même maison quand un corps de l'un touche un corps de l'autre
+  (`ACCOLE_M`) et qu'ils portent le même toit (même faîtage, mêmes égouts : ce que le raccord produit). La maison se pose sur
+  le sol au centre de son plus grand bâtiment (`pointDePose`) : toits, murs, fenêtres, photo d'un relevé (`three/sceneObjets.ts`)
+  et poignées du mode Toit (`altitudeDuBatiment`). Rien ne s'enregistre : la maison se déduit à chaque dessin.
+- **Un seul habit.** Chaque bâtiment de la maison prend la couverture, la couleur de toit et la couleur de murs du plus grand
+  (`habilleCommeSaMaison`), sauf ce que la personne a choisi à la main (couleur de toit sans origine, couverture choisie, source
+  de couleur des murs, couleur ou matériau vus sur place, texture de mur), jamais touché.
+- **Aligné.** Un corps qui en prolonge un autre bout à bout prend sa section mur pour mur (son rectangle retracé dans le repère
+  du grand, collé à son bout) : la même ligne de faîtage et les mêmes lignes d'égout. S'il porte des pignons ou des croupes, il
+  garde son rectangle et ne prend que le faîtage et les égouts.
+
+**Limites.** Le raccord ne se fait que sur la parcelle du projet. La surbrillance de l'audit lit encore le sol au centre de
+chaque bâtiment. Un bâtiment dessiné « sur son contour » (contours de biais,
+§13.7) découpe ses toits sur son propre contour : l'aile prolongée chez son voisin y serait coupée. Les murs des deux bâtiments
+gardent chacun leur couleur. Le retour d'angle demande des toits symétriques et des hauteurs qui s'accordent ; sinon l'aile
+entre dans le pan sans croupe.
+
+Vérifié : `tests/unit/facade/toits/raccord.test.ts`. Version de lecture 10.

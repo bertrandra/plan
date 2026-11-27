@@ -29,8 +29,21 @@ import { coupeDemiCroupe } from './toitFormes.js';
 
 export { PAS_FAITAGE_M, PENTE_MAX_DEG, ECART_ABERRANT_M, DEPASSEMENT_GARDE_M, HAUTEUR_PLAT_M, PENTE_PLAT_DEG, PAN_MIN_M, GAIN_PAN_SUR_PLAT, SURPLUS_PIGNON_M, LARGEUR_PIGNON_MIN_M, LARGEUR_PIGNON_MAX_M, PROFONDEUR_PIGNON_MIN_M, TOLERANCE_FAITAGE_M, GAIN_COUPE, ECART_COUPE_MIN_M, DIFFERENCE_COUPE_M, LARGEUR_CORPS_MIN_M, MESURES_MIN, repere, point, hauteurCorps, planCroupe, hauteurCorpsEn, mesuresDans, empreintePignon, ajusterCorps, rectangleTourne, corpsImpose, detecterPignons, corpsAvecPignons, meilleureCoupe, type Repere, type Grille, type Mesure } from './toitCorps/ajustement.js';
 export { HAUTEUR_BATIE_M, contourEquerre, PART_VIDE_RECALAGE, DECALAGE_MAX_M, partVideSous, decalageSurMesure } from './toitCorps/recalage.js';
+// Le raccord des toits qui se touchent se fait apres la lecture de chaque batiment (raccord.ts, spec §13.10).
+export { hautsMesures, raccorderLesToits, type ToitARaccorder } from './raccord.js';
 export { creteMesuree, egoutsMesures, hautMesure, toitDehors, toitSymetrique, estAsymetrique, sansPreuveDAsymetrie, symetriqueSaufPreuve } from './toitCorps/centrage.js';
 export { GAIN_APPENTIS_SECOURS, corpsDepuisFormes, boiteOrientee, completerSurContour, corpsEtendu } from './toitCorps/reprise.js';
+
+/**
+ * Le corps sans ses pignons trop etroits (LARGEUR_PIGNON_LU_MIN_M) : une bosse de moins de 2 m le long du mur, que la mesure lit
+ * seule, est une lucarne ou une cheminee, pas un mur pignon qui monte au faitage (Hardencourt 6501004, le proprietaire : « je vois
+ * des pieces bizarres, ce n'est pas reel »). Elle ne se dessine pas ; le toit du corps, relu sans ses mesures, ne change pas.
+ * La question se pose a la fin, sur le toit retenu : les largeurs lues en cours de route ne sont pas encore les siennes.
+ */
+function sansPignonsEtroits(c: CorpsToit): CorpsToit {
+  const gardes = c.pignons.filter((p) => p.fin - p.debut >= S.LARGEUR_PIGNON_LU_MIN_M - 1e-6);
+  return gardes.length === c.pignons.length ? c : { ...c, pignons: gardes };
+}
 
 /**
  * Les corps d'un batiment reconstruits sur sa surface mesuree : null quand le contour ne se decoupe
@@ -44,7 +57,7 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
   if (!rects) {
     // La reprise lit ses tranches par les formes, sinon par le modele : la meme derniere question pour chaque corps.
     const g = options.grille ?? null;
-    return corpsDeReprise(m, contour, g)?.map((c) => symetriqueSaufPreuve(m, contour, c, corpsDepuisFormes(g ?? m, c.pts), (x) => ecartAuCorps(m, x, contour), g) ?? c) ?? null;
+    return corpsDeReprise(m, contour, g)?.map((c) => symetriqueSaufPreuve(m, contour, c, corpsDepuisFormes(g ?? m, c.pts), (x) => ecartAuCorps(m, x, contour), g) ?? c).map(sansPignonsEtroits) ?? null;
   }
   const blocs: PtBrut[][] = [];
   // La coupe par le modele essaie chaque position : de loin la part la plus lourde. Le voisinage
@@ -66,7 +79,7 @@ export function reconstruireCorps(m: ToitMesure, contour: readonly PtBrut[], opt
   // sauf preuve du contraire, et son faitage au haut du toit (toitCorps/centrage.ts).
   const g = options.grille ?? null;
   const corps = [...refondus, ...blocs.map((r) => avecCroupesSiMieux(m, r, contour, g, corpsAvecPignons(m, r, contour)))].filter((c): c is CorpsToit => c !== null)
-    .map((c) => symetriqueSaufPreuve(m, contour, c, corpsDepuisFormes(g ?? m, c.pts), (x) => ecartAuCorps(m, x, contour), g) ?? c);
+    .map((c) => symetriqueSaufPreuve(m, contour, c, corpsDepuisFormes(g ?? m, c.pts), (x) => ecartAuCorps(m, x, contour), g) ?? c).map(sansPignonsEtroits);
   return corps.length ? sansCorpsContenus(sansBandesRecouvertes(corps, contour), contour) : null;
 }
 

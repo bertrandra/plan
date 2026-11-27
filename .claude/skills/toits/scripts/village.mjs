@@ -143,8 +143,18 @@ await page.waitForTimeout(8000);
 await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: S + 'village-' + NOM + '-3d.png' });
 const VUES = process.env.VUES ? JSON.parse(process.env.VUES) : [['pres-sud', 0, 0, 0, 22, -30], ['pres-ouest', 0, 0, -30, 22, 0], ['pres-nord', 0, 0, 0, 22, 30]];
 for (const [nom, px, py, dx, dy, dz] of VUES) {
-  await page.evaluate(({ px, py, dx, dy, dz }) => { const o = window.__plan.etat().objects; const parc = o.find((x) => x.key === 'parcelle'); const c0 = parc.pts.reduce((a, q) => ({ x: a.x + q.x / parc.pts.length, y: a.y + q.y / parc.pts.length }), { x: 0, y: 0 }); const tx = px ? px - c0.x : 0, tz = py ? c0.y - py : 0; const s = window.__plan.scene3d(); s.controls.target.set(tx, 6, tz); s.camera.position.set(tx + dx, 6 + dy, tz + dz); s.camera.lookAt(tx, 6, tz); s.controls.update(); }, { px, py, dx, dy, dz });
+  await page.evaluate(({ px, py, dx, dy, dz }) => { const o = window.__plan.etat().objects; const parc = o.find((x) => x.key === 'parcelle'); const c0 = parc.pts.reduce((a, q) => ({ x: a.x + q.x / parc.pts.length, y: a.y + q.y / parc.pts.length }), { x: 0, y: 0 }); const s = window.__plan.scene3d(); const cen = s.cen ?? c0; const tx = px ? px - cen.x : 0, tz = py ? cen.y - py : 0; s.controls.target.set(tx, 6, tz); s.camera.position.set(tx + dx, 6 + dy, tz + dz); s.camera.lookAt(tx, 6, tz); s.controls.update(); }, { px, py, dx, dy, dz });
   await page.waitForTimeout(2500);
   await page.locator('#terrasse3dCanvasHost canvas').screenshot({ path: S + 'village-' + NOM + '-' + nom + '.png' });
 }
+// ALTITUDES=1 : le sol de la scene au centre de chaque batiment de la parcelle du projet, et les altitudes de son faitage et de
+// ses egouts s'il etait pose la (une maison en plusieurs batiments se pose sur un seul sol, model/memeMaison.ts).
+if (process.env.ALTITUDES) console.log('altitudes', JSON.stringify(await page.evaluate(() => {
+  const s = window.__plan.scene3d();
+  if (!s.hauteurSol) return 'sol plat';
+  return window.__plan.etat().objects.filter((o) => o.fonction === 'batiment' && o.batiment?.corpsToit?.length && !o.voisinage).map((o) => {
+    const c = o.pts.reduce((a, q) => ({ x: a.x + q.x / o.pts.length, y: a.y + q.y / o.pts.length }), { x: 0, y: 0 }), sol = s.hauteurSol(c), k = o.batiment.corpsToit[0];
+    return { cle: o.key, sol: +sol.toFixed(2), faitage: +(sol + k.faitage).toFixed(2), egout: +(sol + k.egouts[0]).toFixed(2), toit: o.batiment.toit?.couleur, couverture: o.bdtopo?.materiauxToiture };
+  });
+})));
 await navigateur.close();

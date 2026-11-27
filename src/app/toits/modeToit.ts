@@ -18,6 +18,7 @@ import { poserCameraFacade, retirerCameraFacade } from '../../three/vueFacadeToi
 import { admettreDistance, borner, bornesDeLOrbite, decentrer, liberer } from '../../three/orbiteModeToit.js';
 import { centroid } from '../../geometry/basic.js';
 import { majFantomes, viderFantomes } from '../../three/fantomes.js';
+import { pointDePose } from '../../model/memeMaison.js';
 import { abonnerSceneBatie, hotes3d, vue3d, reglerVue3d, rendre3d } from '../../three/etat3d.js';
 import { dialogues } from '../../shell/dialogues.js';
 import { lectureToits } from '../../core/lectureToits.js';
@@ -308,7 +309,9 @@ function hauteurDe(o: ObjetPlan): number {
  */
 export function altitudeDuBatiment(o: ObjetPlan | undefined): number {
   const sc = vue3d.scene, pts = o ? (enPoints(o).pts as PtBrut[]) : [];
-  return sc?.hauteurSol && pts.length ? sc.hauteurSol(centroid(pts)) : 0;
+  if (!sc?.hauteurSol || !pts.length) return 0;
+  // Plusieurs batiments d'une meme maison se posent sur le sol au centre du plus grand (model/memeMaison.ts), comme la scene.
+  return sc.hauteurSol(o && o.type === 'polygon' ? pointDePose(o, objetsCourants?.() ?? []) : centroid(pts));
 }
 
 /** Le batiment dans la scene : son contour et ses corps, du pied au-dessus du faitage. De quoi cadrer la camera de facade. */
