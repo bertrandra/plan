@@ -151,9 +151,14 @@ describe('ce que la lecture fait de ses lucarnes', () => {
     expect(ecrivainPeut(bat(vue), 'lidar', 'elements')).toBe(false);
   });
 
-  it('a la relecture, une lucarne vue l emporte sur celles que la mesure vient de lire sur le corps neuf', () => {
-    const neuf: CorpsToit = { ...TOIT, pts: RECT.map((q) => ({ ...q })), lucarnes: [lue] };
-    expect(reporterElements([{ ...TOIT, lucarnes: [vue] }], [neuf])[0]?.lucarnes).toEqual([vue]);
+  it('a la relecture, une lucarne vue l emporte sur celle que la mesure vient de lire a sa place ; les autres lucarnes lues restent', () => {
+    // Le proprietaire (Hardencourt, 27 novembre 2026) : « 1 lucarne decouverte » a la place des trois, apres « Actualiser » sur un
+    // projet existant. La lucarne vue remplace celle lue au meme endroit du pan, pas ses voisines.
+    const auMemeEndroit: Lucarne = { ...lue, debutM: 8.75, finM: 10.25 }, plusLoin: Lucarne = { ...lue, debutM: 13.5, finM: 15 }, autrePan: Lucarne = { ...lue, pan: 1, debutM: 9, finM: 10.5 };
+    const neuf: CorpsToit = { ...TOIT, pts: RECT.map((q) => ({ ...q })), lucarnes: [lue, auMemeEndroit, plusLoin, autrePan] };
+    expect(reporterElements([{ ...TOIT, lucarnes: [vue] }], [neuf])[0]?.lucarnes).toEqual([lue, vue, plusLoin, autrePan]);
+    // Seule sur son pan a cet endroit : elle remplace celle qu'elle recouvre, et il ne reste qu'elle.
+    expect(reporterElements([{ ...TOIT, lucarnes: [vue] }], [{ ...neuf, lucarnes: [auMemeEndroit] }])[0]?.lucarnes).toEqual([vue]);
   });
 
   it('le raccord garde les lucarnes a leur place quand il prolonge une aile, et retire celles qu une aile recouvre', () => {

@@ -30,7 +30,7 @@ import { coupeDemiCroupe } from './toitFormes.js';
 export { PAS_FAITAGE_M, PENTE_MAX_DEG, ECART_ABERRANT_M, DEPASSEMENT_GARDE_M, HAUTEUR_PLAT_M, PENTE_PLAT_DEG, PAN_MIN_M, GAIN_PAN_SUR_PLAT, SURPLUS_PIGNON_M, LARGEUR_PIGNON_MIN_M, LARGEUR_PIGNON_MAX_M, PROFONDEUR_PIGNON_MIN_M, TOLERANCE_FAITAGE_M, GAIN_COUPE, ECART_COUPE_MIN_M, DIFFERENCE_COUPE_M, LARGEUR_CORPS_MIN_M, MESURES_MIN, repere, point, hauteurCorps, planCroupe, hauteurCorpsEn, mesuresDans, empreintePignon, ajusterCorps, rectangleTourne, corpsImpose, detecterPignons, corpsAvecPignons, meilleureCoupe, type Repere, type Grille, type Mesure } from './toitCorps/ajustement.js';
 export { HAUTEUR_BATIE_M, contourEquerre, PART_VIDE_RECALAGE, DECALAGE_MAX_M, partVideSous, decalageSurMesure } from './toitCorps/recalage.js';
 // Le raccord des toits qui se touchent se fait apres la lecture de chaque batiment (raccord.ts, spec §13.10).
-export { hautsMesures, raccorderLesToits, type ToitARaccorder } from './raccord.js';
+export { contoursProches, hautsMesures, raccorderLesToits, type ToitARaccorder } from './raccord.js';
 // Les lucarnes que la grille brute montre sur les pans, lues en dernier sur le toit retenu (lucarnesLues.ts, spec §13.11).
 export { avecLucarnesLues, lucarnesDuCorps, TYPE_LUCARNE_LUE } from './lucarnesLues.js';
 export { creteMesuree, egoutsMesures, hautMesure, toitDehors, toitSymetrique, estAsymetrique, sansPreuveDAsymetrie, symetriqueSaufPreuve } from './toitCorps/centrage.js';

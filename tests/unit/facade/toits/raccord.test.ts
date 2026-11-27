@@ -43,6 +43,17 @@ describe('le raccord en equerre', () => {
     expect(raccorderLesToits([{ cle: 'a', corps: [a] }, { cle: 'w', corps: [w] }]).size).toBe(0);
   });
 
+  it('un batiment fixe (toit regle a la main, verifie sur place) est la sans changer : son voisin se raccorde a lui, lui n est pas rendu', () => {
+    const fixe = corps(PRINCIPAL, 3, 7, 4);
+    const r = raccorderLesToits([{ cle: 'a', corps: [fixe], fixe: true }, { cle: 'w', corps: [corps(AILE, 2.5, 6.6, 4.2)] }]);
+    // Rien n'est rendu pour le batiment fixe : il garde ses corps, pignons et croupes compris.
+    expect(r.has('a')).toBe(false);
+    expect(fixe).toEqual(corps(PRINCIPAL, 3, 7, 4));
+    // L'aile, elle, prend ses hauteurs et entre dans son toit, comme a cote d'un toit lu.
+    const libre = raccorderLesToits([{ cle: 'a', corps: [corps(PRINCIPAL, 3, 7, 4)] }, { cle: 'w', corps: [corps(AILE, 2.5, 6.6, 4.2)] }]);
+    expect(r.get('w')).toEqual(libre.get('w'));
+  });
+
   it('au milieu du corps (un T), l aile se prolonge jusqu au faitage, sans croupe ; une aile plus basse, jusqu ou son faitage rencontre le pan', () => {
     const aileT = [p(8, 0), p(8, -8), p(13, -8), p(13, 0)];
     const t = raccorderLesToits([{ cle: 'a', corps: [corps(PRINCIPAL, 3, 7, 4)] }, { cle: 'w', corps: [corps(aileT, 2.5, 7, 4)] }]);

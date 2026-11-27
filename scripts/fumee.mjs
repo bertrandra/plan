@@ -7612,6 +7612,51 @@ const POINTS = {
     const ok = silhouette === 1 && surLAile && !!nomAile && indice.startsWith(nomAile + ' · ') && surLeChoisi && deplacer === 1 && rondes >= 1 && sans;
     return { ok, mesure: `silhouette du corps choisi : ${silhouette} trait(s) ; poignées ${surLAile ? 'sur lui' : 'AILLEURS'} (faîtage dit ${faitageDit || '—'}, le sien ${faitageAile}) ; indice « ${indice.slice(0, 70)} » ; cheminée ${surLeChoisi ? 'sur le corps choisi seul' : 'AILLEURS'} ; poignées de dessus : ${deplacer} de déplacement (carré), ${rondes} ronde(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
+  199: async (page) => {
+    // Relire un projet existant donne ce que donne un projet neuf (retour du proprietaire a Hardencourt, 27 novembre 2026 : « le L est
+    // en 2 toits et 1 lucarne decouverte » sur son projet rouvert, « c'est bon sur un nouveau projet sur la meme adresse, actualiser
+    // doit donner la meme chose »). Un projet enregistre par une ancienne version (11 route du Guesclin, toits a la marque 8, un corps
+    // dissymetrique par batiment) est ouvert comme la personne l'ouvre ; la tache de fond relit ses toits sur le LiDAR. La regle se
+    // verifie ici sur ce chemin-la, pas sur un import neuf : la maison en L en un seul toit (memes faitages, memes egouts, une
+    // croupe au retour d'angle de chaque aile), le batiment du bout plus bas, trois lucarnes lues sur la longere.
+    const projet = readFileSync(new URL('../tests/fixtures/toits-relecture/hardencourt-projet-ancien.json', import.meta.url));
+    // La fumee ouvre le plan sans la tache de fond (captures.mjs::ouvrirDemo) ; ce point la joue : il rouvre la page avec elle.
+    await page.addInitScript(() => { window.__sansToitsFond = false; });
+    await page.goto(BASE + '/');
+    await page.waitForFunction(() => !!window.__plan || [...document.querySelectorAll('button')].some((x) => /d[ée]monstration/i.test(x.textContent ?? '')), null, { timeout: 30000 });
+    const demo = page.getByRole('button', { name: /d[ée]monstration/i });
+    if (await demo.count()) await demo.first().click();
+    await page.waitForSelector('#stage svg');
+    await page.waitForFunction(() => !!window.__plan, null, { timeout: 30000 });
+    await page.setInputFiles('#importJsonFile', { name: 'hardencourt.json', mimeType: 'application/json', buffer: projet });
+    await page.waitForFunction(() => window.__plan.etat().objects.find((x) => x.key === 'parcelle')?.cadastre?.idu === '27312000AB0069', null, { timeout: 30000 });
+    const toits = () => page.evaluate(() => Object.fromEntries(['6501004', '6500957', '6501003'].map((c) => {
+      const b = window.__plan.etat().objects.find((x) => x.key === 'bati-batiment-' + c)?.batiment;
+      return [c, { lu: b?.toitLidarLu ?? 0, corps: b?.corpsToit ?? [] }];
+    })));
+    const avant = await toits();
+    if (Object.values(avant).some((t) => t.lu !== 8 || t.corps.length !== 1)) return { ok: false, mesure: 'le projet ouvert n’a pas ses toits anciens : ' + JSON.stringify(Object.values(avant).map((t) => t.lu)) };
+    // La tache de fond attend que la personne ne touche plus a rien, puis lit : les trois batiments portent une marque neuve.
+    await page.waitForFunction(() => ['6501004', '6500957', '6501003'].every((c) => (window.__plan.etat().objects.find((x) => x.key === 'bati-batiment-' + c)?.batiment?.toitLidarLu ?? 0) > 8), null, { timeout: 120000 })
+      .catch(() => { /* dit plus bas, avec les marques lues */ });
+    const t = await toits();
+    const echecs = [];
+    const marques = Object.values(t).map((x) => x.lu);
+    if (marques.some((m) => m <= 8) || new Set(marques).size !== 1) echecs.push('toits non relus (marques ' + marques.join(', ') + ')');
+    const longere = t['6501004'].corps[0], aile = t['6500957'].corps[0], bout = t['6501003'].corps[0];
+    if (!longere || !aile || !bout) return { ok: false, mesure: [...echecs, 'un batiment sans corps'].join(' ; ') };
+    if (longere.faitage !== aile.faitage) echecs.push(`deux faîtages (${longere.faitage} et ${aile.faitage} m) : le L est en deux toits`);
+    if (JSON.stringify(longere.egouts) !== JSON.stringify(aile.egouts) || longere.egouts[0] !== longere.egouts[1]) echecs.push(`égouts ${JSON.stringify(longere.egouts)} et ${JSON.stringify(aile.egouts)}`);
+    const croupe = (c) => (c.croupes ?? []).some((x) => x > 0);
+    if (!croupe(longere) || !croupe(aile)) echecs.push('pas de croupe au retour d’angle : ' + JSON.stringify([longere.croupes ?? null, aile.croupes ?? null]));
+    if ((longere.pignons ?? []).length || (aile.pignons ?? []).length) echecs.push('un pignon reste sur la maison en L');
+    if (!(bout.faitage < longere.faitage - 0.3) || !(Math.max(...bout.egouts) < longere.egouts[0] - 0.5)) echecs.push(`le bâtiment du bout n’est pas plus bas (faîtage ${bout.faitage}, égouts ${JSON.stringify(bout.egouts)})`);
+    const lucarnes = longere.lucarnes ?? [];
+    if (lucarnes.length !== 3 || lucarnes.some((l) => l.source !== 'lidar' || l.type !== 'jacobine')) echecs.push(`${lucarnes.length} lucarne(s) sur la longère : ` + JSON.stringify(lucarnes.map((l) => [l.type, l.source])));
+    else if (new Set(lucarnes.map((l) => (l.finM - l.debutM).toFixed(2))).size !== 1) echecs.push('trois lucarnes de largeurs différentes');
+    if (echecs.length) return { ok: false, mesure: echecs.join(' ; ') };
+    return { ok: true, mesure: `projet rouvert, toits relus (marque ${marques[0]}) : le L en un toit (faîtage ${longere.faitage} m, égouts ${longere.egouts[0]} m, deux croupes), le bout à ${bout.faitage} m, trois lucarnes` };
+  },
   135: async (page, f) => {
     // Le rendu a la demande de la Vue 3D (demande du proprietaire, 5 novembre 2026, three/renduDemande.ts) : une vue immobile ne
     // redessine plus ; un geste, l'heure, un reglage, un changement de la scene hors de tout chemin connu redessinent, puis la vue se tait.
@@ -11532,7 +11577,9 @@ function pointsPour(nomClasse) {
   // 196 : le fond « Plan IGN » : choisi au menu Affichage, ses tuiles sous le plan puis drapees sur le sol de la Vue 3D, retour a la photo.
   // 197 : l'option « Rues » : les chaussees lues, dessinees sur le plan au jeton du theme, drapees sur le sol de la Vue 3D, puis retirees.
   // 198 : le parcours simple du mode Toit (la carte de la maison, trois reglages, six pieces), « Plus de reglages » replie.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198];
+  // 199 : un projet enregistre avec des toits d'une ancienne lecture, rouvert : la tache de fond rend les toits d'un projet neuf
+  //       (Hardencourt : le L en un toit, le batiment du bout plus bas, trois lucarnes). Reseau du LiDAR rejoue.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

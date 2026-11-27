@@ -238,10 +238,17 @@ export function reporterElements(anciens: readonly CorpsToit[], nouveaux: readon
     const suite: CorpsToit = { ...n };
     let change = false;
     if (n.cheminees === undefined && ajout.cheminees.length) { suite.cheminees = ajout.cheminees; change = true; }
-    // Une lucarne vue ou posee l'emporte sur celles que la mesure vient de lire sur le corps neuf (facade/toits/lucarnesLues.ts).
+    // Une lucarne vue ou posee l'emporte sur celle que la mesure vient de lire A SA PLACE sur le corps neuf (meme pan, bords qui se
+    // recouvrent ; facade/toits/lucarnesLues.ts) : c'est la meme lucarne, et la personne ou la photo en savent plus que la grille.
+    // Les autres lucarnes lues restent : une lucarne vue sur un pan qui en porte trois n'efface pas les deux autres (Hardencourt,
+    // 27 novembre 2026 : « 1 lucarne decouverte » a la place des trois, apres « Actualiser » sur un projet existant).
     const vues = ajout.lucarnes.filter((l) => l.source !== 'lidar'), neuvesLues = !!n.lucarnes?.length && n.lucarnes.every((l) => l.source === 'lidar');
     if (n.lucarnes === undefined && ajout.lucarnes.length) { suite.lucarnes = ajout.lucarnes; change = true; }
-    else if (neuvesLues && vues.length) { suite.lucarnes = vues; change = true; }
+    else if (neuvesLues && vues.length) {
+      const ailleurs = (n.lucarnes ?? []).filter((lue) => !vues.some((v) => v.pan === lue.pan && v.debutM < lue.finM && lue.debutM < v.finM));
+      suite.lucarnes = [...vues, ...ailleurs].sort((x, y) => x.pan - y.pan || x.debutM - y.debutM);
+      change = true;
+    }
     if (n.elementsToit === undefined && ajout.elementsToit.length) { suite.elementsToit = ajout.elementsToit; change = true; }
     if (n.terrasse === undefined && ajout.terrasse) { suite.terrasse = ajout.terrasse; change = true; }
     if (n.ouvert === undefined && ajout.ouvert !== undefined) { suite.ouvert = ajout.ouvert; if (ajout.retraitM !== undefined) suite.retraitM = ajout.retraitM; change = true; }

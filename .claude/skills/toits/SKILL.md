@@ -446,6 +446,12 @@ npx tsx .claude/skills/toits/scripts/banc.ts beuvron --enregistrer formes-beuvro
   a vu un fichier de `src/` réécrit (une suite de tests en parallèle réécrit
   `src/plateforme/contrat.ts`) : relancer la capture une fois les tests finis.
 
+**Une règle se vérifie sur le chemin de relecture d'un projet existant, pas seulement sur un import neuf.** Les scripts de ce
+paragraphe et le banc lisent des bâtiments neufs ; la personne, elle, rouvre un projet enregistré, dont les toits portent une
+ancienne lecture, des éléments posés, des raccords déjà faits. Avant de dire qu'une règle tient : la jouer sur un projet aux toits
+anciens (tâche de fond, « Actualiser depuis l'IGN ») et comparer à un projet neuf sur la même adresse — c'est l'égalité de
+`tests/unit/app/toits/relectureCommeImport.test.ts` (y ajouter le cas) et le point 199 de la fumée (`MD/spec-toit-ign.md` §13.12).
+
 ## 6 bis. Relire tous les toits après un changement de règle
 
 Chaque bâtiment lu sur le LiDAR porte `toitLidarLu` : la version de la lecture qui l'a traité

@@ -21,15 +21,20 @@
 // (MEME_EGOUT_M) : ceux du plus grand des deux corps.
 //
 // Une fonction pure : des corps en entree, des corps en sortie, les memes quand rien ne se touche. La personne garde la main
-// (un toit fige ou verifie sur place n'est pas donne a cette fonction, app/toits/toitsLidar.ts).
+// (un toit fige ou verifie sur place y entre `fixe` : les autres se raccordent a lui, lui ne change pas ; app/toits/toitsLidar.ts).
 
 import type { CorpsToit, PtBrut, ToitMesure } from '../../model/types.js';
+import { distancePointContour } from '../../geometry/proximite.js';
 import { SEUILS_TOITS as S } from '../../regles/toits/reglages.js';
 import { cm, mesuresDans, repere, type Repere } from './toitCorps/ajustement.js';
 import { hautMesure } from './toitCorps/centrage.js';
 
 /** Un batiment dont les corps peuvent se raccorder a ceux des autres : sa cle, ses corps, et le haut mesure de chacun quand on l'a. */
-export interface ToitARaccorder { cle: string; corps: readonly CorpsToit[]; hauts?: readonly (number | null)[] }
+/**
+ * `fixe` : un batiment dont la lecture n'ecrit pas le toit (regle a la main, verifie sur place). Il est la, les autres se raccordent
+ * a lui (ils prennent son faitage et ses egouts, entrent dans son toit), mais ses corps ne changent jamais.
+ */
+export interface ToitARaccorder { cle: string; corps: readonly CorpsToit[]; hauts?: readonly (number | null)[]; fixe?: boolean }
 
 /** Le haut mesure de chaque corps d'un batiment (toitCorps/centrage.ts::hautMesure), null sans mesure sous lui. */
 export function hautsMesures(corps: readonly CorpsToit[], m: ToitMesure | null | undefined, contour: readonly PtBrut[]): (number | null)[] {
@@ -202,6 +207,14 @@ export function raccorderLesToits(batiments: readonly ToitARaccorder[]): Map<str
     w.r = repere(w.c.pts);
   }
   const out = new Map<string, CorpsToit[]>();
-  for (const b of change) { const bat = batiments[b]; if (bat) out.set(bat.cle, places.filter((p) => p.b === b).sort((x, y) => x.k - y.k).map((p) => p.c)); }
+  for (const b of change) { const bat = batiments[b]; if (bat && !bat.fixe) out.set(bat.cle, places.filter((p) => p.b === b).sort((x, y) => x.k - y.k).map((p) => p.c)); }
   return out;
+}
+
+/**
+ * Deux contours passent-ils a moins de `seuilM` l'un de l'autre (un sommet de l'un pres d'un cote de l'autre) ? Sert a dire quels
+ * batiments se relisent ensemble (app/toits/toitsLidar.ts::voisinsDeRaccord) : plus large que le raccord, qui juge sur les corps.
+ */
+export function contoursProches(a: readonly PtBrut[], b: readonly PtBrut[], seuilM: number): boolean {
+  return a.some((p) => distancePointContour(p, b as PtBrut[]) <= seuilM) || b.some((p) => distancePointContour(p, a as PtBrut[]) <= seuilM);
 }
