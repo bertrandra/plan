@@ -12,7 +12,7 @@ import { lireHauteursSousStrict, lireGrilleSous, echantillonsDeGrille, dallesLid
 import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../../model/volumesToit.js';
 import { PENTE_DEFAUT_DEG } from '../../model/toitBdTopo.js';
 import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../../model/toitMesure.js';
-import { avecLucarnesLues, decalageSurMesure, hautsMesures, partVideSous, raccorderLesToits } from '../../facade/toits/toitCorps.js';
+import { avecLucarnesLues, contoursProches, decalageSurMesure, hautsMesures, partVideSous, raccorderLesToits } from '../../facade/toits/toitCorps.js';
 import { centroid, pointInPolygon } from '../../geometry/basic.js';
 import { parcelleDuProjet, surParcelleDuProjet, toitLuAuLidar } from '../../model/fonctions.js';
 import { batimentsMitoyens } from '../../model/mitoyennete.js';
@@ -265,6 +265,12 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // chiens assis, pourquoi ont-ils disparu ? », facade/toits/lucarnesLues.ts) : une bosse etroite sur un pan, nette, partie du mur,
   // est une lucarne posee sur ce pan (quatorze seuils nommes). Tout est relu.
   { version: 12, reglages: '5f336b15', faits: '2427f5f5', formes: '83c56e39' },
+  // Relire un projet existant donne ce que donne un projet neuf (27 novembre 2026, Hardencourt : « c'est bon sur un nouveau projet
+  // sur la meme adresse, actualiser doit donner la meme chose ») : la tache de fond relit ensemble les batiments qui se touchent et
+  // raccorde leurs toits frais (elle les lisait un par un, sur des copies que le raccord ne voyait pas : la maison en L restait en
+  // deux toits), et une lucarne vue ne remplace plus que la lucarne lue a sa place. La version 12 a enregistre des toits non
+  // raccordes : tout est relu. RELU_ENSEMBLE_M entre dans les reglages.
+  { version: 13, reglages: 'b951617c', faits: '2427f5f5', formes: '83c56e39' },
 ];
 
 /**
@@ -446,6 +452,8 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
   const estMitoyen = (o: ObjetAToit) => !!o.key && mitoyens.has(o.key);
   // Le lieu du projet et les contours de ses batiments, une fois pour toute la lecture.
   const lieu = contexteProfils(objets, options.profils);
+  // Les batiments dont le toit vient d'etre pose : par le fait (sans lecture), puis par la lecture. Eux seuls sont raccordes.
+  const poses: string[] = candidats.filter((o) => !aLire.includes(o) && !!o.key).map((o) => o.key as string);
   let suivant = 0;
   const ouvrier = async (): Promise<void> => {
     while (suivant < aLire.length && maintenant() < fin) {
@@ -473,28 +481,58 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       }
       // Le toit, sous les seuils du profil du batiment (facade/regles/toits/profils.ts) : un calcul synchrone.
       avecSeuilsToit(seuils, () => poserLeToit(o, objets, ech, grille, { principal, mitoyen: estMitoyen(o), voisins, hauteur }, bilan));
+      if (o.key) poses.push(o.key);
     }
   };
   await Promise.all(Array.from({ length: options.enParallele ?? EN_PARALLELE }, ouvrier));
-  // Les toits lus, ceux qui se touchent sur la parcelle du projet sont mis d'accord (facade/toits/raccord.ts).
-  raccorderLesToitsDuProjet(objets, admis);
+  // Les toits lus, ceux qui se touchent sur la parcelle du projet sont mis d'accord (facade/toits/raccord.ts). Les candidats peuvent
+  // etre des copies (la tache de fond lit des copies et les reporte ensuite) : c'est eux qu'on raccorde, a la place de leur
+  // original du plan, et seulement ceux que cette lecture vient de poser.
+  const parCle = new Map(candidats.filter((c) => c.key).map((c) => [c.key as string, c as ObjetAToit]));
+  raccorderLesToitsDuProjet(objets.map((o) => (o.key && parCle.get(o.key)) || o), admis, new Set(poses));
   return bilan;
 }
 
 /**
  * Le raccord des toits des batiments de la parcelle du projet (MD/spec-toit-ign.md §13.10) : une aile en equerre prolonge son
  * faitage dans le toit qui la porte, un corps qui en prolonge un autre en prend le toit, deux faitages lus a la meme hauteur y
- * sont. Chaque batiment se lit seul : c'est apres la lecture, quand tous ont leurs corps, que le raccord se fait, et il se
- * refait a l'identique a chaque lecture (les corps deja raccordes ne bougent plus). Seuls les batiments que la lecture peut
- * ecrire (`admis` : ni figes par la personne, ni verifies sur place) sont donnes au raccord ; les autres ne servent ni ne changent.
+ * sont. Chaque batiment se lit seul : c'est apres la lecture que le raccord se fait.
+ *
+ * Il part toujours de toits FRAIS (§13.12, 27 novembre 2026 : « actualiser doit donner la meme chose » qu'un projet neuf). Un toit
+ * deja raccorde n'est plus celui que la mesure a lu (son rectangle est entre dans le voisin, ses hauteurs sont celles du plus
+ * grand) : le raccorder a un toit relu depuis donnerait autre chose qu'un import. `frais` : les cles des batiments que cette
+ * lecture vient de relire ; seuls eux sont raccordes, entre eux. Un batiment que la lecture n'ecrit pas (`admis` faux : toit regle
+ * a la main, verifie sur place) est la sans changer : les toits frais se raccordent a lui. Un batiment ni frais ni protege attend
+ * d'etre relu avec ses voisins (la tache de fond relit ensemble les batiments qui se touchent, app/toits/toitsFond.ts). Sans
+ * `frais`, tous les batiments admis sont pris pour frais (l'appelant vient de tout lire).
  * Rend le nombre de batiments dont les corps ont change.
  */
-export function raccorderLesToitsDuProjet(objets: readonly ObjetAToit[], admis: (o: ObjetAToit) => boolean = () => true): number {
-  const batiments = objets.filter((o): o is ObjetAToit & { pts: PtBrut[]; key: string } => !!o.key && !!o.pts && surParcellePrincipale(o) && !!o.batiment?.corpsToit?.length && admis(o));
-  if (!batiments.length) return 0;
-  const raccordes = raccorderLesToits(batiments.map((o) => { const corps = o.batiment?.corpsToit ?? []; return { cle: o.key, corps, hauts: hautsMesures(corps, o.batiment?.toitMesure, o.pts) }; }));
+export function raccorderLesToitsDuProjet(objets: readonly ObjetAToit[], admis: (o: ObjetAToit) => boolean = () => true, frais: ReadonlySet<string> | null = null): number {
+  const surParcelle = objets.filter((o): o is ObjetAToit & { pts: PtBrut[]; key: string } => !!o.key && !!o.pts && surParcellePrincipale(o) && !!o.batiment?.corpsToit?.length);
+  const batiments = surParcelle.filter((o) => !admis(o) || !frais || frais.has(o.key));
+  if (!batiments.some((o) => admis(o))) return 0;
+  const raccordes = raccorderLesToits(batiments.map((o) => { const corps = o.batiment?.corpsToit ?? []; return { cle: o.key, corps, hauts: hautsMesures(corps, o.batiment?.toitMesure, o.pts), ...(admis(o) ? {} : { fixe: true }) }; }));
   for (const o of batiments) { const corps = raccordes.get(o.key); if (corps) champsBatiment(o).corpsToit = corps; }
   return raccordes.size;
+}
+
+/**
+ * Les batiments de la parcelle du projet dont le toit peut se raccorder a celui de `o`, de proche en proche : ceux dont le contour
+ * passe a moins de RELU_ENSEMBLE_M du sien, puis les leurs. `o` n'y est pas. Un toit relu seul ne peut pas etre raccorde comme a
+ * l'import (son voisin est deja raccorde, donc plus tel que la mesure l'a lu) : ils se relisent ensemble (app/toits/toitsFond.ts).
+ */
+export function voisinsDeRaccord<T extends ObjetAToit>(o: T, objets: readonly T[]): T[] {
+  if (!o.pts || !surParcellePrincipale(o)) return [];
+  const autres = objets.filter((x): x is T & { pts: PtBrut[] } => x !== o && x.key !== o.key && !!x.pts && x.pts.length >= 3 && toitLuAuLidar(x) && surParcellePrincipale(x));
+  const proches = (a: readonly PtBrut[], b: readonly PtBrut[]): boolean => contoursProches(a, b, S.RELU_ENSEMBLE_M);
+  const groupe: (T & { pts: PtBrut[] })[] = [];
+  let front: readonly PtBrut[][] = [o.pts];
+  while (front.length) {
+    const neufs = autres.filter((x) => !groupe.includes(x) && front.some((f) => proches(f, x.pts)));
+    groupe.push(...neufs);
+    front = neufs.map((x) => x.pts);
+  }
+  return groupe;
 }
 
 /** La phrase du bilan, ou `null` s'il n'y a rien a dire. */

@@ -21,7 +21,7 @@
 // la marque de lecture s'ecrit. Le bilan dit si le nouveau calcul serait d'accord - c'est la mesure de
 // la regle, sans toucher au projet (MD/spec-regles-toits.md §1).
 
-import { toitsDepuisLidar, toitAAjuster, toitLu, clesMitoyens, type ObjetAToit, type BilanToitsLidar } from './toitsLidar.js';
+import { toitsDepuisLidar, toitAAjuster, toitLu, clesMitoyens, voisinsDeRaccord, type ObjetAToit, type BilanToitsLidar } from './toitsLidar.js';
 import { dallesLidarSur } from '../../geo/mnh.js';
 import { lireMursEnFond, mursALire, avancementMurs, ECHECS_MURS_PAR_BATIMENT, LECTURE_MURS_EN_FOND } from './mursFond.js';
 import type { Regulateur } from '../regulateur.js';
@@ -274,15 +274,57 @@ function fileDeLecture(cles: readonly string[], objets: () => ObjetPlan[], admis
 }
 
 /**
- * Lit la copie d'un batiment : d'abord la forme (elle dit si le toit est plat, ce que la lecture de la
- * couleur prend en compte), puis la couleur s'il n'en a pas. Un service qui echoue rend un bilan vide.
+ * Le batiment `t` et, avec lui, les batiments de la parcelle du projet qui le touchent, deja lus ou non (pas deja `pris` dans
+ * cette passe ; `libre` : pas refuses par le service) : leurs toits se raccordent, et un raccord ne se refait comme a l'import que sur
+ * des toits frais (spec §13.12 ; le proprietaire, 27 novembre 2026 : « actualiser doit donner la meme chose » qu'un projet neuf).
+ * Ni un toit regle a la main, ni un batiment verifie sur place : la lecture ne les ecrit pas, ils restent ce a quoi les autres se
+ * raccordent. La copie d'un voisin perd sa marque de lecture : elle se relit.
  */
-async function lireUnBatiment(copie: ObjetPlan, lidar: boolean, lireForme: (c: ObjetAToit) => Promise<BilanToitsLidar>, lireCouleur: (c: ObjetPlan) => Promise<{ lus: number; replis: number }>): Promise<{ bilan: BilanToitsLidar | null; forme: boolean; couleur: boolean; couleurs: number }> {
-  const pourForme = lidar && !toitLu(copie.batiment);
-  const bilan = pourForme ? await lireForme(copie as ObjetAToit).catch(() => null) : null;
-  const pourCouleur = couleurALire(copie.batiment) && ecrivainPeut(copie, 'ortho', 'couleurToit');
-  const lues = pourCouleur ? await lireCouleur(copie).catch(() => null) : null;
-  return { bilan, forme: pourForme && toitLu(copie.batiment), couleur: pourCouleur && !couleurALire(copie.batiment), couleurs: lues ? lues.lus + lues.replis : 0 };
+function groupeALire(t: Lu, courants: ObjetPlan[], pris: Set<string>, libre: (cle: string) => boolean): Lu[] {
+  const original = courants.find((x) => x.key === t.copie.key);
+  // Seul : sans LiDAR (`courants` vide), verifie sur place, ou pris pour sa couleur seulement (son toit, deja lu, ne se relit pas :
+  // relire ses voisins sans lui les raccorderait a un toit qui n'est plus frais).
+  const seul = !original || !!t.reference || toitLu(t.copie.batiment);
+  const voisins = seul ? [] : (voisinsDeRaccord(original as ObjetAToit, courants as ObjetAToit[]) as unknown as ObjetPlan[])
+    .filter((v) => !pris.has(v.key) && libre(v.key) && toitAAjuster(v as ObjetAToit) && ecrivainPeut(v, 'lidar', 'toit') && !estVerifieSurPlace(v.batiment));
+  const groupe = [t, ...voisins.map((v) => { const copie = structuredClone(v); if (copie.batiment) delete copie.batiment.toitLidarLu; return { copie, avant: empreinte(v) }; })];
+  // Le groupe est pris ici, d'un seul geste, avant toute attente de l'appelant : un autre lecteur prendrait sinon un voisin
+  // entre-temps et le lirait seul, sans raccord.
+  for (const membre of groupe) pris.add(membre.copie.key);
+  return groupe;
+}
+
+/** Ce qu'un groupe lu apporte au bilan ; un batiment dont rien de ce qui manquait n'a pu se lire compte un refus. Vrai si l'un a avance. */
+function compterLeGroupe(groupe: readonly Lu[], rs: readonly { bilan: BilanToitsLidar | null; forme: boolean; couleur: boolean; couleurs: number }[], refus: Map<string, number>, cumul: BilanFond): boolean {
+  let avance = false;
+  for (const [i, membre] of groupe.entries()) {
+    const r = rs[i];
+    if (!r) continue;
+    const lu = r.forme || r.couleur;
+    if (!lu) refus.set(membre.copie.key, (refus.get(membre.copie.key) ?? 0) + 1);
+    avance ||= lu;
+    ajouter(cumul, membre.reference ? null : r.bilan, r.forme && !membre.reference ? 1 : 0, r.couleurs, membre.reference && r.forme ? lectureDAccord(membre.reference, membre.copie) : undefined);
+  }
+  return avance;
+}
+
+/**
+ * Lit les copies d'un groupe de batiments qui se touchent (un seul, le plus souvent) : d'abord leurs formes, EN UNE LECTURE - c'est
+ * elle qui raccorde leurs toits frais, comme a l'import (toitsLidar.ts::raccorderLesToitsDuProjet) -, puis la couleur de chacun
+ * s'il n'en a pas (la forme dit si le toit est plat, ce que la lecture de la couleur prend en compte). Un service qui echoue rend
+ * un bilan vide. Le bilan des formes est celui du groupe : il est rendu avec son premier batiment.
+ */
+async function lireUnGroupe(copies: readonly ObjetPlan[], lidar: boolean, lireFormes: (c: ObjetAToit[]) => Promise<BilanToitsLidar>, lireCouleur: (c: ObjetPlan) => Promise<{ lus: number; replis: number }>): Promise<{ bilan: BilanToitsLidar | null; forme: boolean; couleur: boolean; couleurs: number }[]> {
+  const pourForme = copies.map((c) => lidar && !toitLu(c.batiment));
+  const aLire = copies.filter((_, i) => pourForme[i]) as ObjetAToit[];
+  const bilan = aLire.length ? await lireFormes(aLire).catch(() => null) : null;
+  const out: { bilan: BilanToitsLidar | null; forme: boolean; couleur: boolean; couleurs: number }[] = [];
+  for (const [i, copie] of copies.entries()) {
+    const pourCouleur = couleurALire(copie.batiment) && ecrivainPeut(copie, 'ortho', 'couleurToit');
+    const lues = pourCouleur ? await lireCouleur(copie).catch(() => null) : null;
+    out.push({ bilan: i === 0 ? bilan : null, forme: !!pourForme[i] && toitLu(copie.batiment), couleur: pourCouleur && !couleurALire(copie.batiment), couleurs: lues ? lues.lus + lues.replis : 0 });
+  }
+  return out;
 }
 
 /**
@@ -379,6 +421,8 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
       (dallesLues ??= (ctx.dalles ?? dallesLidarSur)(restants.flatMap((o) => ((o as ObjetAToit).pts ?? []) as PtBrut[]), p));
     const muets = suiteMuette(attendre);
 
+    // Les batiments deja pris dans cette passe, seuls ou avec un voisin (pas encore ecrits dans le plan) : ils ne se relisent pas deux fois.
+    const pris = new Set<string>();
     const prochain = fileDeLecture(restants.map((o) => o.key), ctx.objets, (o) => resteALire(o, lidar) && (refus.get(o.key) ?? 0) < ECHECS_PAR_BATIMENT);
 
     const ouvrier = async (rang: number): Promise<void> => {
@@ -387,21 +431,18 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
         if (ctx.regulateur) await ctx.regulateur.r.tour(rang);
         if (g !== generation || muets.arret()) return;
         const t = prochain();
-        if (!t) return;
+        if (!t) return; if (pris.has(t.copie.key)) continue;
+        const groupe = groupeALire(t, lidar ? ctx.objets() : [], pris, (cle) => (refus.get(cle) ?? 0) < ECHECS_PAR_BATIMENT);
         if (!ctx.regulateur) await pause();
         if (g !== generation) return;
-        const { copie } = t;
         // La copie d'un batiment verifie se lit comme les autres (`relire`) : c'est le plan qu'on ne touche pas.
-        const r = await lireUnBatiment(copie, lidar, (c) => lire(objets as ObjetAToit[], proj, { candidats: [c], delaiMs: Number.POSITIVE_INFINITY, enParallele: 1, dalles, mitoyens, verifies: 'relire' }),
+        const rs = await lireUnGroupe(groupe.map((membre) => membre.copie), lidar, (cs) => lire(objets as ObjetAToit[], proj, { candidats: cs, delaiMs: Number.POSITIVE_INFINITY, enParallele: 1, dalles, mitoyens, verifies: 'relire' }),
           (c) => lireCouleurs([c], proj, Number.POSITIVE_INFINITY, 1));
         if (g !== generation) return;
         // Pas de dalle sur le secteur : pour cette seance, seules les couleurs se lisent encore.
-        if (r.bilan?.sansLidar) lidar = false;
-        // Un batiment dont rien de ce qui manquait n'a pu se lire compte un refus.
-        const avance = r.forme || r.couleur;
-        if (!avance) refus.set(copie.key, (refus.get(copie.key) ?? 0) + 1);
-        ajouter(cumul, t.reference ? null : r.bilan, r.forme && !t.reference ? 1 : 0, r.couleurs, t.reference && r.forme ? lectureDAccord(t.reference, copie) : undefined);
-        tampon.push(t);
+        if (rs.some((r) => r.bilan?.sansLidar)) lidar = false;
+        const avance = compterLeGroupe(groupe, rs, refus, cumul);
+        tampon.push(...groupe);
         if (!muets.noter(avance)) return;
         if (tampon.length >= LOT_TOITS_FOND) await vider();
       }

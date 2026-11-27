@@ -1389,3 +1389,35 @@ une lucarne isolée sur trois environ reste douteuse (Beuvron 22798678, Eguishei
 lue, `identite.ts` identique.
 
 Vérifié : `tests/unit/facade/toits/lucarnesLues.test.ts`. Version de lecture 12.
+
+### 13.12 Relire un projet existant donne ce que donne un projet neuf  *(27 novembre 2026)*
+
+Le propriétaire, sur son projet d'Hardencourt rouvert : « le L est en 2 toits et 1 lucarne découverte » ; puis : « c'est bon sur
+un nouveau projet sur la même adresse, actualiser doit donner la même chose ». La règle : **quel que soit le chemin par lequel un
+toit est relu** (import, « Actualiser depuis l'IGN », « Actualiser le projet », la relecture en tâche de fond à l'ouverture,
+« Règles » rallumées dans le mode Toit), **le résultat est celui d'un projet neuf** sur la même adresse, au centimètre.
+
+- **Le raccord (§13.10) ne part que de toits frais.** Un toit déjà raccordé n'est plus celui que la mesure a lu (son rectangle
+  est entré dans le voisin, ses hauteurs sont celles du plus grand) : le raccorder à un toit relu depuis donnerait autre chose
+  qu'un import. `raccorderLesToitsDuProjet(objets, admis, frais)` ne raccorde que les bâtiments que la lecture vient de poser ;
+  la lecture lui passe ses candidats, qui peuvent être des copies (la tâche de fond), à la place de leurs originaux du plan.
+- **Les bâtiments qui se touchent se relisent ensemble.** `voisinsDeRaccord` : sur la parcelle du projet, ceux dont les contours
+  passent à moins de `RELU_ENSEMBLE_M` (1,5 m) les uns des autres, de proche en proche. La tâche de fond prend le groupe d'un seul
+  geste (aucun autre lecteur ne prend un voisin entre-temps), le lit en un appel et l'écrit en un lot ; un voisin déjà lu perd sa
+  marque sur sa copie et se relit avec les autres.
+- **Un toit que la lecture n'écrit pas est un contexte fixe** (`ToitARaccorder.fixe`) : réglé à la main (`toitFige`) ou vérifié
+  sur place, il n'est jamais modifié par le raccord ; ses voisins frais se raccordent à lui tel qu'il est, si leurs hauteurs
+  s'accordent. C'est la seule différence admise avec un projet neuf, et elle cesse dès que ses « Règles » sont rallumées.
+- **Une lucarne vue ne remplace que la lucarne lue à sa place** (`facade/regles/toits/elementsVus.ts::reporterElements`) : même
+  pan, étendues qui se recouvrent le long du faîtage. Les autres lucarnes lues sur le corps neuf restent.
+
+| Ce que porte le bâtiment avant la relecture | Ce que la relecture en fait |
+|---|---|
+| Un toit lu par une ancienne version (marque dépassée) | Refait, avec ses voisins : identique à un projet neuf |
+| Un toit raccordé par la version en cours | Refait seulement si un voisin se relit ; identique |
+| Une lucarne, une cheminée, une fenêtre de toit vues ou posées | Gardées ; une lucarne vue remplace la lucarne lue à sa place |
+| Un toit réglé à la main (« Règles » éteintes) | Inchangé ; ses voisins se raccordent à lui s'ils s'accordent |
+| Un toit vérifié sur place | Inchangé (la relecture dit seulement si elle serait d'accord) |
+
+Test : `tests/unit/app/toits/relectureCommeImport.test.ts` écrit l'égalité (toits anciens + relecture = projet neuf) pour les deux
+chemins, les six ordres de lecture, une seconde passe, Hardencourt et le quartier d'AE 101. Fumée : point 199.

@@ -5,6 +5,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Corrigé
+
+- **Relire un projet existant donne ce que donne un projet neuf** (retour du propriétaire à Hardencourt, 11 route du Guesclin, le
+  27 novembre 2026 : « le L est en 2 toits et 1 lucarne découverte » sur son projet rouvert, « c'est bon sur un nouveau projet sur
+  la même adresse, actualiser doit donner la même chose »). Trois causes, toutes sur le chemin d'un projet déjà enregistré :
+  - **la relecture en tâche de fond** (à l'ouverture d'un projet dont les toits datent d'une lecture ancienne) lisait chaque
+    bâtiment seul, sur une copie que le raccord des toits ne voyait pas : la maison en L restait en deux toits. Elle relit
+    maintenant ensemble les bâtiments de la parcelle qui se touchent (`RELU_ENSEMBLE_M`, 1,5 m entre leurs contours) et raccorde
+    leurs toits frais, comme un import ; un bâtiment relu seul (« Règles » rallumées dans le mode Toit) entraîne ses voisins ;
+  - **une lucarne vue** (posée à la main ou relevée sur place) sur l'ancien toit remplaçait toutes les lucarnes que la mesure
+    venait de lire : il ne restait qu'elle. Elle ne remplace plus que la lucarne lue à sa place ; les autres restent ;
+  - **le raccord** ne part plus que de toits frais, et un toit réglé à la main ou vérifié sur place n'est jamais modifié par lui :
+    ses voisins se raccordent à lui tel qu'il est.
+
+  Ce qui peut encore différer d'un projet neuf, et c'est voulu : un toit **réglé à la main** (« Règles » éteintes) ou **vérifié sur
+  place** ne change pas, et son voisin ne se raccorde à lui que si leurs hauteurs s'accordent ; « Règles » rallumées, il se relit
+  avec ses voisins. **Les toits déjà lus seront relus à l'ouverture** (lecture 13), une fois.
+  Vérifié par l'égalité elle-même (`tests/unit/app/toits/relectureCommeImport.test.ts` : projet aux toits anciens relu en tâche de
+  fond ou par « Actualiser » = projet neuf, dans les six ordres de lecture, deux passes, Hardencourt et le quartier d'AE 101) et par
+  le point 199 de la fumée (un projet enregistré rouvert, réseau du LiDAR rejoué). AE 101 est identique au dixième ; aucune
+  quantité ni aucun export ne change.
+
 ## [5.43.0] — 2026-11-27
 
 Version **mineure** au sens de `MD/RELEASE.md` : la lecture des toits au LiDAR change ce que l'on voit (#775 : un toit est
