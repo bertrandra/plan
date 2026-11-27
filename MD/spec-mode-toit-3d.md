@@ -475,6 +475,60 @@ possible. » La maquette (https://claude.ai/artifact/Q5iPiswvBeuBqJdBPeNZgj) pos
 - **Pas encore fait de la maquette** : poser un objet du jardin (piscine, terrasse, arbre) directement dans la 3D avec un fantôme,
   et « tirer un mur » depuis l'entrée (les poignées du corps le font déjà dans le volet Modifier). Ces objets se créent sur le plan.
 
+### Le parcours simple, et « Plus de réglages »  *(27 novembre 2026, demande du propriétaire)*
+« Une maquette pour modifier / ajouter toiture, je veux du simple. » La maquette (trois écrans de téléphone : la maison touchée,
+Modifier le toit, Ajouter au toit) pose le parti pris : **peu de gestes sous les yeux, chacun dit en mots ; tout le reste rangé**.
+Rien n'est retiré du mode : ce qui n'est pas dans le parcours simple est derrière une entrée repliée, « Plus de réglages ».
+- **La maison touchée** (`zones/vue3d/EntreeMaison.tsx`) : une carte, au téléphone une feuille basse sur toute la largeur. Le nom du
+  bâtiment, l'état de son toit en une ligne (`facade/modeToit/simple.ts::resumeDuToit` : « Toit à deux pans · faîtage à 6,8 m » ;
+  plusieurs corps : « Toit en 4 corps · faîtage à 7,5 m » ; sans corps, le toit simple), et deux boutons d'au moins 48 px avec un
+  sous-titre : « Modifier le toit — Sa forme, sa hauteur, son sens » (`toit.modifier`) et « Ajouter au toit — Lucarne, cheminée,
+  auvent… » (`toit.ajouter`). Les deux autres formes de l'entrée (plusieurs bâtiments, entrée refusée) ne changent pas.
+- **Le panneau** (`ModeToit.tsx`), de haut en bas : le titre, qui est le commutateur d'intention (« Modifier le toit » / « Ajouter
+  au toit », `toit.intention`) ; la promesse (« Vous changez ce qui existe. Rien n'est créé. » / « Vous posez une pièce. Rien
+  d'existant n'est touché. ») ; *Vous travaillez sur* (les pastilles) seulement quand il y a le choix (plusieurs corps ou des
+  éléments posés) ; le volet ; « Plus de réglages » ; et, hors du défilement, **le pied** : « Annuler » (`toit.abandonner` : la
+  question « Abandonner les changements ? » quand la session a changé quelque chose) et « Valider » (`toit.valider`).
+- **Modifier le toit**, trois réglages, sur le corps choisi, sinon tout le toit :
+  - **Forme** : quatre vignettes (Plat, Un pan, Deux pans, Quatre pans : `toit.poser` avec `forme:plat|appentis|deux-pans|croupes`),
+    celle en place marquée d'une coche. Une forme rare en place (Mansart, pavillon…) reste montrée, cinquième vignette, marquée.
+    Sur un bâtiment à plusieurs corps sans corps choisi, une ligne dit qu'une forme les remplace tous.
+  - **Hauteur du faîtage** : − / valeur / + par pas de 10 cm (`toit.faitage`, `data-sens`). C'est la poignée « Hauteur du faîtage »
+    tirée d'autant (`poignees.ts::glisser`, mêmes bornes : 40 cm au-dessus de l'égout le plus haut) sur le corps choisi, sinon le
+    corps principal. La mesure du LiDAR est rappelée quand le bâtiment en a une (`toitMesure.faite`). Un toit plat le dit et grise.
+  - **Sens du faîtage** : « Dans la longueur » ou « En travers », et « Tourner » (`toit.sens`) : le sens de l'inspecteur
+    (`elements.ts`, groupe `sens`) sur le corps choisi ou le seul corps, de tout le toit (`tournerLeToit`) sur un bâtiment à
+    plusieurs corps. Ce qui l'empêche (toit plat, une lucarne posée) s'écrit sous le réglage.
+  - Un bâtiment qui n'a encore que son **toit simple** (pas de corps) règle ce toit-là : sa hauteur (0,4 à 20 m au-dessus de
+    l'égout) et sa direction d'un quart de tour, comme les champs « Hauteur du toit » et « Direction du faîtage » de l'inspecteur du
+    plan, saisis et figés.
+  - **Un élément choisi** (celui qu'on vient de poser) : sa largeur ou sa taille par − et + (`toit.moins`, `toit.plus`), et « Retirer »
+    (`toit.supprimer`).
+- **Ajouter au toit** : six pièces (`simple.ts::PIECES_SIMPLES` : Lucarne `sur:jacobine`, Fenêtre de toit, Cheminée, Auvent
+  `facade:auvent`, Appentis `facade:appentis-ferme`, Galerie). On en choisit une (un choix d'écran, comme un onglet), une ligne dit
+  où elle ira (une pièce de façade sur le mur touché, une pièce de toit au milieu du toit), et le bouton du pied la pose : « Poser
+  la lucarne » (`toit.poser`, le libellé suit la pièce). Posée, elle est choisie et le volet Modifier règle sa largeur.
+  L'**auvent** est la saillie `auvent` (une marquise sur consoles) que la lecture des photos posait déjà : la pièce du catalogue
+  l'offre à la main, sans rien de neuf dans le dessin.
+- **« Plus de réglages »** (un `<details>`, replié à chaque session) : la barre de la session (défaire, rétablir, revenir au
+  départ, isoler, les vues, recadrer, voir le toit du projet, isoler le corps), les pastilles quand elles ne sont pas déjà
+  au-dessus, la ligne « Corps · Façade », puis, pour Modifier, les **autres formes de toit** (dont les trois pans), l'inspecteur
+  de la cible et ses gestes (tourner, couper, retour d'angle, réunir, dupliquer, choisir le mur), l'interrupteur des Règles ; pour
+  Ajouter, les **autres pièces** par onglet (Sur le toit, Façade, Corps : pignon, solaire, autres lucarnes, bow-window, travée,
+  décroché, aile, retour, biaise), qui se posent d'un toucher comme avant. Un geste n'existe qu'à un endroit : les quatre formes et
+  les six pièces du parcours simple ne sont pas redites dessous.
+- **Sur la scène**, l'indicateur d'état ne reste que pour une insertion (une pièce armée attend son toucher) : le titre et la
+  promesse du panneau disent le reste, et la scène garde sa place. Les poignées, le plan des façades et l'indice ne changent pas.
+- **Les trois classes** : au téléphone une feuille basse (58 % au plus, repliable par sa languette), à la tablette une carte au
+  bas de la scène (le rail vertical de la barre n'a plus lieu d'être), au bureau la colonne de droite. Aucune couleur nouvelle.
+- **Écarts avec la maquette, voulus** : la largeur d'une pièce se règle juste après la pose (aucune pose « à la largeur » n'existe
+  dans le moteur) ; une pièce de toit se pose au milieu du toit et se déplace par ses poignées (pas de pose au point touché) ; le
+  sens se dit « Dans la longueur » / « En travers » (du bâtiment, pas « de la façade », que rien ne désigne) ; la scène reste la
+  Vue 3D réelle.
+- Rien ne change dans le moteur ni les exports (AE 101 : `identite.ts` identique). Tests : `tests/unit/facade/modeToit/simple.test.ts`,
+  `tests/unit/app/ecouteurs/entreesModeToit.test.ts`, `tests/unit/styles/panneauToit.test.ts`. Fumée : point 198 (le parcours simple,
+  replié) ; les points du mode ouvrent « Plus de réglages » par `panneauToitDeplie(page)`.
+
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.
 

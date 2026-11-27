@@ -138,4 +138,49 @@ describe('les entrees du mode Toit', () => {
     expect(prendreFocusDeSortie()).toBe(false);
     panneau.remove();
   });
+  it('le parcours simple : la hauteur du faitage par pas et « Tourner » ecrivent le toit simple, puis le corps ; chaque geste se defait', async () => {
+    const { etat, cmd } = monter();
+    const o = etat.objects[0] as ObjetPlan;
+    const bouton = (d: Record<string, string>) => { const b = document.createElement('button'); Object.assign(b.dataset, d); return b; };
+    // Hors session, rien a regler.
+    expect(cmd.etat('toit.faitage').utilisable).toBe(false);
+    expect(cmd.etat('toit.sens').utilisable).toBe(false);
+    await chargerGestesToits();
+    cmd.executer('toit.modifier');
+    // Sans corps encore : le toit simple du batiment (comme les champs de l'inspecteur), saisi et fige.
+    expect(cmd.etat('toit.faitage').utilisable).toBe(true);
+    cmd.executer('toit.faitage', bouton({ sens: '1' }));
+    expect(o.batiment?.toit?.hauteur).toBe(2.6);
+    expect(o.batiment?.toitFige).toBe(true);
+    cmd.executer('toit.faitage', bouton({ sens: '-1' }));
+    cmd.executer('toit.faitage', bouton({ sens: '-1' }));
+    expect(o.batiment?.toit?.hauteur).toBe(2.4);
+    cmd.executer('toit.sens');
+    expect(o.batiment?.toit?.angleFaitage).toBe(90);
+    expect(o.batiment?.corpsToit).toBeUndefined();
+    cmd.executer('toit.annuler');
+    expect(o.batiment?.toit?.angleFaitage).toBe(0);
+    // Une forme choisie en fait un corps : les memes boutons reglent alors ce corps, par la poignee du faitage et le sens de l'inspecteur.
+    cmd.executer('toit.poser', bouton({ piece: 'forme:deux-pans' }));
+    const c0 = o.batiment?.corpsToit?.[0];
+    expect(c0).toBeDefined();
+    const f0 = c0?.faitage ?? 0;
+    cmd.executer('toit.faitage', bouton({ sens: '1' }));
+    expect(o.batiment?.corpsToit?.[0]?.faitage).toBeCloseTo(f0 + 0.1, 6);
+    expect(o.batiment?.corpsToit?.[0]?.egouts).toEqual(c0?.egouts);
+    const avant = JSON.stringify(o.batiment?.corpsToit?.[0]?.pts);
+    cmd.executer('toit.sens');
+    expect(JSON.stringify(o.batiment?.corpsToit?.[0]?.pts)).not.toBe(avant);
+    cmd.executer('toit.annuler');
+    expect(JSON.stringify(o.batiment?.corpsToit?.[0]?.pts)).toBe(avant);
+    // Un toit plat : ni hauteur de faitage, ni sens.
+    cmd.executer('toit.poser', bouton({ piece: 'forme:plat' }));
+    expect(cmd.etat('toit.faitage').utilisable).toBe(false);
+    expect(cmd.etat('toit.sens').utilisable).toBe(false);
+    // « Annuler » du pied (abandonner) rend le batiment tel qu'il etait a l'entree.
+    modeToitCourant()?.abandonner(true);
+    expect(o.batiment?.corpsToit).toBeUndefined();
+    expect(o.batiment?.toit).toEqual({ forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'saisie' });
+    expect(o.batiment?.toitFige).toBeUndefined();
+  });
 });

@@ -1,4 +1,5 @@
-// Z4, le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : la barre de session et le catalogue du toit, sur le bas de la scene.
+// Z4, le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : le parcours simple (modifier le toit en trois reglages, ajouter une piece
+// parmi six), et derriere « Plus de reglages » la barre de session, l'inspecteur et le catalogue entier, sur le bas de la scene.
 //
 // Le panneau n'existe que pendant une session (app/toits/modeToit.ts). Tout bouton est une commande du registre ; le panneau ne sait ni
 // poser ni valider, il demande. La facade choisie se dit dans l'indice ; tant qu'aucune ne l'est, l'indice invite a toucher un mur.
@@ -12,6 +13,7 @@ import { enPoints } from '../../model/formes.js';
 import { abonnerImage, cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { insertionToit, reglesAllumees, type InsertionToit } from '../../app/ecouteurs/toitCatalogue.js';
 import { OPTIONS_PIECE, formeEnPlace, piece, piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
+import { FORMES_SIMPLES, MOTS_SENS, PIECES_SIMPLES, faitageDuToitSimple, faitageSimple, rangDesReglages, sensDuToitSimple, sensSimple } from '../../facade/modeToit/simple.js';
 import { vueDeSaillie, vueSurLeToit } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
 import { NavigateurFacades } from './NavigateurFacades.js';
@@ -40,6 +42,9 @@ const vuesSurLeToit = new Map<string, ReturnType<typeof vueSurLeToit>>();
  */
 /** Les pieces qui ne se posent pas d'un coup ont leur propre commande : le decroche attend le point touche sur l'egout ou le mur. */
 const COMMANDE_DE_PIECE: Record<string, string> = { 'facade:decroche': 'toit.decrocher' };
+
+/** Les pieces que le parcours simple offre deja (les quatre formes, les six pieces) : le catalogue de « Plus de reglages » montre les autres. */
+const DANS_LE_SIMPLE = new Set([...FORMES_SIMPLES, ...PIECES_SIMPLES].map((x) => x.piece));
 
 function ImagePiece({ p }: { p: PieceCatalogue }) {
   const nom = p.id.replace(/^[a-z]+:/, '');
@@ -163,14 +168,13 @@ function ElementsToit({ corps, selection, commandes, partie }: { corps: readonly
               </>
             ) : (
               <>
-                {bouton('toit.moins', 'moins', 'Réduire')}
-                {bouton('toit.plus', 'plus', 'Agrandir')}
+                {/* Réduire, agrandir et retirer un element sont dans le parcours simple, au-dessus : un geste n'existe qu'a un endroit. */}
                 {bouton('toit.dupliquer', 'dupliquer', 'Dupliquer')}
                 {/* Un element de facade (bow-window, galerie, appentis) change de mur au toucher d'un mur dans la scene. */}
                 {selection.type === 'saillie' && bouton('toit.murSur3d', 'deplacer', 'Choisir le mur dans la 3D')}
               </>
             )}
-            {bouton('toit.supprimer', 'supprimer', selection.type === 'corps' ? 'Supprimer ce corps' : 'Supprimer', true)}
+            {selection.type === 'corps' && bouton('toit.supprimer', 'supprimer', 'Supprimer ce corps', true)}
           </div>
           </div>
         </div>
@@ -202,26 +206,23 @@ function IndiceMain({ magasin }: { magasin: Magasin }) {
 }
 
 /**
- * L'etat de la session, d'un coup d'oeil (retour du proprietaire, 8 novembre 2026 : « j'ai du mal a distinguer si je suis en modif ou
- * insertion ») : « Modification » (les poignees, les reglages, les pieces qui se posent d'un coup) ou « Insertion » d'une piece armee qui
- * attend un toucher sur la scene, avec ou toucher et comment en sortir. Toujours en mots, jamais par la couleur seule ; pose sur la scene,
- * hors du panneau, il ne defile pas avec lui et reste au-dessus de lui au telephone. Au doigt, pas d'Echap : le bouton « Annuler » le dit.
+ * L'etat de la session, d'un coup d'oeil, sur la scene (retour du proprietaire, 8 novembre 2026 : « j'ai du mal a distinguer si je suis en
+ * modif ou insertion ») : une pastille « Modification » ou « Ajout », un mot et son icone, sans phrase (le titre du panneau et sa promesse
+ * la disent, parcours simple du 27 novembre 2026 : la scene garde sa place) ; et, quand une piece armee attend un toucher, « Insertion » en
+ * toutes lettres, avec ou toucher et comment en sortir. Toujours en mots, jamais par la couleur seule ; pose sur la scene, hors du panneau,
+ * il ne defile pas avec lui et reste au-dessus de lui au telephone. Au doigt, pas d'Echap : le bouton « Annuler » le dit.
  */
 function EtatSession({ insertion, intention, commandes, clavier }: { insertion: InsertionToit | null; intention: IntentionToit; commandes: RegistreCommandes; clavier: boolean }) {
-  // Trois etats, chacun avec son mot : une piece armee attend son toucher (« Insertion ») ; on choisit quoi ajouter (« Ajout ») ; on
-  // modifie ce qui existe (« Modification »). Chaque phrase finit par ce que le geste ne fera pas : c'est la question que la personne se pose.
   const etat = insertion ? 'insertion' : intention === 'ajouter' ? 'ajout' : 'modification';
   return (
     <div className="etatToit" data-etat={etat} role="status" aria-live="polite">
       <span className="badgeEtatToit"><Icone nom={etat === 'modification' ? 'crayon' : 'plus'} taille={16} />{insertion ? insertion.nature + ' : ' + insertion.piece : etat === 'ajout' ? 'Ajout' : 'Modification'}</span>
-      <span className="texteEtatToit">
-        {insertion ? '— ' + insertion.consigne + (clavier ? ' · Échap pour annuler' : '')
-          : etat === 'ajout' ? 'Choisissez ce que vous ajoutez : ' + MOTS_INTENTION.ajouter.promesse + '.'
-            : 'Tirez une poignée ou changez un réglage : ' + MOTS_INTENTION.modifier.promesse + '.'}
-      </span>
       {insertion && (
-        <button type="button" className="annulerEtatToit" data-commande="toit.quitterInsertion" title="Quitter l’insertion sans rien poser (Échap)"
-          onClick={(ev) => { commandes.executer('toit.quitterInsertion', ev.currentTarget); }}>Annuler</button>
+        <>
+          <span className="texteEtatToit">{'— ' + insertion.consigne + (clavier ? ' · Échap pour annuler' : '')}</span>
+          <button type="button" className="annulerEtatToit" data-commande="toit.quitterInsertion" title="Quitter l’insertion sans rien poser (Échap)"
+            onClick={(ev) => { commandes.executer('toit.quitterInsertion', ev.currentTarget); }}>Annuler</button>
+        </>
       )}
     </div>
   );
@@ -240,6 +241,8 @@ function corpsCible(corps: readonly CorpsToit[], sel: CibleElement | null): stri
  * vignette est une commande ; grisee, elle dit pourquoi (infobulle, et au doigt une ligne par raison sous le catalogue).
  */
 function CatalogueToit({ famille, o, commandes, insertion, tactile }: { famille: FamillePiece; o: ObjetPlan | undefined; commandes: RegistreCommandes; insertion: InsertionToit | null; tactile: boolean }) {
+  // Un geste n'existe qu'a un endroit (design-ui, §1) : les pieces du parcours simple ne sont pas redites ici. Leurs variantes restent.
+  const pieces = piecesDe(famille).filter((p) => !DANS_LE_SIMPLE.has(p.id) || !!OPTIONS_PIECE[p.id]);
   const e = etatToit(), s = sessionToit();
   if (!s) return null;
   const pose = commandes.etat('toit.poser');
@@ -247,7 +250,7 @@ function CatalogueToit({ famille, o, commandes, insertion, tactile }: { famille:
   const enPlace = o ? formeEnPlace(o, e.selection?.rang ?? null) : null;
   const refusDe = (id: string) => (o ? raisonIndisponible(o, id, s.facade ?? s.derniere, e.selection?.rang ?? null) : 'Aucun bâtiment.');
   // Les raisons qui grisent des vignettes montrees, chacune une fois, avec les vignettes qu'elle grise.
-  const raisonsDuCatalogue = [...piecesDe(famille).reduce((m, p) => {
+  const raisonsDuCatalogue = [...pieces.reduce((m, p) => {
     const r = o ? refusDe(p.id) : null;
     if (r) m.set(r, [...(m.get(r) ?? []), p.libelle]);
     return m;
@@ -255,7 +258,7 @@ function CatalogueToit({ famille, o, commandes, insertion, tactile }: { famille:
   // Tout est grise pour une seule raison (un toit pas encore decoupe en corps) : elle se dit en clair au-dessus, avec le geste qui la
   // leve, au lieu de quinze vignettes grises a survoler.
   const [seule] = raisonsDuCatalogue;
-  const blocage = seule && raisonsDuCatalogue.length === 1 && seule[1].length === piecesDe(famille).length ? seule[0] : null;
+  const blocage = seule && raisonsDuCatalogue.length === 1 && seule[1].length === pieces.length ? seule[0] : null;
   return (
     <>
       {blocage && (
@@ -268,7 +271,7 @@ function CatalogueToit({ famille, o, commandes, insertion, tactile }: { famille:
         </div>
       )}
       <div className="toitCatalogue" data-famille={famille}>
-        {piecesDe(famille).map((p) => {
+        {pieces.map((p) => {
           const refus = refusDe(p.id), options = OPTIONS_PIECE[p.id], idCommande = COMMANDE_DE_PIECE[p.id] ?? 'toit.poser';
           const permise = idCommande === 'toit.poser' ? pose.utilisable : commandes.etat(idCommande).utilisable;
           // La piece armee (elle attend son toucher sur la scene) est enfoncee, de la couleur de l'insertion ; un second appui la lache.
@@ -286,7 +289,7 @@ function CatalogueToit({ famille, o, commandes, insertion, tactile }: { famille:
           // Les variantes de la piece, sous sa vignette : le quatre-pans en trois pans, la croupe a un seul bout du faitage.
           return (
             <div key={p.id} className="toitPieceOptions" role="group" aria-label={p.libelle}>
-              {bouton}
+              {!DANS_LE_SIMPLE.has(p.id) && bouton}
               {options.map((v) => {
                 const r = refusDe(v.id);
                 return (
@@ -309,6 +312,166 @@ function CatalogueToit({ famille, o, commandes, insertion, tactile }: { famille:
   );
 }
 
+/** Amene un bloc en haut de ce qui defile dans le panneau, et rien d'autre (`scrollIntoView` ferait aussi defiler la page). */
+function monterDansLePanneau(bloc: HTMLElement): void {
+  const zone = bloc.closest<HTMLElement>('.defilementToit');
+  if (zone) zone.scrollTop += bloc.getBoundingClientRect().top - zone.getBoundingClientRect().top;
+}
+
+const enMetres = (v: number): string => v.toFixed(1).replace('.', ',') + ' m';
+
+/** Un bouton − ou + d'un pas : une commande, son etat, et l'effet qu'il a encore (en butee, il se grise). */
+function BoutonPas({ commandes, id, sens, libelle, effet }: { commandes: RegistreCommandes; id: string; sens: 1 | -1; libelle: string; effet: boolean }) {
+  const e = commandes.etat(id), refus = !e.utilisable && 'message' in e ? e.message : null;
+  return (
+    <button type="button" className="boutonPas" data-commande={id} data-sens={sens} aria-label={libelle} title={libelle + (refus ? ' — ' + refus : '')}
+      disabled={!e.utilisable || !effet} onClick={(ev) => { commandes.executer(id, ev.currentTarget); }}><Icone nom={sens > 0 ? 'plus' : 'moins'} taille={20} /></button>
+  );
+}
+
+/**
+ * « Modifier le toit », le parcours simple (maquette du 27 novembre 2026) : la forme (quatre vignettes, celle en place marquee ; une forme
+ * rare en place reste montree), la hauteur du faitage par pas de dix centimetres, son sens. Sur le corps choisi, sinon tout le toit.
+ */
+function ModifierSimple({ o, corps, selection, commandes }: { o: ObjetPlan | undefined; corps: readonly CorpsToit[]; selection: CibleElement | null; commandes: RegistreCommandes }) {
+  const pose = commandes.etat('toit.poser');
+  const t = o?.batiment?.toit?.forme;
+  const enPlace = o ? formeEnPlace(o, selection?.rang ?? null) ?? (!corps.length && t ? 'forme:' + (t === 'quatre-pans' ? 'croupes' : t) : null) : null;
+  // Une forme rare en place (Mansart, pavillon…) reste sous les yeux, marquee, a cote des quatre formes courantes.
+  const rare = enPlace && !FORMES_SIMPLES.some((f) => f.piece === enPlace) ? piece(enPlace) : undefined;
+  const formes = [...FORMES_SIMPLES, ...(rare ? [{ piece: rare.id, libelle: rare.libelle }] : [])];
+  const nCorps = corps.filter((c) => !c.saillie).length;
+  // Sans corps encore, c'est le toit simple du batiment qui se regle (sa hauteur, sa direction).
+  const f = corps.length ? faitageSimple(corps, rangDesReglages(corps, selection)) : o ? faitageDuToitSimple(o) : null;
+  const sens = corps.length ? sensSimple(corps, selection) : o ? sensDuToitSimple(o) : null;
+  // La mesure du LiDAR est celle du batiment : elle se rappelle quand on regle son corps principal.
+  const mesure = !selection ? o?.batiment?.toitMesure?.faite : undefined;
+  const tourner = commandes.etat('toit.sens');
+  return (
+    <>
+      <div className="reglageSimple">
+        <span className="titreReglage" id="titreFormeToit">Forme</span>
+        <div className="formesSimples" role="group" aria-labelledby="titreFormeToit">
+          {formes.map((x) => (
+            <button key={x.piece} type="button" className="toitPiece" data-commande="toit.poser" data-piece={x.piece} aria-pressed={x.piece === enPlace}
+              disabled={!pose.utilisable} title={x.libelle + (x.piece === enPlace ? ' — la forme en place' : '')} onClick={(ev) => { commandes.executer('toit.poser', ev.currentTarget); }}>
+              <span className="glyphe"><VignetteToit forme={x.piece.replace(/^forme:/, '')} /></span>
+              <span className="libelle">{x.libelle}</span>
+              {/* La forme en place : une coche et son mot (pour qui ne voit pas la coche), la couleur ne la dit jamais seule. */}
+              {x.piece === enPlace && <span className="marqueEnPlace"><Icone nom="coche" taille={14} /><span className="horsEcran"> (en place)</span></span>}
+            </button>
+          ))}
+        </div>
+        {!selection && nCorps > 1 && <p className="noteReglage">{'Ce toit a ' + nCorps + ' corps : une forme les remplace tous. Pour n’en changer qu’un, choisissez-le ci-dessus.'}</p>}
+      </div>
+      {f && (
+        <div className="reglageSimple enLigne">
+          <div className="texteReglage">
+            <span className="titreReglage" id="titreFaitageToit">Hauteur du faîtage</span>
+            {f.raison ? <span className="noteReglage" role="note">{f.raison}</span> : typeof mesure === 'number' && <span className="noteReglage">{'Mesuré au LiDAR : ' + enMetres(mesure)}</span>}
+          </div>
+          <div className="pasAPas" role="group" aria-labelledby="titreFaitageToit">
+            <BoutonPas commandes={commandes} id="toit.faitage" sens={-1} libelle="Baisser le faîtage de 10 cm" effet={f.descend} />
+            <span className="valeurPas" data-valeur="faitage" aria-live="polite">{enMetres(f.hauteur)}</span>
+            <BoutonPas commandes={commandes} id="toit.faitage" sens={1} libelle="Monter le faîtage de 10 cm" effet={f.monte} />
+          </div>
+        </div>
+      )}
+      {sens && (
+        <div className="reglageSimple enLigne">
+          <div className="texteReglage">
+            <span className="titreReglage">Sens du faîtage</span>
+            {sens.raison ? <span className="noteReglage" role="note">{sens.raison}</span> : <span className="valeurSens" data-valeur="sens" aria-live="polite">{MOTS_SENS[sens.valeur]}</span>}
+          </div>
+          <button type="button" className="boutonToit boutonTourner" data-commande="toit.sens" disabled={!tourner.utilisable}
+            title={'Tourner le faîtage d’un quart de tour' + (sens.raison ? ' — ' + sens.raison : '')} onClick={(ev) => { commandes.executer('toit.sens', ev.currentTarget); }}>
+            <Icone nom="tournerDroite" taille={20} /><span>Tourner</span>
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Ce que − et + reglent sur un element choisi, en un mot : sa largeur, ou sa taille quand il grandit en tous sens. */
+const MOT_TAILLE: Partial<Record<CibleElement['type'], string>> = { saillie: 'Largeur', pignon: 'Largeur', lucarne: 'Largeur', cheminee: 'Taille', 'fenetre-toit': 'Taille', solaire: 'Taille' };
+
+/**
+ * L'element choisi (celui qu'on vient de poser, ou qu'on a touche), dans le parcours simple : sa largeur par − et +, le retirer. Sa
+ * forme, sa place et ses reglages fins sont dans « Plus de reglages » et sous ses poignees.
+ */
+function ElementSimple({ corps, selection, commandes }: { corps: readonly CorpsToit[]; selection: CibleElement; commandes: RegistreCommandes }) {
+  const nom = libellesDesElements(corps).find((x) => memeCible(x.cible, selection))?.libelle ?? 'Élément', mot = MOT_TAILLE[selection.type];
+  const retirer = commandes.etat('toit.supprimer');
+  return (
+    <>
+      {mot && (
+        <div className="reglageSimple enLigne">
+          <div className="texteReglage">
+            <span className="titreReglage" id="titreTailleToit">{mot}</span>
+            <span className="noteReglage">Ses poignées, sur la maison, la déplacent.</span>
+          </div>
+          <div className="pasAPas" role="group" aria-labelledby="titreTailleToit">
+            <BoutonPas commandes={commandes} id="toit.moins" sens={-1} libelle="Réduire" effet />
+            <span className="valeurPas nomPas">{nom}</span>
+            <BoutonPas commandes={commandes} id="toit.plus" sens={1} libelle="Agrandir" effet />
+          </div>
+        </div>
+      )}
+      <button type="button" className="boutonToit danger retirerSimple" data-commande="toit.supprimer" disabled={!retirer.utilisable}
+        title={'Retirer ' + nom + ' (Ctrl+Z le rend)'} onClick={(ev) => { commandes.executer('toit.supprimer', ev.currentTarget); }}>
+        <Icone nom="supprimer" taille={20} /><span>{'Retirer ' + nom.charAt(0).toLowerCase() + nom.slice(1)}</span>
+      </button>
+    </>
+  );
+}
+
+/**
+ * « Ajouter au toit », le parcours simple : six pieces, on en choisit une, le bouton du pied la pose (« Poser la lucarne »). La consigne
+ * dit ou elle ira : une piece de facade va sur le mur que l'on a touche, une piece de toit au milieu du toit, d'ou ses poignees la deplacent.
+ */
+function AjouterSimple({ choisie, choisir, facade, refus }: { choisie: string; choisir: (id: string) => void; facade: string | null; refus: string | null }) {
+  const surFacade = choisie.startsWith('facade:');
+  return (
+    <>
+      <div className="piecesSimples" role="group" aria-label="La pièce à poser">
+        {PIECES_SIMPLES.map((x) => {
+          const p = piece(x.piece);
+          return (
+            <button key={x.piece} type="button" className="toitPiece" data-choix-piece={x.piece} aria-pressed={x.piece === choisie} onClick={() => { choisir(x.piece); }}>
+              <span className="glyphe">{p && <ImagePiece p={p} />}</span>
+              <span className="libelle">{x.libelle}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className={'noteReglage consignePose' + (refus ? ' refus' : '')} role="note">
+        {refus ?? (surFacade ? (facade ? 'Elle ira sur la ' + facade.charAt(0).toLowerCase() + facade.slice(1).replace(/ · vue sur la photo.*$/, '') + '. Touchez un autre mur pour changer.' : 'Touchez un mur de la maison pour choisir la façade.')
+          : 'Elle se pose au milieu du toit. Vous réglerez sa largeur et sa place juste après.')}
+      </p>
+    </>
+  );
+}
+
+/** La barre de la session, rangee sous « Plus de reglages » : defaire, retablir, revenir au depart, isoler, les vues. Quitter et valider sont au pied du panneau. */
+function BarreSession({ commandes, e }: { commandes: RegistreCommandes; e: ReturnType<typeof etatToit> }) {
+  return (
+    <div className="barreToit" role="toolbar" aria-label="Session du toit">
+      <BoutonToit commandes={commandes} id="toit.annuler" icone="annuler" libelle="Défaire le dernier geste (Ctrl+Z)" />
+      <BoutonToit commandes={commandes} id="toit.retablir" icone="annuler" libelle="Rétablir (Ctrl+Maj+Z)" miroir />
+      <BoutonToit commandes={commandes} id="toit.depart" icone="positionInitiale" libelle="Revenir au départ (annulable)" />
+      <BoutonToit commandes={commandes} id="toit.isoler" icone={e.isole ? 'oeilBarre' : 'oeil'} libelle="Isoler ce bâtiment" presse={e.isole} />
+      <span className="separateurToit" aria-hidden="true" />
+      <BoutonToit commandes={commandes} id="toit.vueLibre" icone="cube" libelle="Vue 3D" presse={e.vue === 'libre'} />
+      <BoutonToit commandes={commandes} id="toit.vueFacade" icone="rectangle" libelle="Vue de la façade" presse={e.vue === 'facade'} />
+      <BoutonToit commandes={commandes} id="toit.vueDessus" icone="vueDessus" libelle="Vue de dessus" presse={e.vue === 'dessus'} />
+      <BoutonToit commandes={commandes} id="toit.recadrer" icone="recadrer" libelle="Recadrer le bâtiment" />
+      <BoutonToit commandes={commandes} id="toit.voirValide" icone="toitAvant" libelle="Voir le toit du projet (avant vos changements)" presse={e.validee} />
+      <BoutonToit commandes={commandes} id="toit.isolerCorps" icone="isoler" libelle="Isoler ce corps" presse={e.corpsIsole} />
+    </div>
+  );
+}
+
 export function ModeToit({ magasin, commandes }: Props) {
   // Hors d'une session du toit, rien a montrer : la zone ne suit pas les rendus du plan ; en session, elle les suit tous.
   useCle(magasin, 'mode Toit', (s) => (sessionToit() ? String(s.version) : CLE_GELEE));
@@ -317,9 +480,14 @@ export function ModeToit({ magasin, commandes }: Props) {
   const intention = useSyncExternalStore(abonnerIntentionToit, intentionToit);
   // Sur telephone le panneau est une feuille : repliee, elle ne laisse que sa barre et la scene respire.
   const [replie, setReplie] = useState(false);
+  // « Plus de reglages » : tout ce que le mode sait faire au-dela du parcours simple, replie a chaque session qui s'ouvre.
+  const [plus, setPlus] = useState(false);
+  // La piece que « Poser » posera (parcours simple) : un choix d'ecran, comme un onglet.
+  const [pieceChoisie, setPieceChoisie] = useState<string>(PIECES_SIMPLES[0]?.piece ?? '');
   const tactile = useStore(magasin.store, (x) => x.classe) !== 'large';
   // Pendant une session, les messages passent en haut de l'ecran au telephone et a la tablette : en bas, ils couvraient la barre du mode.
   const enSession = !!sessionToit();
+  useEffect(() => { if (!enSession) setPlus(false); }, [enSession]);
   useEffect(() => {
     document.documentElement.toggleAttribute('data-mode-toit', enSession);
     return () => { document.documentElement.removeAttribute('data-mode-toit'); };
@@ -348,9 +516,15 @@ export function ModeToit({ magasin, commandes }: Props) {
   const allumees = reglesAllumees(o);
   const cible = corpsCible(o?.batiment?.corpsToit ?? [], e.selection);
   const corps = o?.batiment?.corpsToit ?? [];
-  // La forme du toit se change sur le batiment entier ou sur un corps ; sur une lucarne ou un bow-window choisi, elle ne dit rien.
-  const montreForme = !e.selection || e.selection.type === 'corps';
+  // La forme, la hauteur et le sens se reglent sur le batiment entier ou sur un corps ; un element choisi (lucarne, bow-window) a les siens.
+  const surLeToit = !e.selection || e.selection.type === 'corps';
   const famille: FamillePiece = intention === 'modifier' ? 'toit' : onglet;
+  // Plusieurs corps ou des elements poses : ce sur quoi l'on travaille reste sous les yeux ; une maison d'un seul corps n'a rien a choisir.
+  const aChoisir = libellesDesElements(corps).length > 1;
+  const aPoser = PIECES_SIMPLES.find((x) => x.piece === pieceChoisie) ?? (PIECES_SIMPLES[0] as typeof PIECES_SIMPLES[number]);
+  const refusDePoser = o ? raisonIndisponible(o, aPoser.piece, s.facade ?? s.derniere, e.selection?.rang ?? null) : null;
+  const quitter = commandes.etat('toit.abandonner'), valider = commandes.etat('toit.valider'), poser = commandes.etat('toit.poser');
+  const refusDe = (x: ReturnType<RegistreCommandes['etat']>) => (!x.utilisable && 'message' in x ? ' — ' + x.message : '');
   const boutonIntention = (i: IntentionToit, icone: NomIcone, quoi: string) => (
     <button type="button" className="boutonIntention" data-commande="toit.intention" data-intention={i} aria-pressed={intention === i}
       title={MOTS_INTENTION[i].verbe + ' ' + quoi + ' : ' + MOTS_INTENTION[i].promesse}
@@ -371,58 +545,73 @@ export function ModeToit({ magasin, commandes }: Props) {
       {/* Ce qui defile, transparent, dans le panneau opaque qui ne defile pas : un defilement opaque pose sur la scene la faisait
           disparaitre (Chromium ecarte le canevas 3D qu'il croit cache ; app.css, `.defilementToit`). */}
       <div className="defilementToit">
-      <div className="barreToit" role="toolbar" aria-label="Session du toit">
-        <BoutonToit commandes={commandes} id="toit.abandonner" icone="chevronGauche" libelle="Retour : abandonner les changements" />
-        <BoutonToit commandes={commandes} id="toit.annuler" icone="annuler" libelle="Annuler (Ctrl+Z)" />
-        <BoutonToit commandes={commandes} id="toit.retablir" icone="annuler" libelle="Rétablir (Ctrl+Maj+Z)" miroir />
-        <BoutonToit commandes={commandes} id="toit.depart" icone="positionInitiale" libelle="Revenir au départ (annulable)" />
-        <BoutonToit commandes={commandes} id="toit.isoler" icone={e.isole ? 'oeilBarre' : 'oeil'} libelle="Isoler ce bâtiment" presse={e.isole} />
-        <span className="separateurToit" aria-hidden="true" />
-        <BoutonToit commandes={commandes} id="toit.vueLibre" icone="cube" libelle="Vue 3D" presse={e.vue === 'libre'} />
-        <BoutonToit commandes={commandes} id="toit.vueFacade" icone="rectangle" libelle="Vue de la façade" presse={e.vue === 'facade'} />
-        <BoutonToit commandes={commandes} id="toit.vueDessus" icone="vueDessus" libelle="Vue de dessus" presse={e.vue === 'dessus'} />
-        <BoutonToit commandes={commandes} id="toit.recadrer" icone="recadrer" libelle="Recadrer le bâtiment" />
-        <BoutonToit commandes={commandes} id="toit.voirValide" icone="toitAvant" libelle="Voir le toit du projet (avant vos changements)" presse={e.validee} />
-        <BoutonToit commandes={commandes} id="toit.isolerCorps" icone="isoler" libelle="Isoler ce corps" presse={e.corpsIsole} />
-        <span className="espaceToit" />
-        <BoutonToit commandes={commandes} id="toit.valider" icone="coche" libelle="Valider" texte="Valider" valider />
-      </div>
-      {/* 1. Sur quoi : le batiment entier, un corps, un element. La meme cible sert aux deux intentions. */}
-      <ElementsToit corps={corps} selection={e.selection} commandes={commandes} partie="cible" />
-      <p className="indiceToit designationToit" role="status">{e.designation}</p>
-      {/* 2. Pour quoi faire : modifier ce qui existe, ou ajouter un element. Jamais les deux a la fois sous les yeux. */}
+      {/* 1. Pour quoi faire : modifier ce qui existe, ou ajouter une piece. Le titre du panneau, et jamais les deux a la fois sous les yeux. */}
       <div className="intentionToit" role="group" aria-label="Que voulez-vous faire ?">
-        {boutonIntention('modifier', 'crayon', 'ce qui existe')}
-        {boutonIntention('ajouter', 'plus', 'un élément')}
+        {boutonIntention('modifier', 'crayon', 'le toit')}
+        {boutonIntention('ajouter', 'plus', 'au toit')}
       </div>
-      {/* 3. Le faire. */}
-      {intention === 'modifier' ? (
-        <div className="voletToit" data-volet="modifier" role="group" aria-label="Modifier ce qui existe">
-          {montreForme && (
-            <div className="groupeReglage groupeForme">
-              <span className="titreGroupe" aria-hidden="true">Forme du toit</span>
-              <CatalogueToit famille={famille} o={o} commandes={commandes} insertion={insertion} tactile={tactile} />
-            </div>
-          )}
-          <ElementsToit corps={corps} selection={e.selection} commandes={commandes} partie="reglages" />
-          <button type="button" className="toitRegles" data-commande="toit.regles" aria-pressed={allumees} disabled={!commandes.etat('toit.regles').utilisable}
-            title={allumees ? 'Règles allumées : le toit se lit tout seul. Cliquez pour le régler vous-même.' : 'Règles coupées : le toit reste comme vous le réglez. Cliquez pour reprendre la lecture automatique.'}
-            onClick={(ev) => { commandes.executer('toit.regles', ev.currentTarget); }}>
-            {'Règles ' + (allumees ? 'allumées' : 'coupées')}
-          </button>
-        </div>
-      ) : (
-        <div className="voletToit" data-volet="ajouter" role="group" aria-labelledby="titrePlateauToit">
-          <h3 className="titrePlateau" id="titrePlateauToit">Que voulez-vous ajouter ?</h3>
-          {cible && <p className="indiceToit">{cible}</p>}
-          <div className="toitOnglets" role="tablist" aria-labelledby="titrePlateauToit">
-            {ONGLETS.map((t) => (
-              <button key={t.id} type="button" role="tab" aria-selected={onglet === t.id} className="toitOnglet" onClick={() => setOnglet(t.id)}>{t.libelle}</button>
-            ))}
+      <p className="promesseToit">{intention === 'modifier' ? 'Vous changez ce qui existe. Rien n’est créé.' : 'Vous posez une pièce. Rien d’existant n’est touché.'}</p>
+      {/* 2. Sur quoi, quand il y a le choix : le batiment entier, un corps, un element. */}
+      {aChoisir && <ElementsToit corps={corps} selection={e.selection} commandes={commandes} partie="cible" />}
+      {/* 3. Le faire, en peu de gestes ; tout le reste du mode est range dessous, replie. */}
+      <div className="voletToit" data-volet={intention} role="group" aria-label={intention === 'modifier' ? 'Modifier le toit' : 'Ajouter au toit'}>
+        {intention === 'ajouter' ? <AjouterSimple choisie={aPoser.piece} choisir={setPieceChoisie} facade={e.facade} refus={refusDePoser} />
+          : surLeToit ? <ModifierSimple o={o} corps={corps} selection={e.selection} commandes={commandes} />
+            : e.selection && <ElementSimple corps={corps} selection={e.selection} commandes={commandes} />}
+        <details className="plusToit" open={plus} onToggle={(ev) => { setPlus(ev.currentTarget.open); if (ev.currentTarget.open) monterDansLePanneau(ev.currentTarget); }}>
+          <summary>Plus de réglages</summary>
+          <div className="contenuPlusToit">
+            <BarreSession commandes={commandes} e={e} />
+            {!aChoisir && <ElementsToit corps={corps} selection={e.selection} commandes={commandes} partie="cible" />}
+            <p className="indiceToit designationToit" role="status">{e.designation}</p>
+            {intention === 'modifier' ? (
+              <>
+                {surLeToit && (
+                  <div className="groupeReglage groupeForme">
+                    <span className="titreGroupe" aria-hidden="true">Autres formes de toit</span>
+                    <CatalogueToit famille={famille} o={o} commandes={commandes} insertion={insertion} tactile={tactile} />
+                  </div>
+                )}
+                <ElementsToit corps={corps} selection={e.selection} commandes={commandes} partie="reglages" />
+                <button type="button" className="toitRegles" data-commande="toit.regles" aria-pressed={allumees} disabled={!commandes.etat('toit.regles').utilisable}
+                  title={allumees ? 'Règles allumées : le toit se lit tout seul. Cliquez pour le régler vous-même.' : 'Règles coupées : le toit reste comme vous le réglez. Cliquez pour reprendre la lecture automatique.'}
+                  onClick={(ev) => { commandes.executer('toit.regles', ev.currentTarget); }}>
+                  {'Règles ' + (allumees ? 'allumées' : 'coupées')}
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 className="titrePlateau" id="titrePlateauToit">Autres pièces : un toucher les pose</h3>
+                {cible && <p className="indiceToit">{cible}</p>}
+                <div className="toitOnglets" role="tablist" aria-labelledby="titrePlateauToit">
+                  {ONGLETS.map((t) => (
+                    <button key={t.id} type="button" role="tab" aria-selected={onglet === t.id} className="toitOnglet" onClick={() => setOnglet(t.id)}>{t.libelle}</button>
+                  ))}
+                </div>
+                <CatalogueToit famille={famille} o={o} commandes={commandes} insertion={insertion} tactile={tactile} />
+              </>
+            )}
           </div>
-          <CatalogueToit famille={famille} o={o} commandes={commandes} insertion={insertion} tactile={tactile} />
-        </div>
-      )}
+        </details>
+      </div>
+      </div>
+      {/* Le pied, hors du defilement : quitter sans rien garder, ou garder. Quand on ajoute, le bouton principal pose la piece choisie. */}
+      <div className="piedToit">
+        <button type="button" className="boutonPied" data-commande="toit.abandonner" disabled={!quitter.utilisable}
+          title={'Annuler : quitter sans garder les changements' + refusDe(quitter)} onClick={(ev) => { commandes.executer('toit.abandonner', ev.currentTarget); }}>Annuler</button>
+        {intention === 'ajouter' && (
+          <button type="button" className="boutonPied principal poser" data-commande="toit.poser" data-piece={aPoser.piece} disabled={!poser.utilisable || !!refusDePoser}
+            title={aPoser.poser + (refusDePoser ? ' — ' + refusDePoser : refusDe(poser))} onClick={(ev) => { commandes.executer('toit.poser', ev.currentTarget); }}>
+            <Icone nom="plus" taille={20} /><span>{aPoser.poser}</span>
+          </button>
+        )}
+        {/* Quand on ajoute, « Valider » ne se montre que s'il y a quelque chose a garder : le geste attendu est de poser. */}
+        {(intention === 'modifier' || e.change) && (
+          <button type="button" className={'boutonPied valider' + (intention === 'modifier' ? ' principal' : '')} data-commande="toit.valider" disabled={!valider.utilisable}
+            title={'Valider : garder les changements dans le projet' + refusDe(valider)} onClick={(ev) => { commandes.executer('toit.valider', ev.currentTarget); }}>
+            <Icone nom="coche" taille={20} /><span>Valider</span>
+          </button>
+        )}
       </div>
     </div>
     </>

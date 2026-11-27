@@ -8,6 +8,7 @@
 import { useEffect, useRef } from 'react';
 import { Icone } from '../icones.js';
 import { showToast } from '../../shell/dialogs.js';
+import { resumeDuToit } from '../../facade/modeToit/simple.js';
 import { batimentVise, batimentsRetouchables, estRetouchable, prendreFocusDeSortie } from '../../app/toits/modeToit.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { Magasin } from '../../app/magasin.js';
@@ -17,7 +18,8 @@ const NOMS_MAX = 3;
 
 /**
  * Trois formes, selon ce que la parcelle porte :
- * - un batiment vise (le choisi, ou la seule maison du projet) : « Modifier <son nom> » et « Ajouter » ;
+ * - un batiment vise (le choisi, ou la seule maison du projet) : une carte (au telephone, une feuille basse) avec son nom, l'etat de son
+ *   toit en une ligne, et deux gros boutons a sous-titre, « Modifier le toit » et « Ajouter au toit » (maquette du 27 novembre 2026) ;
  * - plusieurs batiments, aucun choisi : un bouton par batiment, un toucher ouvre le mode sur lui (au-dela de trois, l'invitation a
  *   toucher le batiment dans la scene, qui le choisit) ;
  * - refusee pour une raison (un batiment voisin, la lecture seule) : grisee, avec sa raison dans l'infobulle et, au doigt (pas
@@ -32,22 +34,29 @@ export function EntreeMaison({ commandes, magasin }: { commandes: RegistreComman
   const vise = batimentVise(etat.objects, etat.selectedKey);
   if (e.utilisable && estRetouchable(vise)) {
     const nom = vise.name || 'le bâtiment';
+    const resume = resumeDuToit(vise);
     return (
-      <div className="entreeMaison" role="group" aria-label={nom}>
-        <button ref={ref} id="terrasse3dModifierToit" data-commande="toit.modifier" data-intention="modifier" type="button" className="boutonEntreeMaison"
-          aria-label={'Modifier ' + nom}
-          title={'Modifier ' + nom + ' : son toit, ses murs, ce qui est posé dessus. Rien n’est créé, et rien ne change avant « Valider ».'}
-          onClick={(ev) => { commandes.executer('toit.modifier', ev.currentTarget); }}>
-          <Icone nom="crayon" taille={20} /><span>Modifier</span><span className="nomEntreeMaison">{nom}</span>
-        </button>
-        {ajout.utilisable && (
-          <button id="terrasse3dAjouterMaison" data-commande="toit.ajouter" data-intention="ajouter" type="button" className="boutonEntreeMaison"
-            aria-label={'Ajouter à ' + nom}
-            title={'Ajouter à ' + nom + ' : une lucarne, une cheminée, une aile, un bow-window… Rien d’existant n’est touché.'}
-            onClick={(ev) => { commandes.executer('toit.ajouter', ev.currentTarget); }}>
-            <Icone nom="plus" taille={20} /><span>Ajouter</span>
+      <div className="entreeMaison carteMaison" role="group" aria-label={nom}>
+        <div className="enteteCarteMaison">
+          <span className="nomCarteMaison">{vise.name || 'Bâtiment'}</span>
+          {resume && <span className="etatCarteMaison">{resume}</span>}
+        </div>
+        <div className="boutonsCarteMaison">
+          <button ref={ref} id="terrasse3dModifierToit" data-commande="toit.modifier" data-intention="modifier" type="button" className="boutonEntreeMaison"
+            title={'Modifier le toit de ' + nom + ' : rien n’est créé, et rien ne change avant « Valider ».'}
+            onClick={(ev) => { commandes.executer('toit.modifier', ev.currentTarget); }}>
+            <Icone nom="crayon" taille={24} />
+            <span className="textesEntree"><span className="titreEntree">Modifier le toit</span><span className="sousTitreEntree">Sa forme, sa hauteur, son sens</span></span>
           </button>
-        )}
+          {ajout.utilisable && (
+            <button id="terrasse3dAjouterMaison" data-commande="toit.ajouter" data-intention="ajouter" type="button" className="boutonEntreeMaison"
+              title={'Ajouter au toit de ' + nom + ' : rien d’existant n’est touché.'}
+              onClick={(ev) => { commandes.executer('toit.ajouter', ev.currentTarget); }}>
+              <Icone nom="plus" taille={24} />
+              <span className="textesEntree"><span className="titreEntree">Ajouter au toit</span><span className="sousTitreEntree">Lucarne, cheminée, auvent…</span></span>
+            </button>
+          )}
+        </div>
       </div>
     );
   }

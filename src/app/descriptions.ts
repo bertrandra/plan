@@ -183,6 +183,8 @@ export const DESCRIPTIONS: Record<string, string> = {
   'toit.regler': 'Applique le choix en image de l’inspecteur (forme, niveau, toit, poteaux, retrait, hauteur du pignon, sens du faîtage, mur haut) à l’élément choisi, ou le sens du faîtage à tout le toit quand rien n’est choisi',
   'toit.dupliquer': 'Copie l’élément choisi à côté de lui, là où il y a de la place',
   'toit.supprimer': 'Retire l’élément choisi ; Ctrl+Z le rend',
+  'toit.faitage': 'Monte ou baisse de 10 cm le faîtage du corps choisi, sinon du corps principal ; les égouts restent où ils sont',
+  'toit.sens': 'Met le faîtage dans l’autre sens : celui du corps choisi, du seul corps, ou de tout le toit quand le bâtiment en a plusieurs',
   'toit.tourner': 'Tourne le corps choisi de 15 degrés autour de son centre ; ce qui est posé dessus le suit',
   'toit.scinder': 'Coupe le corps choisi en deux, en travers de son faîtage : chaque moitié se règle ensuite seule',
   'toit.retour': 'Fait retourner l’appentis choisi à l’angle de la maison : un second corps lié, en équerre, même toit, un arêtier à l’angle',

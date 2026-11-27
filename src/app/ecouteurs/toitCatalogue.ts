@@ -29,6 +29,7 @@ import { champsBatiment } from '../../model/champsFonction.js';
 import { brancherDecroche, decrocheArme, type GesteDecroche } from './decroche.js';
 import { libellesDesElements } from '../../facade/modeToit/elements.js';
 import { estIntentionToit, poserIntentionToit, type IntentionToit } from '../toits/intention.js';
+import { directionTournee, faitageDuToitSimple, faitageParPas, faitageSimple, hauteurParPas, rangDesReglages, sensDuToitSimple, sensSimple, tournerSimple } from '../../facade/modeToit/simple.js';
 
 export interface ContexteToitCatalogue {
   /** Redessine le batiment `cle` dans la Vue 3D ouverte (la scene entiere s'il le faut, autour de la terrasse courante). */
@@ -208,6 +209,49 @@ function declarerReglage(commande: Declarer, choisi: Choisi, corpsDuBatiment: ()
 }
 
 /**
+ * Les deux reglages du parcours simple qui n'avaient pas de bouton (maquette du 27 novembre 2026) : la hauteur du faitage par pas de dix
+ * centimetres (`data-sens` : 1 monte, -1 descend ; c'est la poignee « Hauteur du faitage » tiree d'autant) et « Tourner » (le sens du
+ * faitage du corps choisi, du seul corps, ou de tout le toit). Sur le corps choisi, sinon le corps principal. Un batiment qui n'a encore
+ * que son toit simple (pas de corps) regle ce toit-la, comme les champs « Hauteur du toit » et « Direction du faîtage » de l'inspecteur.
+ */
+function declarerReglagesSimples(commande: Declarer, batiment: () => ObjetPlan | undefined, mode: ReturnType<typeof creerModeToit>): void {
+  type Corps = NonNullable<ChampsBatiment['corpsToit']>;
+  const corpsDe = (o: ObjetPlan | undefined): Corps => o?.batiment?.corpsToit ?? [];
+  /** Ecrit les corps regles ; un bouton en butee n'ecrit rien (rien a empiler, rien a figer). */
+  const ecrireLesCorps = (f: (corps: Corps) => Corps) => {
+    mode.ecrire((x) => {
+      const neufs = f(corpsDe(x));
+      if (JSON.stringify(neufs) === JSON.stringify(corpsDe(x))) return false;
+      champsBatiment(x).corpsToit = neufs;
+      champsBatiment(x).toitFige = true;
+      return true;
+    });
+  };
+  /** Ecrit le toit simple, saisi comme depuis l'inspecteur : la lecture automatique ne le reprend pas. */
+  const ecrireLeToit = (f: (t: NonNullable<ChampsBatiment['toit']>) => boolean) => {
+    mode.ecrire((x) => {
+      const t = x.batiment?.toit;
+      if (!t || !f(t)) return false;
+      t.source = 'saisie';
+      delete t.estime;
+      champsBatiment(x).toitFige = true;
+      return true;
+    });
+  };
+  const faitage = () => { const o = batiment(), l = corpsDe(o); return !o ? null : l.length ? faitageSimple(l, rangDesReglages(l, etatToit().selection)) : faitageDuToitSimple(o); };
+  const sens = () => { const o = batiment(), l = corpsDe(o); return !o ? null : l.length ? sensSimple(l, etatToit().selection) : sensDuToitSimple(o); };
+  commande('toit.faitage', 'Monter ou baisser le faîtage', () => { const f = faitage(); return !!f && !f.raison; }, (source) => {
+    const pas = source?.dataset.sens === '-1' ? -1 : 1;
+    if (corpsDe(batiment()).length) ecrireLesCorps((l) => { const rang = rangDesReglages(l, etatToit().selection); return rang === null ? l : faitageParPas(l, rang, pas); });
+    else ecrireLeToit((t) => { const h = hauteurParPas(t, pas); if (h === t.hauteur) return false; t.hauteur = h; return true; });
+  });
+  commande('toit.sens', 'Tourner le faîtage', () => { const e = sens(); return !!e && !e.raison; }, () => {
+    if (corpsDe(batiment()).length) ecrireLesCorps((l) => tournerSimple(l, etatToit().selection));
+    else ecrireLeToit((t) => { t.angleFaitage = directionTournee(t); return true; });
+  });
+}
+
+/**
  * Les deux entrees du mode (« Modifier la maison », « Ajouter a la maison ») et le commutateur du panneau entre les deux intentions
  * (app/toits/intention.ts). Rend le batiment vise : celui que les entrees ouvrent.
  */
@@ -312,6 +356,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     mode.selectionner(null);
   });
   declarerGestesDesCorps(commande, choisi, mode);
+  declarerReglagesSimples(commande, batiment, mode);
   commande('toit.plus', 'Agrandir l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { champsBatiment(x).corpsToit = redimensionnerElement(c.corps, c.t, 1); champsBatiment(x).toitFige = true; }); });
   commande('toit.moins', 'Réduire l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { champsBatiment(x).corpsToit = redimensionnerElement(c.corps, c.t, -1); champsBatiment(x).toitFige = true; }); });
 
