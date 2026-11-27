@@ -7872,6 +7872,96 @@ const POINTS = {
     if (echecs.length) return { ok: false, mesure: echecs.join(' ; ') };
     return { ok: true, mesure: `projet rouvert, toits relus (marque ${marques[0]}) : le L en un toit (faîtage ${longere.faitage} m, égouts ${longere.egouts[0]} m, deux croupes), le bout à ${bout.faitage} m, trois lucarnes` };
   },
+  201: async (page, f) => {
+    // Zoomer dans l'apercu des parcelles de l'import par adresse (demande du proprietaire, 27 novembre 2026 : « je dois pouvoir
+    // zoomer sur le plan pour sélectionner la ou les parcelles pendant les étapes »). Etape 2 : agrandir (bouton, puis pincer au
+    // doigt ou molette a la souris), deplacer d'un glisser — la parcelle principale ne change pas —, puis toucher une autre parcelle
+    // dans la vue agrandie : elle devient la principale, le zoom reste. Etape 3 : le zoom est garde ; un toucher bascule « importer » ;
+    // « Tout voir » revient au cadrage complet. Les trois boutons font 44 px au moins.
+    const echecs = [];
+    await page.evaluate(() => window.__plan.executer('projet.depuisAdresse'));
+    const boite = page.locator('.dialogueCadastre');
+    await boite.waitFor({ timeout: 15000 });
+    await boite.locator('[data-controle="cadastre.importDirect"]').uncheck();
+    await boite.locator('input.promptInput').first().fill(ADRESSE);
+    await boite.locator('[data-controle="cadastre.suggestion"]').first().waitFor({ timeout: 15000 }).catch(() => {});
+    await boite.locator('input.promptInput').first().press('Enter');
+    await page.locator('.dialogueCadastre', { hasText: 'Parcelle trouvée (2/3)' }).waitFor({ timeout: 30000 });
+    const svg = boite.locator('svg.apercuCadastre');
+    await svg.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(200);
+    const vue = async () => (await svg.getAttribute('viewBox')).split(' ').map(Number);
+    const principale = async () => ((await boite.locator('.infoParcelle b').first().textContent()) ?? '').trim();
+    const tactile = f.mobile;
+    const tailles = await boite.locator('.zoomApercu button').evaluateAll((bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return Math.min(r.width, r.height); }));
+    if (tailles.length !== 3 || tailles.some((t) => t < 44)) echecs.push('boutons du zoom : ' + tailles.map((t) => t.toFixed(0)).join(', ') + ' px');
+    const complet = await vue();
+    const p0 = await principale();
+    await boite.locator('[data-controle="cadastre.apercuAgrandir"]').click();
+    await page.waitForTimeout(100);
+    const v1 = await vue();
+    if (!(v1[2] < complet[2] * 0.7)) echecs.push('« Agrandir » sans effet');
+    const r = await svg.boundingBox();
+    const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+    if (tactile) await doigts(page, [{ x: cx - 30, y: cy }, { x: cx + 30, y: cy }], [{ x: cx - 60, y: cy }, { x: cx + 60, y: cy }]);
+    else { await page.mouse.move(cx, cy); await page.mouse.wheel(0, -350); await page.waitForTimeout(150); }
+    const v2 = await vue();
+    if (!(v2[2] < v1[2] * 0.8)) echecs.push((tactile ? 'pincement' : 'molette') + ' sans effet (' + v1[2].toFixed(1) + ' → ' + v2[2].toFixed(1) + ')');
+    // Un glisser sur la parcelle principale : la vue se deplace, rien n'est choisi.
+    if (tactile) await doigts(page, [{ x: cx, y: cy }], [{ x: cx + 50, y: cy + 30 }]);
+    else { await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx + 25, cy + 15, { steps: 4 }); await page.mouse.move(cx + 50, cy + 30, { steps: 4 }); await page.mouse.up(); }
+    await page.waitForTimeout(400);
+    const v3 = await vue();
+    if (!(Math.abs(v3[0] - v2[0]) > 0.01 || Math.abs(v3[1] - v2[1]) > 0.01)) echecs.push('le glisser ne déplace pas la vue');
+    if (await principale() !== p0) echecs.push('le glisser a choisi « ' + (await principale()) + ' »');
+    // Une autre parcelle, visible dans la vue agrandie : son milieu, qu'on touche.
+    const cible = async () => page.evaluate(() => {
+      const s = document.querySelector('.dialogueCadastre svg.apercuCadastre');
+      const cadre = s.getBoundingClientRect();
+      for (const p of s.querySelectorAll('polygon')) {
+        if (!p.style.cursor || p.getAttribute('fill') !== 'transparent') continue;
+        const b = p.getBoundingClientRect();
+        const x = Math.max(cadre.left + 8, Math.min(cadre.right - 60, b.left + b.width / 2)), y = Math.max(cadre.top + 8, Math.min(cadre.bottom - 8, b.top + b.height / 2));
+        if (document.elementFromPoint(x, y) === p) return { x, y };
+      }
+      return null;
+    });
+    const t = await cible();
+    if (!t) echecs.push('aucune autre parcelle touchable dans la vue agrandie');
+    else {
+      if (tactile) await page.touchscreen.tap(t.x, t.y); else await page.mouse.click(t.x, t.y);
+      await page.waitForFunction((avant) => (document.querySelector('.dialogueCadastre .infoParcelle b')?.textContent ?? '').trim() !== avant, p0, { timeout: 30000 }).catch(() => {});
+      await page.waitForFunction(() => !document.querySelector('.dialogueCadastre .piedDialogue')?.disabled, null, { timeout: 30000 }).catch(() => {});
+      if (await principale() === p0) echecs.push('le toucher n’a pas choisi la parcelle');
+      const v4 = await vue();
+      if (!(v4[2] < complet[2] * 0.99)) echecs.push('le zoom est perdu au choix de la parcelle');
+    }
+    const p1 = await principale();
+    const avant3 = await vue();
+    await boite.getByRole('button', { name: /Parcelles voisines/ }).click();
+    await page.locator('.dialogueCadastre', { hasText: 'création (3/3)' }).waitFor({ timeout: 30000 });
+    await svg.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(200);
+    const v5 = await vue();
+    if (Math.abs(v5[2] - avant3[2]) > 0.01) echecs.push('le zoom n’est pas gardé à l’étape 3');
+    const coches = () => boite.locator('[data-controle="cadastre.importerVoisine"]:checked').count();
+    const n0 = await coches();
+    const t3 = await cible();
+    if (!t3) echecs.push('étape 3 : aucune voisine touchable');
+    else {
+      if (tactile) await page.touchscreen.tap(t3.x, t3.y); else await page.mouse.click(t3.x, t3.y);
+      await page.waitForTimeout(250);
+      if (await coches() !== n0 + 1) echecs.push('étape 3 : le toucher ne coche pas « importer » (' + n0 + ' → ' + (await coches()) + ')');
+    }
+    await boite.locator('[data-controle="cadastre.apercuToutVoir"]').click();
+    await page.waitForTimeout(100);
+    const v6 = await vue();
+    // Le cadrage complet a change avec la principale (d'autres voisines) : « Tout voir » se juge a ses boutons grises.
+    const gris = await boite.locator('.zoomApercu button:disabled').count();
+    if (gris !== 2) echecs.push('« Tout voir » ne revient pas au cadrage complet (' + v6[2].toFixed(1) + ' m)');
+    return { ok: !echecs.length, mesure: (echecs.length ? 'ÉCHEC : ' + echecs.join(' ; ') + ' — ' : '')
+      + `largeur vue ${complet[2].toFixed(1)} → ${v1[2].toFixed(1)} (Agrandir) → ${v2[2].toFixed(1)} (${tactile ? 'pincer' : 'molette'}) m, glisser sans choix ; ${p0} → ${p1} au toucher ; étape 3 : vue ${v5[2].toFixed(1)} m gardée, une voisine cochée au toucher ; Tout voir ${v6[2].toFixed(1)} m ; boutons ${tailles.map((x) => x.toFixed(0)).join('/')} px` };
+  },
   135: async (page, f) => {
     // Le rendu a la demande de la Vue 3D (demande du proprietaire, 5 novembre 2026, three/renduDemande.ts) : une vue immobile ne
     // redessine plus ; un geste, l'heure, un reglage, un changement de la scene hors de tout chemin connu redessinent, puis la vue se tait.
@@ -11796,7 +11886,9 @@ function pointsPour(nomClasse) {
   //       (Hardencourt : le L en un toit, le batiment du bout plus bas, trois lucarnes). Reseau du LiDAR rejoue.
   // 200 : les trottoirs de l'option « Rues » : sur le plan et en Vue 3D (15 cm plus haut), la part trottoir / rue (20 % puis 30 %)
   //       et les couleurs « Plan » / « Réelles », sous « Rues » dans le menu Affichage.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200];
+  // 201 : zoomer dans l'apercu de l'import par adresse : agrandir, pincer ou molette, glisser sans choisir, toucher qui choisit (etape 2)
+  //       et qui coche (etape 3), le zoom garde d'une etape a l'autre, « Tout voir ».
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

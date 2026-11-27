@@ -7,6 +7,10 @@
 import { chiffreFr } from '../../util/format.js';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { centroid } from '../../geometry/basic.js';
+import { PAS_ZOOM, borner, cadreComplet, estComplet, grossissement, largeurMinimale, zoomer } from '../../geometry/cadreApercu.js';
+import { useGestesApercu, type VueCourante } from './gestesApercu.js';
+import type { Cadre } from '../../geometry/cadreApercu.js';
+import { Icone } from '../icones.js';
 import { libelleParcelle } from '../../geo/bdtopo.js';
 import { ECART_AUTO_M, MAX_OBJETS_RAYON, RAYON_ETENDU_MAX_M, RAYON_ETENDU_MIN_M, RAYON_ETENDU_PAS_M, RAYON_LEGER_M, rayonDeLecture } from '../../geo/apiIgn.js';
 import { avertissementRayon } from './avertissementRayon.js';
@@ -27,70 +31,108 @@ function Bouton({ controle, principal, onClick, children, disabled }: { controle
   return <button type="button" data-controle={controle} className={principal ? undefined : 'secondary'} disabled={disabled} onClick={onClick}>{children}</button>;
 }
 
-/** L'apercu : la propriete (fusionnee s'il le faut), les voisines, les couches BD TOPO, le point d'adresse. */
+/**
+ * L'apercu : la propriete (fusionnee s'il le faut), les voisines, les couches BD TOPO, le point
+ * d'adresse. Il s'agrandit et se deplace (molette, glisser, pincer, boutons, + et -) ; le calcul du
+ * cadre est dans geometry/cadreApercu.ts, ce composant ne fait que lire les gestes. Traits et
+ * etiquettes sont divises par le grossissement : ils gardent leur taille a l'ecran.
+ */
 function Apercu({ importe }: Props) {
   const e = importe.etat();
+  const [vue, setVue] = useState<Cadre | null>(() => e.vueApercu);
+  const svg = useRef<SVGSVGElement>(null);
+  const courant = useRef<VueCourante | null>(null);
+  const gestes = useGestesApercu(svg, courant, !!e.principale);
   if (!e.principale) return null;
   const { lots, limitesInternes, couches, etendu } = importe.apercu();
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  lots.forEach(l => l.pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }));
+  const reperes = lots.flatMap(l => l.pts);
   // Le voisinage etendu affiche : l'apercu cadre tout le disque, sinon on n'en verrait qu'un coin.
-  if (etendu) {
-    minX = Math.min(minX, etendu.centre.x - etendu.rayonM); maxX = Math.max(maxX, etendu.centre.x + etendu.rayonM);
-    minY = Math.min(minY, etendu.centre.y - etendu.rayonM); maxY = Math.max(maxY, etendu.centre.y + etendu.rayonM);
-  }
-  const marge = Math.max(2, (maxX - minX + maxY - minY) * 0.03);
-  minX -= marge; maxX += marge; minY -= marge; maxY += marge;
-  const w = maxX - minX, h = maxY - minY;
-  const trait = Math.max(0.08, w / 500);
-  const points = (pts: PtBrut[]) => pts.map(p => (p.x - minX).toFixed(3) + ',' + (maxY - p.y).toFixed(3)).join(' ');
+  if (etendu) reperes.push({ x: etendu.centre.x - etendu.rayonM, y: etendu.centre.y - etendu.rayonM }, { x: etendu.centre.x + etendu.rayonM, y: etendu.centre.y + etendu.rayonM });
+  const complet = cadreComplet(reperes);
+  const cliquables = lots.filter(l => l.cliquable);
+  const largeurMin = largeurMinimale(complet, (cliquables.length ? cliquables : lots).map(l => l.pts));
+  const cadre = borner(vue, complet, largeurMin);
+  const poser = (c: Cadre | null) => {
+    const n = c && !estComplet(c, complet) ? c : null;
+    if (courant.current) courant.current.cadre = n ?? complet;
+    setVue(n);
+    importe.reglerVueApercu(n);
+  };
+  courant.current = { cadre, complet, largeurMin, poser };
+  const g = grossissement(cadre, complet);
+  // Les epaisseurs d'avant le zoom, au cadrage complet ; divisees par le grossissement, elles restent les memes a l'ecran.
+  const trait = Math.max(0.08, complet.w / 500) / g;
+  const police = Math.max(0.9, complet.w / 40) / g;
+  const points = (pts: PtBrut[]) => pts.map(p => p.x.toFixed(3) + ',' + (-p.y).toFixed(3)).join(' ');
   const retenues = new Set([e.principale.idu].concat(importe.voisinesRetenues().map(v => v.idu)));
   const cliquer = (c: Candidate) => {
+    // Un glisser ou un pincement se termine par un clic sur la parcelle sous le doigt : il ne choisit rien.
+    if (gestes.aGlisse()) return;
     if (e.etape === 2) void importe.choisirPrincipale(c);
     else if (c.idu !== e.principale?.idu) importe.basculerVoisine(c);
   };
   const cliquable = (c: Candidate | undefined) => c ? () => cliquer(c) : undefined;
+  const pas = (facteur: number) => poser(zoomer(cadre, complet, largeurMin, facteur));
+  const toutVu = estComplet(cadre, complet), auPlusPres = cadre.w <= largeurMin * 1.001;
+  const clavier = (ev: React.KeyboardEvent) => {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;   // Ctrl + reste le zoom du navigateur
+    if (ev.key === '+' || ev.key === '=') { ev.preventDefault(); pas(PAS_ZOOM); }
+    else if (ev.key === '-' || ev.key === '_') { ev.preventDefault(); pas(1 / PAS_ZOOM); }
+  };
   return (
-    <svg viewBox={'0 0 ' + w.toFixed(2) + ' ' + h.toFixed(2)} className="apercuCadastre" role="img" aria-label="Aperçu des parcelles">
-      {/* Le voisinage etendu, sous tout le reste et non cliquable : un decor, borde par son disque. */}
-      {etendu && <g pointerEvents="none">
-        {etendu.parcelles.map((pts, i) => <polygon key={'ep' + i} points={points(pts)} fill="none" stroke="#b8ad98" strokeWidth={(trait * 0.6).toFixed(3)} />)}
-        {etendu.batiments.map((pts, i) => <polygon key={'eb' + i} points={points(pts)} fill="#CFC3B4" fillOpacity={0.6} stroke="#8A7B63" strokeWidth={(trait * 0.5).toFixed(3)} />)}
-        <circle cx={(etendu.centre.x - minX).toFixed(2)} cy={(maxY - etendu.centre.y).toFixed(2)} r={etendu.rayonM.toFixed(2)} fill="none" stroke="#7A5C31"
-          strokeWidth={(trait * 1.2).toFixed(3)} strokeDasharray={(trait * 6).toFixed(2) + ' ' + (trait * 4).toFixed(2)} />
-      </g>}
-      {lots.slice().reverse().map(l => {
-        const survole = e.survol === l.idu;
-        const style = l.role === 'principale' ? { fill: '#FBF3D9', stroke: '#3B2E1F' }
-          : l.role === 'retenue' ? { fill: '#EDE3CB', stroke: '#8A7B63' }
-          : { fill: 'transparent', stroke: '#9a9a9a', strokeDasharray: (trait * 4).toFixed(2) + ' ' + (trait * 3).toFixed(2) };
-        const c = centroid(l.pts);
-        return (
-          <g key={l.idu}>
-            <polygon points={points(l.pts)} {...style} strokeWidth={(survole ? trait * 2.2 : trait).toFixed(3)}
-              style={l.cliquable ? { cursor: 'pointer' } : undefined}
-              onMouseEnter={l.cliquable ? () => importe.survoler(l.idu) : undefined}
-              onMouseLeave={l.cliquable ? () => { if (e.survol === l.idu) importe.survoler(null); } : undefined}
-              onClick={cliquable(l.candidate)} />
-            <text x={(c.x - minX).toFixed(2)} y={(maxY - c.y).toFixed(2)} textAnchor="middle" fontSize={Math.max(0.9, w / 40).toFixed(2)} fill="#3B2E1F" pointerEvents="none">{l.libelle}</text>
-          </g>
-        );
-      })}
-      {/* Limites internes de la propriete, en pointille : elles disparaissent comme limite de terrain
-          mais restent tracees, exactement comme dans le plan produit. */}
-      {limitesInternes.map((chaine, i) => (
-        <polyline key={'li' + i} points={points(chaine)} fill="none" stroke="#8A7B63" strokeWidth={(trait * 1.1).toFixed(3)}
-          strokeDasharray={(trait * 5).toFixed(2) + ' ' + (trait * 4).toFixed(2)} pointerEvents="none" />
-      ))}
-      {couches.map((couche, ci) => couche.elements.map((el, i) => {
-        const retenu = couche.actif && [...el.parcelles].some(idu => retenues.has(idu));
-        return <polygon key={'c' + ci + '-' + i} points={points(el.pts)} fill={retenu ? couche.remplissage : 'none'} fillOpacity={retenu ? couche.opacite : 0}
-          stroke={retenu ? couche.contour : '#b0b0b0'} strokeWidth={(retenu ? trait : trait * 0.7).toFixed(3)}
-          strokeDasharray={retenu ? undefined : (trait * 2).toFixed(2) + ' ' + (trait * 2).toFixed(2)} pointerEvents="none" />;
-      }))}
-      {/* Le point d'adresse, souvent hors de toute parcelle : le montrer evite de croire a un bug. */}
-      <circle cx={(0 - minX).toFixed(3)} cy={(maxY - 0).toFixed(3)} r={Math.max(0.4, w / 120).toFixed(3)} fill="#a02020" pointerEvents="none" />
-    </svg>
+    <div className="apercuCadastreCadre" role="group" aria-label="Aperçu des parcelles" onKeyDown={clavier}>
+      <svg ref={svg} viewBox={[cadre.x, cadre.y, cadre.w, cadre.h].map(v => v.toFixed(3)).join(' ')} className={'apercuCadastre' + (toutVu ? '' : ' agrandi')}
+        role="img" tabIndex={0} aria-label="Aperçu des parcelles : touches + et − pour agrandir ou réduire"
+        onPointerDown={gestes.poser} onPointerMove={gestes.bouger} onPointerUp={gestes.lever} onPointerCancel={gestes.lever}>
+        {/* Le voisinage etendu, sous tout le reste et non cliquable : un decor, borde par son disque. */}
+        {etendu && <g pointerEvents="none">
+          {etendu.parcelles.map((pts, i) => <polygon key={'ep' + i} points={points(pts)} fill="none" stroke="#b8ad98" strokeWidth={(trait * 0.6).toFixed(4)} />)}
+          {etendu.batiments.map((pts, i) => <polygon key={'eb' + i} points={points(pts)} fill="#CFC3B4" fillOpacity={0.6} stroke="#8A7B63" strokeWidth={(trait * 0.5).toFixed(4)} />)}
+          <circle cx={etendu.centre.x.toFixed(2)} cy={(-etendu.centre.y).toFixed(2)} r={etendu.rayonM.toFixed(2)} fill="none" stroke="#7A5C31"
+            strokeWidth={(trait * 1.2).toFixed(4)} strokeDasharray={(trait * 6).toFixed(3) + ' ' + (trait * 4).toFixed(3)} />
+        </g>}
+        {lots.slice().reverse().map(l => {
+          const survole = e.survol === l.idu;
+          const style = l.role === 'principale' ? { fill: '#FBF3D9', stroke: '#3B2E1F' }
+            : l.role === 'retenue' ? { fill: '#EDE3CB', stroke: '#8A7B63' }
+            : { fill: 'transparent', stroke: '#9a9a9a', strokeDasharray: (trait * 4).toFixed(3) + ' ' + (trait * 3).toFixed(3) };
+          const c = centroid(l.pts);
+          return (
+            <g key={l.idu}>
+              <polygon points={points(l.pts)} {...style} strokeWidth={(survole ? trait * 2.2 : trait).toFixed(4)}
+                style={l.cliquable ? { cursor: 'pointer' } : undefined}
+                onMouseEnter={l.cliquable ? () => importe.survoler(l.idu) : undefined}
+                onMouseLeave={l.cliquable ? () => { if (e.survol === l.idu) importe.survoler(null); } : undefined}
+                onClick={cliquable(l.candidate)} />
+              <text x={c.x.toFixed(2)} y={(-c.y).toFixed(2)} textAnchor="middle" fontSize={police.toFixed(3)} fill="#3B2E1F" pointerEvents="none">{l.libelle}</text>
+            </g>
+          );
+        })}
+        {/* Limites internes de la propriete, en pointille : elles disparaissent comme limite de terrain
+            mais restent tracees, exactement comme dans le plan produit. */}
+        {limitesInternes.map((chaine, i) => (
+          <polyline key={'li' + i} points={points(chaine)} fill="none" stroke="#8A7B63" strokeWidth={(trait * 1.1).toFixed(4)}
+            strokeDasharray={(trait * 5).toFixed(3) + ' ' + (trait * 4).toFixed(3)} pointerEvents="none" />
+        ))}
+        {couches.map((couche, ci) => couche.elements.map((el, i) => {
+          const retenu = couche.actif && [...el.parcelles].some(idu => retenues.has(idu));
+          return <polygon key={'c' + ci + '-' + i} points={points(el.pts)} fill={retenu ? couche.remplissage : 'none'} fillOpacity={retenu ? couche.opacite : 0}
+            stroke={retenu ? couche.contour : '#b0b0b0'} strokeWidth={(retenu ? trait : trait * 0.7).toFixed(4)}
+            strokeDasharray={retenu ? undefined : (trait * 2).toFixed(3) + ' ' + (trait * 2).toFixed(3)} pointerEvents="none" />;
+        }))}
+        {/* Le point d'adresse, souvent hors de toute parcelle : le montrer evite de croire a un bug. */}
+        <circle cx="0" cy="0" r={(Math.max(0.4, complet.w / 120) / g).toFixed(4)} fill="#a02020" pointerEvents="none" />
+      </svg>
+      {/* Les boutons du zoom : la molette et les doigts ne se devinent pas, et le clavier n'a qu'eux (et + et -). */}
+      <div className="zoomApercu" role="group" aria-label="Zoom de l’aperçu">
+        <button type="button" data-controle="cadastre.apercuAgrandir" className="secondary" aria-label="Agrandir l’aperçu" title="Agrandir l’aperçu (touche +)"
+          disabled={auPlusPres} onClick={() => pas(PAS_ZOOM)}><Icone nom="plus" taille={20} /></button>
+        <button type="button" data-controle="cadastre.apercuReduire" className="secondary" aria-label="Réduire l’aperçu" title="Réduire l’aperçu (touche −)"
+          disabled={toutVu} onClick={() => pas(1 / PAS_ZOOM)}><Icone nom="moins" taille={20} /></button>
+        <button type="button" data-controle="cadastre.apercuToutVoir" className="secondary" aria-label="Tout voir : recadrer l’aperçu sur toutes les parcelles" title="Tout voir"
+          disabled={toutVu} onClick={() => poser(null)}><Icone nom="ajuster" taille={20} /></button>
+      </div>
+    </div>
   );
 }
 
