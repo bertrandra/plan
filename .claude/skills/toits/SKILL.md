@@ -584,6 +584,11 @@ fichier de promenade jusqu'à la PR. Mode d'essai : `?regles=local`, menu Admin 
 - **Départager symétrique et asymétrique par le seul écart** : sur un contour décalé, le toit asymétrique colle deux fois
   mieux à une maison que son propriétaire dit symétrique (Hardencourt 6501004, 6500957). C'est pour cela que la preuve demande
   toutes ses pièces.
+- **Raccorder deux toits par un pignon posé sur le corps** : refusé par le propriétaire (Hardencourt, « pièces bizarres »). Une
+  aile en équerre se prolonge dans le corps (`facade/toits/raccord.ts`, spec §13.10) ; au coin, deux croupes font le retour
+  d'angle. Et un pignon lu de moins de 2 m (`LARGEUR_PIGNON_LU_MIN_M`) n'est pas un pignon — le filtre se pose sur le toit
+  retenu (`sansPignonsEtroits`), pas dans `detecterPignons` : en cours de route les largeurs ne sont pas encore les siennes, et
+  AE 101 y perdait un pignon.
 - **Modifier `decouperParHauteur`** (centile bas → haut) change AE 101 : c'est refusé.
 - **Un ajustement de croupes dans le modèle des corps** était lent et donnait de mauvais résultats.
   Les croupes passent par les formes simples.

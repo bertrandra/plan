@@ -12,7 +12,7 @@ import { lireHauteursSousStrict, lireGrilleSous, echantillonsDeGrille, dallesLid
 import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../../model/volumesToit.js';
 import { PENTE_DEFAUT_DEG } from '../../model/toitBdTopo.js';
 import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../../model/toitMesure.js';
-import { decalageSurMesure, partVideSous } from '../../facade/toits/toitCorps.js';
+import { decalageSurMesure, hautsMesures, partVideSous, raccorderLesToits } from '../../facade/toits/toitCorps.js';
 import { centroid, pointInPolygon } from '../../geometry/basic.js';
 import { parcelleDuProjet, surParcelleDuProjet } from '../../model/fonctions.js';
 import { batimentsMitoyens } from '../../model/mitoyennete.js';
@@ -243,6 +243,11 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // au-dela de son mur haut ; un toit ecrase sous le haut mesure est releve ; un fait qui pose un pignon ne redeplace plus le
   // faitage. AE 101 : ses trois corps symetriques (decision du proprietaire). Tout est relu.
   { version: 9, reglages: 'bb259b72', faits: '2427f5f5', formes: '83c56e39' },
+  // Le raccord des toits qui se touchent (27 novembre 2026, Hardencourt : « une maison en L avec des faitages centres, les deux corps
+  // fusionnent, je vois des pieces bizarres », facade/toits/raccord.ts) : une aile en equerre se prolonge dans le corps qui la
+  // porte (au coin, un retour d'angle : memes faitages, memes egouts, deux croupes) ; un corps qui en prolonge un autre en prend
+  // le toit ; un pignon lu de moins de 2 m de large n'est plus dessine (LARGEUR_PIGNON_LU_MIN_M). Tout est relu.
+  { version: 10, reglages: '789969b8', faits: '2427f5f5', formes: '83c56e39' },
 ];
 
 /**
@@ -454,7 +459,25 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
     }
   };
   await Promise.all(Array.from({ length: options.enParallele ?? EN_PARALLELE }, ouvrier));
+  // Les toits lus, ceux qui se touchent sur la parcelle du projet sont mis d'accord (facade/toits/raccord.ts).
+  raccorderLesToitsDuProjet(objets, admis);
   return bilan;
+}
+
+/**
+ * Le raccord des toits des batiments de la parcelle du projet (MD/spec-toit-ign.md §13.10) : une aile en equerre prolonge son
+ * faitage dans le toit qui la porte, un corps qui en prolonge un autre en prend le toit, deux faitages lus a la meme hauteur y
+ * sont. Chaque batiment se lit seul : c'est apres la lecture, quand tous ont leurs corps, que le raccord se fait, et il se
+ * refait a l'identique a chaque lecture (les corps deja raccordes ne bougent plus). Seuls les batiments que la lecture peut
+ * ecrire (`admis` : ni figes par la personne, ni verifies sur place) sont donnes au raccord ; les autres ne servent ni ne changent.
+ * Rend le nombre de batiments dont les corps ont change.
+ */
+export function raccorderLesToitsDuProjet(objets: readonly ObjetAToit[], admis: (o: ObjetAToit) => boolean = () => true): number {
+  const batiments = objets.filter((o): o is ObjetAToit & { pts: PtBrut[]; key: string } => !!o.key && !!o.pts && surParcellePrincipale(o) && !!o.batiment?.corpsToit?.length && admis(o));
+  if (!batiments.length) return 0;
+  const raccordes = raccorderLesToits(batiments.map((o) => { const corps = o.batiment?.corpsToit ?? []; return { cle: o.key, corps, hauts: hautsMesures(corps, o.batiment?.toitMesure, o.pts) }; }));
+  for (const o of batiments) { const corps = raccordes.get(o.key); if (corps) champsBatiment(o).corpsToit = corps; }
+  return raccordes.size;
 }
 
 /** La phrase du bilan, ou `null` s'il n'y a rien a dire. */
