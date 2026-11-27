@@ -1361,9 +1361,18 @@ retenu (`app/toits/toitsLidar.ts::corpsLus`, après le fait et les garde-fous ; 
 Rien sur un toit plat ou presque (`MONTEE_PAN_LUCARNE_M`), un pan trop court (`PAN_LUCARNE_MIN_M`), un toit de révolution ou à
 profil brisé, un appentis ouvert, un élément de façade.
 
-**Le type.** À un point tous les 50 cm, la mesure ne distingue pas une jacobine d'un chien-assis. Elle dit seulement si le dessus
-monte vers l'intérieur du toit (`PENTE_RAMPANTE_MIN`, 0,5 m par mètre : une rampante) ; sinon la lucarne est un chien-assis
-(`TYPE_LUCARNE_LUE`), la plus courante sur les longères où la lecture a été réglée. Une photo ou un fait qui dit mieux l'emporte.
+**Le type** se lit sur le dessus de la bosse (`typeLu`). Une jacobine porte son propre faîtage, perpendiculaire à celui du toit
+(le propriétaire, Hardencourt, 27 novembre 2026 : « vu la ligne perpendiculaire au faîtage sur le lidar il s'agit de lucarne
+jacobine ») : en travers de la bosse, sur le dessus médian de chaque tranche de 50 cm (trois tranches au moins), le plus haut
+passe le plus bas des deux bords d'au moins `CRETE_JACOBINE_M` (0,2 m). Sinon, un dessus qui monte vers l'intérieur du toit
+(`PENTE_RAMPANTE_MIN`, 0,5 m par mètre) est une rampante, et un dessus plat un chien-assis (`TYPE_LUCARNE_LUE`). La mesure est
+faible (trois ou quatre tranches par lucarne) : sur le banc, 21 lucarnes lues sur 22 sortent jacobines. Une photo ou un fait qui
+dit mieux l'emporte. Le dessin est celui du catalogue (`facettesLucarnes`), le même qu'une lucarne posée à la main.
+
+**Le même modèle.** Les lucarnes d'un même pan dont la largeur et la hauteur lues sont à `MEME_LUCARNE_M` (0,5 m, un pas de
+grille) de leurs médianes sont le même modèle (« la quantité est bien 3, et elles font la même taille ») : une seule largeur,
+chacune autour de son milieu, une seule hauteur et une seule profondeur (les médianes), donc des faces alignées à la même
+distance de l'égout, et le type du plus grand nombre (à égalité, la jacobine). Une lucarne nettement différente garde ses cotes.
 
 **Qui l'emporte.** Une lucarne lue (`source: 'lidar'`) est celle de la lecture : elle n'est pas un élément posé
 (`model/protections.ts`), la relecture la refait ou la retire, et elle ne se reporte pas d'une lecture à l'autre

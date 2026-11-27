@@ -18,10 +18,9 @@
 //      maison en L fait la meme bosse qu'une lucarne, en plus large), ni sous un pignon deja lu.
 // Rien sur un toit plat, un toit de revolution, un appentis ouvert, un element de facade (bow-window, galerie).
 //
-// Le type : le LiDAR, a un point tous les 50 cm, ne distingue pas une jacobine d'un chien-assis. Il dit seulement si le dessus
-// de la lucarne monte vers l'interieur du toit comme le pan (une rampante, PENTE_RAMPANTE_MIN) ; sinon c'est TYPE_LUCARNE_LUE,
-// le chien-assis, la lucarne la plus courante sur les longeres ou cette lecture a ete reglee. Une photo ou un fait qui dit
-// mieux l'emporte (source « observation »).
+// Le type se lit sur le dessus de la bosse (typeLu) : une ligne de faitage en travers, perpendiculaire a celui du toit, est celle
+// d'une jacobine (CRETE_JACOBINE_M) ; un dessus plat, un chien-assis (TYPE_LUCARNE_LUE) ; un dessus qui monte vers l'interieur
+// du toit comme le pan, une rampante (PENTE_RAMPANTE_MIN). Une photo ou un fait qui dit mieux l'emporte (source « observation »).
 
 import { pointInPolygon } from '../../geometry/basic.js';
 import { SEUILS_TOITS as S } from '../../regles/toits/reglages.js';
@@ -76,10 +75,21 @@ function autreToitDevant(r: Repere, pan: 0 | 1, s0: number, s1: number, autres: 
   return n > 0 && dedans * 2 >= n;
 }
 
-/** Le dessus monte-t-il vers l'interieur du toit, comme le pan (une rampante) ? Sinon, le type par defaut. */
-function typeLu(zs: readonly number[], ds: readonly number[]): TypeLucarne {
+/**
+ * Le type que la mesure montre. Une jacobine a son propre faitage, perpendiculaire a celui du toit : en travers de la bosse (le long
+ * du faitage du corps), le dessus monte vers une ligne et retombe sur les cotes (le proprietaire, Hardencourt, 27 novembre 2026 :
+ * « vu la ligne perpendiculaire au faitage sur le lidar il s'agit de lucarne jacobine »). On le lit sur le dessus median de chaque
+ * tranche de la bosse : le plus haut passe le plus bas de ses deux bords d'au moins CRETE_JACOBINE_M. Un dessus plat est celui
+ * d'un chien-assis (TYPE_LUCARNE_LUE), sauf s'il monte vers l'interieur du toit comme le pan (PENTE_RAMPANTE_MIN : une rampante).
+ */
+function typeLu(zs: readonly number[], ds: readonly number[], ks: readonly number[]): TypeLucarne {
   const n = zs.length;
   if (n < 4) return TYPE_LUCARNE_LUE;
+  const tranches = [...new Set(ks)].sort((a, b) => a - b).map((k) => mediane(zs.filter((_, i) => ks[i] === k)));
+  if (tranches.length >= 3) {
+    const bords = Math.min(tranches[0] as number, tranches[tranches.length - 1] as number);
+    if (Math.max(...tranches) - bords >= S.CRETE_JACOBINE_M) return 'jacobine';
+  }
   const md = ds.reduce((a, b) => a + b, 0) / n, mz = zs.reduce((a, b) => a + b, 0) / n;
   let num = 0, den = 0;
   for (let i = 0; i < n; i++) { num += ((ds[i] as number) - md) * ((zs[i] as number) - mz); den += ((ds[i] as number) - md) ** 2; }
@@ -87,17 +97,37 @@ function typeLu(zs: readonly number[], ds: readonly number[]): TypeLucarne {
 }
 
 /** La bosse du troncon `k0..fin` du pan : ses rangees touchees (du mur vers le faitage), ses hauteurs et leurs distances au mur. */
-function bosse(su: Surplus, rel: (k: number, j: number) => number | null, pas: number, k0: number, fin: number, jMax: number): { rangees: number[]; zs: number[]; ds: number[] } {
-  const rangees: number[] = [], zs: number[] = [], ds: number[] = [];
+function bosse(su: Surplus, rel: (k: number, j: number) => number | null, pas: number, k0: number, fin: number, jMax: number): { rangees: number[]; zs: number[]; ds: number[]; ks: number[] } {
+  const rangees: number[] = [], zs: number[] = [], ds: number[] = [], ks: number[] = [];
   for (let j = 0; j < jMax; j++) {
     let touche = false;
     for (let q = k0; q <= fin; q++) {
       const v = rel(q, j), z = su.Z[q]?.[j];
-      if (v !== null && v >= S.SURPLUS_LUCARNE_M && z !== null && z !== undefined) { touche = true; zs.push(z); ds.push((j + 0.5) * pas); }
+      if (v !== null && v >= S.SURPLUS_LUCARNE_M && z !== null && z !== undefined) { touche = true; zs.push(z); ds.push((j + 0.5) * pas); ks.push(q); }
     }
     if (touche) rangees.push(j);
   }
-  return { rangees, zs, ds };
+  return { rangees, zs, ds, ks };
+}
+
+/**
+ * Les lucarnes d'un meme pan qui ont la meme taille a MEME_LUCARNE_M pres (largeur et hauteur) sont le meme modele : une grille a
+ * 50 cm ne separe pas 1,5 m de 2 m, l'ecart est du bruit (le proprietaire, Hardencourt, 27 novembre 2026 : « la quantite est bien 3,
+ * et elles font la meme taille »). Elles prennent une seule largeur (chacune autour de son milieu), une seule hauteur et une seule
+ * profondeur, les medianes, donc une face a la meme distance de l'egout, et le type que le plus grand nombre montre (a egalite, la
+ * jacobine : une crete lue est un fait, un dessus plat peut etre une crete que la grille a manquee). Une lucarne nettement
+ * differente garde ses cotes.
+ */
+function memeModele(lues: Lucarne[]): Lucarne[] {
+  if (lues.length < 2) return lues;
+  const large = mediane(lues.map((l) => l.finM - l.debutM)), hautM = mediane(lues.map((l) => l.faitageM));
+  const pareil = (l: Lucarne): boolean => Math.abs(l.finM - l.debutM - large) <= S.MEME_LUCARNE_M + 1e-6 && Math.abs(l.faitageM - hautM) <= S.MEME_LUCARNE_M + 1e-6;
+  const memes = lues.filter(pareil);
+  if (memes.length < 2) return lues;
+  const l0 = mediane(memes.map((l) => l.finM - l.debutM)), h0 = cm(mediane(memes.map((l) => l.faitageM))), p0 = cm(mediane(memes.map((l) => l.profondeurM)));
+  const compte = (t: TypeLucarne): number => memes.filter((l) => l.type === t).length;
+  const type = memes.map((l) => l.type).reduce((a, b) => (compte(b) > compte(a) || (compte(b) === compte(a) && b === 'jacobine') ? b : a));
+  return lues.map((l) => (pareil(l) ? { ...l, type, debutM: cm((l.debutM + l.finM) / 2 - l0 / 2), finM: cm((l.debutM + l.finM) / 2 + l0 / 2), faitageM: h0, profondeurM: p0 } : l));
 }
 
 /** Les lucarnes que la grille montre sur un pan du corps. */
@@ -134,7 +164,7 @@ function lucarnesDuPan(g: Grille, c: CorpsToit, r: Repere, pan: 0 | 1, contour: 
     // c'est un toit mal ajuste. Le plus haut surplus d'une tranche est toujours un peu positif : on regarde deux tranches.
     const retombe = (a: number, b: number): boolean => Math.min(dessus(a), dessus(b)) < S.SURPLUS_LUCARNE_M / 2;
     if (!retombe(k0 - 1, k0 - 2) || !retombe(fin + 1, fin + 2)) continue;
-    const { rangees, zs, ds } = bosse(su, rel, g.pas, k0, fin, jMax);
+    const { rangees, zs, ds, ks } = bosse(su, rel, g.pas, k0, fin, jMax);
     if (rangees.length * g.pas < S.PROFONDEUR_LUCARNE_MIN_M - 1e-6) continue;
     // Une lucarne part du bas du pan, pres du mur, et s'avance d'un seul tenant : une bosse en haut du pan est le faitage d'un toit
     // lu dans le mauvais sens, une souche, le toit d'a cote.
@@ -149,12 +179,12 @@ function lucarnesDuPan(g: Grille, c: CorpsToit, r: Repere, pan: 0 | 1, contour: 
     // Sa face est a `profondeurM` en deca du point ou son faitage rejoint le pan (facade/toits/toitFormes.ts).
     const front = (rangees[0] as number) * g.pas, rejoint = (largeur * (Math.min(faitageM, c.faitage - 0.1) - e)) / (c.faitage - e);
     surplus.push(Math.max(...Array.from({ length: fin - k0 + 1 }, (_, i) => dessus(k0 + i))));
-    out.push({ type: typeLu(zs, ds), pan, debutM: cm(debutM), finM: cm(finM), faitageM, profondeurM: cm(Math.max(S.PROFONDEUR_LUCARNE_MIN_M, rejoint - front)), source: 'lidar' });
+    out.push({ type: typeLu(zs, ds, ks), pan, debutM: cm(debutM), finM: cm(finM), faitageM, profondeurM: cm(Math.max(S.PROFONDEUR_LUCARNE_MIN_M, rejoint - front)), source: 'lidar' });
   }
   // Seule sur son pan, une bosse doit depasser plus nettement : des lucarnes en serie se confirment l'une l'autre, une bosse isolee
   // est aussi souvent le toit d'a cote ou un toit mal ajuste.
   if (out.length === 1 && (surplus[0] as number) < S.SURPLUS_LUCARNE_SEULE_M) return [];
-  return out;
+  return memeModele(out);
 }
 
 /**

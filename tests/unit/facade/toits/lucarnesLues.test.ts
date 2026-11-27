@@ -40,6 +40,21 @@ describe('les lucarnes que la mesure montre sur un pan', () => {
     for (const l of lues) { expect(l.faitageM).toBeCloseTo(5.8, 1); expect(l.profondeurM).toBeGreaterThanOrEqual(1); }
   });
 
+  it('une crete en travers de la bosse, perpendiculaire au faitage du toit : une jacobine ; un dessus plat reste un chien-assis', () => {
+    // Deux pans de 0,7 autour du milieu de la bosse, crete a 6 m : les bords d'une bosse de 2 m sont 0,5 m plus bas.
+    const jacobine = (x0: number, l: number) => (x: number, y: number): number | null => { const z = 6 - 0.7 * Math.abs(x - (x0 + l / 2)); return x >= x0 && x < x0 + l && y < 2 && z > pan(y) ? z : null; };
+    expect(lucarnesDuCorps(grille(plusieurs(jacobine(5, 2), jacobine(12, 2))), TOIT, RECT).map((l) => l.type)).toEqual(['jacobine', 'jacobine']);
+    expect(lucarnesDuCorps(grille(plusieurs(chienAssis(5, 2), chienAssis(12, 2))), TOIT, RECT).map((l) => l.type)).toEqual([TYPE_LUCARNE_LUE, TYPE_LUCARNE_LUE]);
+  });
+
+  it('les lucarnes d un pan de la meme taille a un pas de grille pres sont un seul modele ; une lucarne nettement autre garde ses cotes', () => {
+    const memes = lucarnesDuCorps(grille(plusieurs(chienAssis(3, 2, 5.8), chienAssis(8, 1.5, 5.9), chienAssis(13, 1.5, 6))), TOIT, RECT);
+    expect(memes.map((l) => [l.debutM, l.finM, l.faitageM])).toEqual([[3.25, 4.75, memes[1]?.faitageM], [8, 9.5, memes[1]?.faitageM], [13, 14.5, memes[1]?.faitageM]]);
+    expect(new Set(memes.map((l) => l.profondeurM)).size).toBe(1);
+    const autre = lucarnesDuCorps(grille(plusieurs(chienAssis(3, 2.5, 5.8), chienAssis(8, 1.5, 5.8), chienAssis(13, 1.5, 5.8))), TOIT, RECT);
+    expect(autre.map((l) => [l.debutM, l.finM])).toEqual([[3, 5.5], [8, 9.5], [13, 14.5]]);
+  });
+
   it('seule sur son pan, une bosse basse n est pas une lucarne ; haute d un metre, elle l est', () => {
     // Une bosse qui suit le pan a 80 cm au-dessus de lui, sur 2 m de large et 2 m de profondeur.
     const basse = (x0: number) => (x: number, y: number): number | null => (x >= x0 && x < x0 + 2 && y < 2 ? pan(y) + 0.8 : null);
@@ -109,9 +124,13 @@ describe('Hardencourt 6501004, la longere du 11 route du Guesclin', () => {
   const AILE = [p(-4.661, -45.979), p(-8.288, -49.456), p(-11.559, -46.126), p(-8.037, -42.45)];
   const corps = corpsCalcules(toitMesureDepuisGrille(d.grille, d.contour)!, d.contour, { grille: d.grille })!;
 
-  it('trois chiens-assis sur le pan de la cour, a leur place ; rien sur le pan de la rue', () => {
+  it('trois jacobines de la meme taille sur le pan de la cour, a leur place ; rien sur le pan de la rue', () => {
     const lues = avecLucarnesLues(corps, d.grille, d.contour, [AILE])[0]?.lucarnes ?? [];
-    expect(lues.map((l) => [l.type, l.pan, l.debutM, l.finM])).toEqual([['chien-assis', 0, 8.5, 10.5], ['chien-assis', 0, 13.5, 15], ['chien-assis', 0, 17.5, 19]]);
+    // Le proprietaire, 27 novembre 2026 : « vu la ligne perpendiculaire au faitage sur le lidar il s'agit de lucarne jacobine »,
+    // puis « la quantite est bien 3, et elles font la meme taille » : 1,5 m de large, 6,28 m de haut, la meme profondeur.
+    expect(lues.map((l) => [l.type, l.pan, l.debutM, l.finM])).toEqual([['jacobine', 0, 8.75, 10.25], ['jacobine', 0, 13.5, 15], ['jacobine', 0, 17.5, 19]]);
+    expect(new Set(lues.map((l) => l.faitageM))).toEqual(new Set([6.28]));
+    expect(new Set(lues.map((l) => l.profondeurM)).size).toBe(1);
     // Sous le faitage que la mesure montre (6,7 m), au-dessus de l'egout (4,9 m).
     for (const l of lues) { expect(l.faitageM).toBeGreaterThan(5.9); expect(l.faitageM).toBeLessThanOrEqual(6.5); expect(l.source).toBe('lidar'); }
   });

@@ -264,7 +264,7 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // Les lucarnes lues sur le LiDAR (27 novembre 2026, Hardencourt 6501004 : « sur la grande facade, sur le lidar je vois bien les 2
   // chiens assis, pourquoi ont-ils disparu ? », facade/toits/lucarnesLues.ts) : une bosse etroite sur un pan, nette, partie du mur,
   // est une lucarne posee sur ce pan (quatorze seuils nommes). Tout est relu.
-  { version: 12, reglages: 'ccb56752', faits: '2427f5f5', formes: '83c56e39' },
+  { version: 12, reglages: '5f336b15', faits: '2427f5f5', formes: '83c56e39' },
 ];
 
 /**

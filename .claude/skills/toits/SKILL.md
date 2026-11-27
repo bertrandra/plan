@@ -91,7 +91,8 @@ fond (`app/toits/toitsFond.ts`), en file continue, chaque bâtiment lu marqué `
    après. C'est la même chaîne partout : `corpsLus`, `corpsParParcelle`, le rejeu, `banc.ts`, `identite.ts`.
 5 ter. **Lucarnes lues** (`facade/toits/lucarnesLues.ts`, spec §13.11, depuis le 27 novembre 2026) : en dernier, sur le toit
    retenu, une bosse étroite sur un pan (+ 60 cm, 1,5 à 2,5 m de large, partie du mur, entre deux retombées, sur un pan plan) est
-   une lucarne `source: 'lidar'`, chien-assis par défaut. Sur la grille brute, jamais sous un autre toit. Elle cède à une lucarne
+   une lucarne `source: 'lidar'` : jacobine si son dessus porte une crête en travers (`CRETE_JACOBINE_M`), chien-assis sinon ;
+   celles d'un pan de la même taille à 50 cm près prennent les mêmes cotes (`MEME_LUCARNE_M`). Sur la grille brute, jamais sous un autre toit. Elle cède à une lucarne
    vue ou posée. Après un changement de seuil : compter les lucarnes par village et regarder les cartes des lucarnes isolées.
 6. **Ce que la 3D montre** (`modeToitActif`) : `modeToit` choisi ; sinon les corps, sinon les
    volumes, sinon la forme simple. `'mesure'` seulement si l'utilisateur la choisit.
