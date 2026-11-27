@@ -10,6 +10,8 @@ import { creerSvg } from './svg.js';
 import { SVG_INK, SVG_LABEL_HALO } from './theme.js';
 import { versEcran, versMonde, type EtatScene } from '../geometry/vue.js';
 import { etiquettesDesRues } from '../model/rues.js';
+import { etiquettesSurChaussees } from '../model/trottoirs.js';
+import { profilsDuPlan } from '../core/profilsRues.js';
 import { voisinage3dDe } from '../model/voisinage3d.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import type { ObjetPlan } from '../model/types.js';
@@ -35,7 +37,10 @@ export function dessinerNomsDesRues(groupe: SVGElement, objets: ObjetPlan[], sce
   const retrait = 2 * taille;
   const hautGauche = versMonde(scene, { x: retrait, y: retrait }), basDroit = versMonde(scene, { x: scene.W - retrait, y: scene.H - retrait });
   const ecran = { xMin: hautGauche.x, xMax: basDroit.x, yMin: basDroit.y, yMax: hautGauche.y };
-  for (const e of etiquettesDesRues(parcelle.ruesVoisinage.rues, ecran)) {
+  // Sur les rues dessinees (option « Rues »), chaque nom suit sa chaussee, decalee au milieu de l'espace entre les parcelles.
+  const profils = profilsDuPlan(objets);
+  const etiquettes = etiquettesDesRues(parcelle.ruesVoisinage.rues, ecran);
+  for (const e of profils.length ? etiquettesSurChaussees(etiquettes, profils) : etiquettes) {
     const p = versEcran(scene, e);
     // L'ecran a son y vers le bas : l'angle de la voie s'y inverse.
     const t = creerSvg('text', {

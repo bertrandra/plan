@@ -16,13 +16,17 @@ import { contexteCourant, sessionCourante, enAdmin, estAdministrateur, partageCo
 import { dateLongue } from '../app/partage.js';
 import { reglesLocalesDemandees } from '../app/ecouteurs/faitsLocaux.js';
 import { BACKPROD_API_URL, vitrinePlateforme } from '../plateforme/config.js';
-import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, Fragment, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useStore } from 'zustand';
 import { ortho, NOMS_FOND, type CoucheOrtho } from '../render/ortho.js';
 import { reliefDe, affichageRelief } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { voisinage3dDe } from '../model/voisinage3d.js';
 import { ruesTracees } from '../model/rues.js';
+import { partTrottoirs, couleursRues } from '../model/trottoirs.js';
+import { sectionRues } from '../ui/champs/rues.js';
+import { ListeChamps, Tactile, useServiceLocal } from './composants/Champs.js';
+import type { Inspecteur } from '../app/inspecteur.js';
 import { showConfirm, showToast, showErrBanner } from '../shell/dialogs.js';
 import type { Magasin, OptionsCommandes } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -47,6 +51,8 @@ export interface PropsBarreApplication {
   /** Le projet ; la barre ne l'ouvre plus elle-meme (« Mes projets » le fait, lot 3), mais le garde pour ses menus a venir. */
   projet: Projet;
   tiroir: Tiroir;
+  /** Le service qui ecrit les reglages des rues dessinees (ui/champs/rues.ts) sur la parcelle du projet, comme dans l'inspecteur. */
+  inspecteur?: Inspecteur;
 }
 
 const VUES: [Vue, string, string, string][] = [
@@ -288,9 +294,32 @@ export function ChoixFond({ commandes }: { commandes: RegistreCommandes }) {
   );
 }
 
+/**
+ * Les reglages des rues dessinees, sous « Rues » cochee (ui/champs/rues.ts) : la part des trottoirs et les couleurs. Les memes
+ * descripteurs et le meme service que l'inspecteur ; au doigt, leurs formes tactiles (curseur et commande segmentee de 44 px).
+ */
+function ReglagesRues({ inspecteur, magasin }: { inspecteur: Inspecteur; magasin: Magasin }) {
+  const tactile = useStore(magasin.store, (s) => s.classe) !== 'large';
+  const service = useServiceLocal(inspecteur);
+  const parcelle = inspecteur.parcelle();
+  const c = parcelle ? inspecteur.contexte(parcelle) : null;
+  const section = c ? sectionRues(c) : null;
+  if (!c || !section || !ruesTracees(parcelle)) return null;
+  return (
+    <li className="menuChamps hoteChamps" role="presentation" data-section={section.id}>
+      <Tactile.Provider value={tactile}>
+        <div className="champs" role="group" aria-label="Réglages des rues"><ListeChamps champs={section.champs} c={c} inspecteur={service} /></div>
+      </Tactile.Provider>
+    </li>
+  );
+}
+
 /** Le menu Affichage : les bascules, chacune une commande cochee d'apres l'etat, et le fond orthophoto. */
-function MenuAffichage({ magasin, commandes }: PropsMenu) {
-  useCle(magasin, 'menu Affichage', (s) => JSON.stringify([basculesAffichage(s.etat, commandes), ortho.opacite, ortho.parcelleOpacite, ortho.couche]));
+function MenuAffichage({ magasin, commandes, inspecteur }: PropsMenu & { inspecteur?: Inspecteur | undefined }) {
+  useCle(magasin, 'menu Affichage', (s) => {
+    const p = parcelleDuProjet(s.etat.objects);
+    return JSON.stringify([basculesAffichage(s.etat, commandes), ortho.opacite, ortho.parcelleOpacite, ortho.couche, partTrottoirs(p), couleursRues(p), s.etat.lectureSeule]);
+  });
   const bascules = basculesAffichage(magasin.store.getState().etat, commandes);
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
@@ -305,11 +334,15 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
     <Deroulant id="menuAffichage" titre="Affichage">
       <ul role="menu">
         {bascules.filter(([, , , visible]) => visible).map(([id, libelle, coche]) => (
-          <li key={id} role="menuitemcheckbox" aria-checked={coche}>
-            <button type="button" data-commande={id} onClick={(e) => { commandes.executer(id); fermer(e); }}>
-              <span className="coche" aria-hidden="true">{coche ? '✓' : ''}</span>{libelle}
-            </button>
-          </li>
+          <Fragment key={id}>
+            <li role="menuitemcheckbox" aria-checked={coche}>
+              <button type="button" data-commande={id} onClick={(e) => { commandes.executer(id); fermer(e); }}>
+                <span className="coche" aria-hidden="true">{coche ? '✓' : ''}</span>{libelle}
+              </button>
+            </li>
+            {/* Sous « Rues » cochee, ses reglages : la part des trottoirs et les couleurs. */}
+            {id === 'affichage.chaussees' && coche && inspecteur && <ReglagesRues inspecteur={inspecteur} magasin={magasin} />}
+          </Fragment>
         ))}
         <ChoixFond commandes={commandes} />
         {curseur('affichage.orthoOpacite', 'orthoOpacite', 'orthoOpaciteTexte', 'Fond', Math.round(ortho.opacite * 100), 20, 'Opacité du fond lui-même (photo aérienne ou Plan IGN)')}
@@ -603,7 +636,7 @@ function SortieAdmin({ magasin }: { magasin: Magasin }) {
   );
 }
 
-export function BarreApplication({ magasin, commandes, tiroir }: PropsBarreApplication) {
+export function BarreApplication({ magasin, commandes, tiroir, inspecteur }: PropsBarreApplication) {
   useFermetureDesMenus();
   const p = useStore(magasin.store, (s) => s.projet);
   const vue = useStore(magasin.store, (s) => s.vue);
@@ -672,7 +705,7 @@ export function BarreApplication({ magasin, commandes, tiroir }: PropsBarreAppli
       )}
       <MenuFichier magasin={magasin} commandes={commandes} />
       <MenuExporter magasin={magasin} commandes={commandes} tiroir={tiroir} />
-      <MenuAffichage magasin={magasin} commandes={commandes} />
+      <MenuAffichage magasin={magasin} commandes={commandes} inspecteur={inspecteur} />
       <MenuAide magasin={magasin} commandes={commandes} tiroir={tiroir} />
       <MenuAdmin commandes={commandes} />
     </>
