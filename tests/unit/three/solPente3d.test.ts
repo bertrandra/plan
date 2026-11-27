@@ -27,7 +27,8 @@ class FauxRendu {
   setPixelRatio() {}
   dispose() {}
 }
-class FauxControles {
+// Comme OrbitControls, un diffuseur d'evenements : la Vue 3D ecoute son `change` (three/solCamera.ts).
+class FauxControles extends THREE_NS.EventDispatcher {
   target = new THREE_NS.Vector3();
   update() {}
 }
