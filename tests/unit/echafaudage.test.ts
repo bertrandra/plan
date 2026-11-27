@@ -41,8 +41,8 @@ describe('phase 1 - echafaudage', () => {
     expect(existsSync(resolve(racine, 'legacy/plan_interactif.html'))).toBe(true);
   });
 
-  // Recapturees le 26 novembre 2026 a la version 5.41.1 (numero seul, preuve forte dans EMPREINTES.md ; devis.pdf et liste-achat.pdf avec elles).
-  // Avant : le 25 novembre a la 5.41.0 et a la 5.40.0, le 23 novembre a la 5.39.0, le 21 novembre a la 5.38.0 et a la 5.37.0, le 17 novembre a la 5.36.0, le 16 novembre a la 5.35.0, a la 5.34.0 et a la 5.33.0, le 15 novembre a la 5.32.0, a la 5.31.0, a la 5.30.0, a la 5.29.1, a la 5.29.0 et a la 5.28.0, le 14 novembre a la 5.27.1 et a la 5.27.0, le 12 novembre a la 5.26.0, a la 5.25.0, a la 5.24.0 et a la 5.23.0, le 9 novembre a la 5.22.1, a la 5.22.0, a la 5.21.0, a la 5.20.0 et a la 5.19.0, le 8 novembre a la 5.18.0, a la 5.17.0 et a la 5.16.0, le 7 novembre a la 5.15.0, a la 5.14.0 et a la 5.13.1, le 6 novembre a la 5.13.0, a la 5.12.0 et a la 5.11.1, le 5 novembre a la 5.11.0, a la 5.10.0, le 4 novembre a la 5.9.0, a la 5.8.0 et a la 5.7.0, le 3 novembre a la 5.6.0 et a la 5.5.0, le 30 octobre a la 5.4.1, a la 5.4.0, a la 5.3.0 et a la 5.2.0, le 30 octobre a la 5.1.0, le 29 octobre a la 5.0.0, le 28 octobre a la 4.0.0, le 25 octobre a la 3.0.0, le 28 septembre 2026, a la version 2.2.0 ; le numero de schema est revenu a 1 le 29,
+  // Recapturees le 27 novembre 2026 a la version 5.42.0 (numero seul, preuve forte dans EMPREINTES.md ; devis.pdf et liste-achat.pdf avec elles).
+  // Avant : le 26 novembre a la 5.41.1, le 25 novembre a la 5.41.0 et a la 5.40.0, le 23 novembre a la 5.39.0, le 21 novembre a la 5.38.0 et a la 5.37.0, le 17 novembre a la 5.36.0, le 16 novembre a la 5.35.0, a la 5.34.0 et a la 5.33.0, le 15 novembre a la 5.32.0, a la 5.31.0, a la 5.30.0, a la 5.29.1, a la 5.29.0 et a la 5.28.0, le 14 novembre a la 5.27.1 et a la 5.27.0, le 12 novembre a la 5.26.0, a la 5.25.0, a la 5.24.0 et a la 5.23.0, le 9 novembre a la 5.22.1, a la 5.22.0, a la 5.21.0, a la 5.20.0 et a la 5.19.0, le 8 novembre a la 5.18.0, a la 5.17.0 et a la 5.16.0, le 7 novembre a la 5.15.0, a la 5.14.0 et a la 5.13.1, le 6 novembre a la 5.13.0, a la 5.12.0 et a la 5.11.1, le 5 novembre a la 5.11.0, a la 5.10.0, le 4 novembre a la 5.9.0, a la 5.8.0 et a la 5.7.0, le 3 novembre a la 5.6.0 et a la 5.5.0, le 30 octobre a la 5.4.1, a la 5.4.0, a la 5.3.0 et a la 5.2.0, le 30 octobre a la 5.1.0, le 29 octobre a la 5.0.0, le 28 octobre a la 4.0.0, le 25 octobre a la 3.0.0, le 28 septembre 2026, a la version 2.2.0 ; le numero de schema est revenu a 1 le 29,
   // parce qu'un document s'ecrit au plus petit schema qui le decrit et que le temoin n'avait pas de
   // releve. Le 30, la maison du temoin a recu son toit a croupes (MD/spec-toit-ign.md) : `projet.json`
   // gagne ce toit et le schema 3, `plan.svg` le schema 3 ; les quatre autres ne bougent pas. Le seul ecart avec les empreintes de la 1.0.0 est le numero de version — et, depuis la
@@ -52,17 +52,17 @@ describe('phase 1 - echafaudage', () => {
   // differente une fois le numero neutralise (voir EMPREINTES.md, « La rupture »).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
-      'resume.txt': '9cf9e0923b4bb75eb49ba07d4a931c236bb3c9af986e19e03d2fc760705d5641',
-      'plan.svg': 'b07dedf3c4f0d845e15e10d27867ba6f4f3823d14b1d04467bfe65dbbd3817da',
-      'plan.dxf': 'cba38ba557061c578b1adab61f531dbf363f20f3a5bcc700fa7123120c56b5bb',
+      'resume.txt': '1a90903f214e0a55f44550dee69988782613cea3125ae9cece7f6090207ea6cd',
+      'plan.svg': 'b9736e6c9d8c5bbd82281542aa06dc3b3a3594793ba652bef1625bada273f7ca',
+      'plan.dxf': '0c689cacfd502066562bd970dfb86e31e86d91f8eb466f17711b8eeea9d10687',
       'projet.json': 'da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2',
-      'plan.pdf': '8c0d86b93d21722ba3e44dd26a62687ea6a5dee4f0cd1cbf87b5cfc3121d1667',
-      'dossier.pdf': '27becde19a050fd59f71f918ac31f4025e035b3bb0338a5151643bc6e3761735',
+      'plan.pdf': '477ab012fc2fb6674ac886daba3a4b40e0ead833b1aad8cefd54e0ed2c981f9b',
+      'dossier.pdf': '62f299c3d6989370bf62119fa253aeffbf964d37ea266454c7099087d3a1913b',
       // Le devis (16 novembre 2026), regenere par tests/unit/export/regeneration.test.ts.
-      'devis.pdf': '766b27d144d7d60895a79c588e49065d6856ee065cdda4762317d970016175c7',
+      'devis.pdf': '8576f0cbfafbac18a7fdc3e1250ab58d901da29780287c62375ec96d6ce1a61f',
       // La liste d'achat (16 novembre 2026), CSV et PDF, regeneres par le meme test.
       'liste-achat.csv': '7e00c7ea42b84535f73026cc5038ba37396a39e69c3d8e4a521f8aaec06b69db',
-      'liste-achat.pdf': '2a6241d8a01e0e28bee1c1133c391943466470c5a3daf295e96ff3d5aa398409'
+      'liste-achat.pdf': '7736a01b3cde93f6b6e0b3f4c4d74f42f125ca162937f2daf1d00dd2417c54b4'
     };
     for (const [nom, sha] of Object.entries(attendu)) {
       // Meme normalisation que tests/fixtures/golden/EMPREINTES.md : chaque motif remplace par un
