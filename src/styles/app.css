@@ -317,6 +317,15 @@
   .panneauToit .valeurPas{ min-width:4.2em; text-align:center; font-size:1.02rem; font-weight:700; font-variant-numeric:tabular-nums; }
   .panneauToit .valeurPas.nomPas{ min-width:0; max-width:9em; padding:0 4px; font-size:.82rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .panneauToit .boutonTourner{ flex:0 0 auto; min-height:48px; padding:4px 14px; font-weight:600; background:var(--panel-2); border-radius:var(--r-bouton); }
+  /* Le groupe « Le batiment » de l'atelier (hauteur a l'egout, couverture, source du toit) : la saisie de l'egout entre − et +, la
+     palette, la liste du materiau et les choix en mots, a 48 px comme le reste du parcours. */
+  .panneauToit .reglagesBatiment{ gap:10px; }
+  .panneauToit .saisieEgout{ width:4.6em; min-height:48px; padding:0 4px; font:inherit; font-size:1.02rem; font-weight:700; color:var(--ink); background:var(--input-bg); border:1px solid var(--rule); border-radius:var(--r-champ); }
+  .panneauToit .couleurCouverture{ flex:0 0 auto; width:64px; height:48px; padding:2px; background:var(--input-bg); border:1px solid var(--rule); border-radius:var(--r-champ); cursor:pointer; }
+  .panneauToit .choixToit{ min-height:48px; padding:0 8px; font:inherit; color:var(--ink); background:var(--input-bg); border:1px solid var(--rule); border-radius:var(--r-champ); }
+  .panneauToit .reglagesBatiment .segmente{ align-self:flex-start; }
+  .panneauToit .reglagesBatiment .segmente button{ min-height:44px; }
+  .panneauToit .rendreEgout{ align-self:flex-start; min-height:48px; padding:4px 14px; border-radius:var(--r-bouton); }
   .panneauToit .retirerSimple{ align-self:flex-start; min-height:48px; padding:4px 14px; border-radius:var(--r-bouton); }
   .panneauToit .plusToit{ border-top:1px solid var(--hairline); }
   .panneauToit .plusToit > summary{ min-height:48px; display:flex; align-items:center; gap:8px; font-family:var(--sans); font-size:.86rem; font-weight:600; color:var(--ink-soft); cursor:pointer; list-style:none; }

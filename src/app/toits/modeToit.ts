@@ -9,6 +9,7 @@
 // objet pendant une session modifiee pose d'abord la question (Valider, Abandonner, Rester : `quitterPuis`).
 
 import { estBatiment, estChezUnVoisin } from '../../model/fonctions.js';
+import { lieuDuProjet } from '../../facade/modeToit/reglagesBatiment.js';
 import { enPoints } from '../../model/formes.js';
 import { reordonner, restaurer as restaurerSession } from '../../facade/modeToit/sessionToit.js';
 import { creerControleurToit, type ControleurToit, type Issue, type IntentionToit } from '../../facade/modeToit/controleurToit.js';
@@ -750,7 +751,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     ouvrir(intention: IntentionToit = 'modifier'): boolean {
       const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey);
       if (session || !estRetouchable(o)) return false;
-      session = { cle: o.key, ctl: creerControleurToit(o, intention), en3d: false, facade: null, derniere: null, vue: 'libre', corpsIsole: null, indice: true, vueAvant: null, isole: false, cameraAvantMode: null };
+      session = { cle: o.key, ctl: creerControleurToit(o, intention, lieuDuProjet(a.etat.objects)), en3d: false, facade: null, derniere: null, vue: 'libre', corpsIsole: null, indice: true, vueAvant: null, isole: false, cameraAvantMode: null };
       poserEntreeHistorique();
       ctx.rafraichir();
       attacher3d();

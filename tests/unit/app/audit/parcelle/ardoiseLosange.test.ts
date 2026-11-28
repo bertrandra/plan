@@ -8,7 +8,7 @@ import { appliquerPropositions } from '../../../../../src/regles/decisions.js';
 import { normalizeObjects } from '../../../../../src/model/normalisation.js';
 import { COUVERTURES_VUES, libelleDe, resumePartie } from '../../../../../src/model/ceQueJeVois.js';
 import { RECONCILIATION } from '../../../../../src/regles/reconciliation.js';
-import { LIBELLES_COUVERTURE } from '../../../../../src/ui/champs/facade.js';
+import { LIBELLES_COUVERTURE } from '../../../../../src/facade/modeToit/reglagesBatiment.js';
 import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
 import type { CeQueJeVois } from '../../../../../src/model/ceQueJeVois.js';
 import type { ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';

@@ -16,7 +16,6 @@ import { LIBELLE_FONCTION } from '../../model/defaults.js';
 import { FONCTIONS_AU_MENU, largeurChemin, longueurChemin, estOuvrage, CHEMIN } from '../../model/ouvrages/index.js';
 import { enPoints, enCercle, gelsDe, nomsSommetsDe, nomsCotesDe } from '../../model/formes.js';
 import { lieuDeParcelle } from '../../model/lieu.js';
-import { egoutRendable } from '../../model/protections.js';
 import { aParticularite, estBatiment, estPointDeVue, estTerrain, estTerrasse as terrasseCalculable, fonctionAdmise } from '../../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { nomDuCote } from '../nomCote.js';
@@ -30,7 +29,7 @@ import { sectionParasol } from './parasol.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
 import { constructionTerrasseNeuve, surfaceNetteTerrasse } from '../../engine/ouvrages/terrasse.js';
 import { terrasseHote } from '../../engine/ouvrages/liens.js';
-import { champsArbre, champsBatiment } from '../../model/champsFonction.js';
+import { champsArbre } from '../../model/champsFonction.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
 export const FONCTIONS: string[] = [...FONCTIONS_AU_MENU];
@@ -128,18 +127,11 @@ const sectionObjet: Section = {
     {
       type: 'nombre', cle: 'elevation', libelle: 'Élévation', unite: 'm', pas: 0.1, min: 0, decimales: 2,
       aide: 'Hauteur au-dessus du sol, utilisée par la Vue 3D',
-      // Une pergola ou un carport a sa propre hauteur de poteaux, une piscine sa hauteur hors du sol :
-      // l'elevation ne leur dit rien.
-      visible: (c) => !estPointDeVue(c.obj) && !estTerrain(c.obj) && !estTerrasse(c.obj) && !aParticularite(c.obj, 'abri') && !aParticularite(c.obj, 'bassin') && !aParticularite(c.obj, 'ouverture'),
-      // D'un batiment, c'est la hauteur a l'egout : saisie, elle est choisie, et aucune lecture ne la reecrit (model/protections.ts).
-      lire: (c) => c.elevationOf(c.obj), ecrire: (c, v) => { c.obj.elevation = Math.max(0, v) || 0; if (estBatiment(c.obj)) champsBatiment(c.obj).egoutChoisi = 'saisie'; }
-    },
-    {
-      // Le chemin du retour : une hauteur choisie n'est plus reecrite par aucune lecture ; la personne peut la rendre au calcul.
-      type: 'bouton', cle: 'rendreEgout', libelle: '', nom: 'Rendre la hauteur à l’égout au calcul', texte: () => 'Rendre au calcul',
-      explication: 'Saisie ici ou validée par un audit, cette hauteur n’est plus réécrite par aucune lecture. Rendue au calcul, elle est relue sur le LiDAR.',
-      visible: (c) => estBatiment(c.obj) && egoutRendable(c.obj),
-      agit: { commande: 'objet.rendreEgout' }, executer: (c) => c.executerCommande('objet.rendreEgout')
+      // Une pergola ou un carport a sa propre hauteur de poteaux, une piscine sa hauteur hors du sol : l'elevation ne leur dit rien.
+      // D'un batiment, c'est la hauteur a l'egout : elle se regle dans l'atelier du toit (Z10, controleur du toit), que la section
+      // « Toit » ouvre, et s'y lit (decision du proprietaire, 28 novembre 2026 : un geste sur le toit n'existe qu'a un endroit).
+      visible: (c) => !estPointDeVue(c.obj) && !estTerrain(c.obj) && !estTerrasse(c.obj) && !estBatiment(c.obj) && !aParticularite(c.obj, 'abri') && !aParticularite(c.obj, 'bassin') && !aParticularite(c.obj, 'ouverture'),
+      lire: (c) => c.elevationOf(c.obj), ecrire: (c, v) => { c.obj.elevation = Math.max(0, v) || 0; }
     },
     {
       type: 'lecture', cle: 'surface', libelle: 'Surface',
