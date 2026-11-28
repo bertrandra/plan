@@ -3,7 +3,7 @@ import { aDesTraveesOuvertes, contourAvecReculs, cotesDuPiedSurLesCotes, reculEn
 import { retourDAngle } from '../../../../src/facade/modeToit/decroche.js';
 import { appliquerChoix, groupesDe, listerElements, supprimerElement, valeurDuGroupe } from '../../../../src/facade/modeToit/elements.js';
 import { glisser, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
-import { appliquerPiece } from '../../../../src/three/gestesToits.js';
+import { poser } from './poser.js';
 import { boutsLies, facettesCorps, piedEnTravees, portionsOuvertesDuMur } from '../../../../src/three/toitCorps3d.js';
 import { corpsAuPied, corpsDeSaillie, facettesBowWindow, retraitsDuRdc } from '../../../../src/facade/modeToit/saillies.js';
 import type { CorpsToit, ObjetPlan, SaillieFacade } from '../../../../src/model/types.js';
@@ -63,7 +63,7 @@ describe('les travees d un mur (schema 14)', () => {
   it('la piece « Travée » se pose sur le mur regarde, au bord du pignon qui avance', () => {
     const c = { ...maison(), pignons: [{ pan: 0 as const, debut: 0, fin: 3.7, faitage: 7, profondeur: 3 }] };
     const o = { key: 'b', type: 'polygon', fonction: 'batiment', pts: c.pts, batiment: { corpsToit: [c] } } as unknown as ObjetPlan;
-    expect(appliquerPiece(o, 'facade:travee', { rang: 0, mur: 0 })).toBe(true);
+    expect(poser(o, 'facade:travee', { facade: { rang: 0, mur: 0 } })).toBe(true);
     expect(o.batiment!.corpsToit![0]!.travees).toEqual([{ mur: 0, de: 3.7, a: 10, nature: 'mur', reculM: 0.5 }]);
     expect(o.batiment!.toitFige).toBe(true);
   });

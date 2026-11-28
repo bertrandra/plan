@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { CADRAGE_MIN_M, cadreDe, emprisePourCadrer, MARGE_CADRAGE_M, murDeCadrage, poigneesDe, pointsDeLElement } from '../../../../src/facade/modeToit/poignees.js';
 import { listerElements } from '../../../../src/facade/modeToit/elements.js';
 import { murDuCorps } from '../../../../src/facade/modeToit/saillies.js';
-import { appliquerPiece } from '../../../../src/three/gestesToits.js';
+import { poser } from './poser.js';
 import { cadreOblique, type PointScene, type Reserve } from '../../../../src/three/poseFacade.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
@@ -12,7 +12,7 @@ import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 4, pts: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }], batiment: { toit: { forme: 'deux-pans', hauteur: 3.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
 const avecTout = (): CorpsToit[] => {
   const o = maison();
-  for (const id of ['facade:bow-window', 'sur:pignon', 'sur:cheminee', 'sur:jacobine', 'sur:capucine', 'sur:oeil-de-boeuf', 'sur:fenetre-toit', 'sur:solaire']) appliquerPiece(o, id);
+  for (const id of ['facade:bow-window', 'sur:pignon', 'sur:cheminee', 'sur:jacobine', 'sur:capucine', 'sur:oeil-de-boeuf', 'sur:fenetre-toit', 'sur:solaire']) poser(o, id);
   return o.batiment!.corpsToit!;
 };
 

@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 // est dedans, transparent (`.defilementToit`). Le point 124 de la fumee mesure l'image ; ce test garde la regle dans la feuille.
 
 const css = readFileSync(resolve(__dirname, '../../../src/styles/app.css'), 'utf8');
-const tsx = readFileSync(resolve(__dirname, '../../../src/zones/vue3d/ModeToit.tsx'), 'utf8');
+const tsx = readFileSync(resolve(__dirname, '../../../src/zones/AtelierToit.tsx'), 'utf8');
 
 /** Les regles de la feuille : selecteur et declarations, sans les commentaires. */
 const regles = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selecteur: (m[1] ?? '').trim(), corps: m[2] ?? '' }));
@@ -31,7 +31,7 @@ describe('le panneau du mode Toit sur la scene 3D', () => {
   });
 
   it('tout le contenu du panneau, hors la languette et le pied, est dans le defilement', () => {
-    const debut = tsx.indexOf('className={\'panneauToit\''), fin = tsx.lastIndexOf('</>');
+    const debut = tsx.indexOf('className={\'panneauToit\''), fin = tsx.lastIndexOf('hote\n  );');
     const panneau = tsx.slice(debut, fin);
     const apresLanguette = panneau.slice(panneau.indexOf('</button>') + '</button>'.length);
     // Le premier element ouvert apres la languette est le defilement ; le titre, les reglages et « Plus de reglages » sont dedans.
@@ -41,14 +41,15 @@ describe('le panneau du mode Toit sur la scene 3D', () => {
       expect(panneau.indexOf(dedans), dedans).toBeGreaterThan(panneau.indexOf('defilementToit'));
       expect(panneau.indexOf(dedans), dedans).toBeLessThan(pied);
     }
-    // Le pied (Annuler, Valider, « Poser la lucarne ») ne defile pas : il reste sous le pouce, et il n'a pas de defilement a lui.
+    // Le pied (Quitter sans garder, Valider, « Poser la lucarne ») ne defile pas : il reste sous le pouce, et il n'a pas de defilement a lui.
     expect(pied).toBeGreaterThan(panneau.indexOf('</details>'));
     expect(sur('piedToit').filter((r) => defile(r.corps)).map((r) => r.selecteur)).toEqual([]);
   });
 
   it('« Plus de reglages » est replie a l ouverture : un <details> pilote par un etat qui part de faux et y revient a chaque session', () => {
     expect(tsx).toMatch(/const \[plus, setPlus\] = useState\(false\)/);
-    expect(tsx).toMatch(/if \(!enSession\) setPlus\(false\)/);
+    // A chaque session (sa cle change), « Plus de réglages » se replie.
+    expect(tsx).toMatch(/useEffect\(\(\) => \{ setPlus\(false\); setReplie\(false\); \}, \[cle\]\)/);
     expect(tsx).toMatch(/<details className="plusToit" open=\{plus\}/);
     expect(tsx).toContain('<summary>Plus de réglages</summary>');
   });

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { bornesDeSaillie } from '../../../../src/facade/modeToit/saillies.js';
 import { appliquerChoix, cibleAjoutee, facadeDeLElement, dupliquerElement, elementProche, groupesDe, listerElements, lireElement, redimensionnerElement, supprimerElement, valeurDuGroupe,
   type CibleElement } from '../../../../src/facade/modeToit/elements.js';
-import { appliquerPiece } from '../../../../src/three/gestesToits.js';
+import { poser } from './poser.js';
 import { facettesElementsToit } from '../../../../src/facade/toits/toitFormes.js';
 import { elementDeToitValide } from '../../../../src/model/corpsToitEtendu.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
@@ -10,7 +11,7 @@ import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
 const avecTout = (): ObjetPlan => {
   const o = maison();
-  for (const id of ['facade:bow-window', 'sur:pignon', 'sur:cheminee', 'sur:jacobine', 'sur:fenetre-toit', 'sur:solaire', 'facade:galerie']) appliquerPiece(o, id);
+  for (const id of ['facade:bow-window', 'sur:pignon', 'sur:cheminee', 'sur:jacobine', 'sur:fenetre-toit', 'sur:solaire', 'facade:galerie']) poser(o, id);
   return o;
 };
 
@@ -64,8 +65,10 @@ describe('les elements du toit', () => {
     expect((lireElement(corps, { type: 'solaire', rang: 0, i: 1 }) as { echelle: number }).echelle).toBeCloseTo(2.2, 5);
     for (let k = 0; k < 40; k++) corps = redimensionnerElement(corps, { type: 'solaire', rang: 0, i: 1 }, -1);
     expect((lireElement(corps, { type: 'solaire', rang: 0, i: 1 }) as { echelle: number }).echelle).toBeCloseTo(0.5, 5);
+    // Un element de facade : les bornes uniques (saillies.ts::bornesDeSaillie), le mur moins 20 cm.
     for (let k = 0; k < 40; k++) corps = redimensionnerElement(corps, { type: 'saillie', rang: 1, i: 0 }, 1);
-    expect(corps[1]!.saillie!.largeurM).toBeLessThanOrEqual(6);
+    const hote = corps[corps[1]!.saillie!.hote]!;
+    expect(corps[1]!.saillie!.largeurM).toBeCloseTo(bornesDeSaillie(hote, corps[1]!.saillie!).largeur.max, 6);
     for (let k = 0; k < 40; k++) corps = redimensionnerElement(corps, { type: 'pignon', rang: 0, i: 0 }, 1);
     const p = corps[0]!.pignons[0]!;
     expect(p.fin - p.debut).toBeLessThanOrEqual(8.01);
@@ -119,9 +122,9 @@ describe('les elements du toit', () => {
 
   it('dit quel element un geste vient d ajouter', () => {
     const o = maison();
-    appliquerPiece(o, 'sur:cheminee');
+    poser(o, 'sur:cheminee');
     const avant = JSON.parse(JSON.stringify(o.batiment?.corpsToit)) as CorpsToit[];
-    appliquerPiece(o, 'sur:solaire');
+    poser(o, 'sur:solaire');
     expect(cibleAjoutee(avant, o.batiment!.corpsToit!)).toEqual({ type: 'solaire', rang: 0, i: 0 });
     expect(cibleAjoutee(o.batiment!.corpsToit!, o.batiment!.corpsToit!)).toBeNull();
   });

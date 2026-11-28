@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { appliquerChoix, groupesDe, valeurDuGroupe } from '../../../../src/facade/modeToit/elements.js';
-import { corpsDepuisExemple } from '../../../../src/three/gestesToits.js';
+import { corpsDepuisExemple } from '../../../../src/facade/modeToit/gestes.js';
 import { EXEMPLES_TOITS } from '../../../../src/facade/modeToit/exemplesToits.js';
 import { formeDuCorpsToit } from '../../../../src/model/formeToit.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';

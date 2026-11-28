@@ -113,7 +113,7 @@ describe('relire un projet existant donne ce que donne un projet neuf', () => {
     for (const cle of CLES) {
       const existant = structuredClone(neuf);
       const o = existant.find((x) => x.key === 'bati-batiment-' + cle) as ObjetPlan;
-      // Comme « Règles » rallumees dans le mode Toit (three/gestesToits.ts::reprendreLectureAuto) : plus de toit lu, plus de marque.
+      // Comme « Règles » rallumees dans le mode Toit (facade/modeToit/gestes.ts::reprendreLectureAuto) : plus de toit lu, plus de marque.
       delete o.batiment?.toitLidarLu; delete o.batiment?.corpsToit; delete o.batiment?.toitMesure;
       await relireEnFond(existant);
       expect(corps(existant), 'relu : ' + cle).toEqual(attendu);

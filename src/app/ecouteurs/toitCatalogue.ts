@@ -111,32 +111,31 @@ type CommandeToit = (id: string, libelle: string, actif: () => boolean, executer
 function declarerGestes(commande: CommandeToit, mode: Mode): void {
   const raison = (g: GesteNomme) => () => (sessionToit()?.ctl.raisonDuGeste(g) ?? null);
   const permis = (g: GesteNomme) => () => !!sessionToit() && raison(g)() === null;
-  const geste = (id: string, libelle: string, g: GesteNomme, f: (s: HTMLElement | undefined) => void) => { commande(id, libelle, permis(g), f, true, raison(g)); };
   const sens = (source?: HTMLElement): 1 | -1 => (source?.dataset.sens === '-1' ? -1 : 1);
 
-  geste('toit.faitage', 'Monter ou baisser le faîtage', 'faitage', (src) => { mode.geste((c) => c.reglerFaitage(sens(src))); });
-  geste('toit.sens', 'Tourner le faîtage', 'sens', () => { mode.geste((c) => c.tournerSens()); });
-  geste('toit.decouper', 'Découper ce toit en corps', 'decouper', () => { mode.geste((c) => c.decouper()); });
-  geste('toit.regler', 'Régler l’élément', 'regler', (src) => {
+  commande('toit.faitage', 'Monter ou baisser le faîtage', permis('faitage'), (src) => { mode.geste((c) => c.reglerFaitage(sens(src))); }, true, raison('faitage'));
+  commande('toit.sens', 'Tourner le faîtage', permis('sens'), () => { mode.geste((c) => c.tournerSens()); }, true, raison('sens'));
+  commande('toit.decouper', 'Découper ce toit en corps', permis('decouper'), () => { mode.geste((c) => c.decouper()); }, true, raison('decouper'));
+  commande('toit.regler', 'Régler l’élément', permis('regler'), (src) => {
     const d = src?.dataset;
     if (d?.groupe && d.valeur !== undefined) { const groupe = d.groupe, valeur = d.valeur; mode.geste((c) => c.regler(groupe, valeur)); }
-  });
-  geste('toit.plus', 'Agrandir l’élément', 'redimensionner', () => { mode.geste((c) => c.redimensionner(1)); });
-  geste('toit.moins', 'Réduire l’élément', 'redimensionner', () => { mode.geste((c) => c.redimensionner(-1)); });
-  geste('toit.dupliquer', 'Dupliquer l’élément', 'dupliquer', () => { mode.geste((c) => c.dupliquer()); });
-  geste('toit.supprimer', 'Retirer l’élément', 'retirer', () => { mode.geste((c) => c.retirer()); });
-  geste('toit.tourner', 'Tourner le corps', 'tournerCorps', (src) => { mode.geste((c) => c.tournerCorps(sens(src))); });
-  geste('toit.scinder', 'Couper le corps en deux', 'scinder', () => { mode.geste((c) => c.scinder()); });
+  }, true, raison('regler'));
+  commande('toit.plus', 'Agrandir l’élément', permis('redimensionner'), () => { mode.geste((c) => c.redimensionner(1)); }, true, raison('redimensionner'));
+  commande('toit.moins', 'Réduire l’élément', permis('redimensionner'), () => { mode.geste((c) => c.redimensionner(-1)); }, true, raison('redimensionner'));
+  commande('toit.dupliquer', 'Dupliquer l’élément', permis('dupliquer'), () => { mode.geste((c) => c.dupliquer()); }, true, raison('dupliquer'));
+  commande('toit.supprimer', 'Retirer l’élément', permis('retirer'), () => { mode.geste((c) => c.retirer()); }, true, raison('retirer'));
+  commande('toit.tourner', 'Tourner le corps', permis('tournerCorps'), (src) => { mode.geste((c) => c.tournerCorps(sens(src))); }, true, raison('tournerCorps'));
+  commande('toit.scinder', 'Couper le corps en deux', permis('scinder'), () => { mode.geste((c) => c.scinder()); }, true, raison('scinder'));
   // Le retour d'un appentis a l'angle de la maison (data-cote : gauche ou droite, vu de face) : un corps de plus, donc un ajout.
-  commande('toit.retour', 'Retour d’angle', () => !!sessionToit() && (permis('retourGauche')() || permis('retourDroite')()), (src) => {
+  commande('toit.retour', 'Retour d’angle', () => permis('retourGauche')() || permis('retourDroite')(), (src) => {
     const cote = src?.dataset.cote === 'gauche' ? 'gauche' : 'droite';
     mode.geste((c) => c.retourDAngle(cote));
   }, true, () => raison('retourDroite')() && raison('retourGauche')());
-  geste('toit.fusionner', 'Réunir avec le corps voisin', 'fusionner', () => { mode.geste((c) => c.fusionner()); });
-  geste('toit.regles', 'Règles', 'regles', () => {
+  commande('toit.fusionner', 'Réunir avec le corps voisin', permis('fusionner'), () => { mode.geste((c) => c.fusionner()); }, true, raison('fusionner'));
+  commande('toit.regles', 'Règles', permis('regles'), () => {
     const issue = mode.geste((c) => c.basculerRegles());
     if (issue.fait) showToast(sessionToit()?.ctl.etat().regles ? 'Règles allumées : le toit sera relu quand vous validerez.' : 'Règles coupées : le toit reste tel que vous le réglez.');
-  });
+  }, true, raison('regles'));
   // Une piece du catalogue (`data-piece`) : une forme modifie le toit, une autre piece s'ajoute ; le controleur dit ce qui l'empeche.
   commande('toit.poser', 'Poser sur le toit', () => !!sessionToit(), (src) => {
     const id = src?.dataset.piece;

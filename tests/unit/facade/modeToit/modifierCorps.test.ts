@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { appliquerChoix, groupesDe, valeurDuGroupe, listerElements } from '../../../../src/facade/modeToit/elements.js';
 import { coupeParDefaut, corpsAFusionner, decrocherCorps, fusionnerCorps, raisonSansDecroche, scinderCorps } from '../../../../src/facade/modeToit/decroche.js';
-import { appliquerPiece, formeEnPlace } from '../../../../src/three/gestesToits.js';
+import { poser } from './poser.js';
+import { formeEnPlace, porteeDuGeste } from '../../../../src/facade/modeToit/gestes.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
@@ -73,12 +74,14 @@ describe('modifier un corps existant', () => {
     expect(valeurDuGroupe(p, t, 'pan')).toBe('1');
   });
 
-  it('la vignette de la forme en place est celle du corps choisi', () => {
+  it('la vignette de la forme en place est celle du corps de la portee', () => {
     const o = { key: 'b', type: 'polygon', fonction: 'batiment', pts: rect(0, 0, 10, 6), batiment: { corpsToit: [deuxPans(), appentis()] } } as unknown as ObjetPlan;
-    expect(formeEnPlace(o, 0)).toBe('forme:deux-pans');
-    expect(formeEnPlace(o, 1)).toBe('forme:appentis');
-    // Sans choix et plusieurs corps, une forme remplacerait tout : rien n'est dit en place.
-    expect(formeEnPlace(o, null)).toBeNull();
+    const corps = o.batiment!.corpsToit!, choix = (rang: number | null, entier = false) => ({ selection: rang === null ? null : { type: 'corps' as const, rang, i: 0 }, batimentEntier: entier, facade: null });
+    expect(formeEnPlace(o, porteeDuGeste(corps, choix(0)))).toBe('forme:deux-pans');
+    expect(formeEnPlace(o, porteeDuGeste(corps, choix(1)))).toBe('forme:appentis');
+    // Sans choix, le corps principal ; sur le batiment entier a plusieurs corps, une forme les remplacerait tous : rien n'est dit en place.
+    expect(formeEnPlace(o, porteeDuGeste(corps, choix(null)))).toBe('forme:deux-pans');
+    expect(formeEnPlace(o, porteeDuGeste(corps, choix(null, true)))).toBeNull();
   });
 });
 
@@ -98,7 +101,7 @@ describe('decrocher, couper, reunir', () => {
   it('changer la forme d un corps garde ses pignons : AE 101, la facade aux deux pignons sur un toit plat', () => {
     const corps = JSON.parse(JSON.stringify(AE101.corpsAvecFaits)) as CorpsToit[];
     const o = { key: 'b', type: 'polygon', fonction: 'batiment', pts: corps[0]!.pts, batiment: { corpsToit: corps } } as unknown as ObjetPlan;
-    expect(appliquerPiece(o, 'forme:plat', null, 0)).toBe(true);
+    expect(poser(o, 'forme:plat', { rang: 0 })).toBe(true);
     const c = o.batiment!.corpsToit![0]!;
     expect(c.faitage - Math.min(...c.egouts)).toBeLessThan(0.05);
     expect(c.pignons).toHaveLength(2);

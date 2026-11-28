@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { recadrerSurElement, vueIsometrique, type VueIso } from '../../../src/three/catalogueToits.js';
 import { EXEMPLES_TOITS } from '../../../src/facade/modeToit/exemplesToits.js';
 import { vueDeElementToit, vueSurLeToit } from '../../../src/three/vueSaillie.js';
-import { piecesDe } from '../../../src/three/gestesToits.js';
+import { piecesDe } from '../../../src/facade/modeToit/pieces.js';
 
 // Les vignettes de l'onglet « Sur le toit » du mode Toit (2 novembre 2026, « les icônes des objets sur le toit sont trop petits, il faut
 // zoomer dessus : fenêtre de toit, solaire, jacobine… tous ») : la maison entiere ne laissait a l'element que quelques pixels de la tuile.

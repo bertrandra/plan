@@ -10,7 +10,7 @@
 
 import { estBatiment, estChezUnVoisin } from '../../model/fonctions.js';
 import { enPoints } from '../../model/formes.js';
-import { restaurer as restaurerSession } from '../../facade/modeToit/sessionToit.js';
+import { reordonner, restaurer as restaurerSession } from '../../facade/modeToit/sessionToit.js';
 import { creerControleurToit, type ControleurToit, type Issue, type IntentionToit } from '../../facade/modeToit/controleurToit.js';
 import { facadeProche, facadesDuBatiment, facadeValideeDuMur, facadeVersLePoint, orientationDe, texteDeLaPhoto, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
 import { poseDeDessus, poseEnPerspective, type PointScene, type Reserve } from '../../three/poseFacade.js';
@@ -163,6 +163,7 @@ export function raisonDOuvrir(o: ObjetPlan | undefined): string | null {
 function auDepart(o: ObjetPlan, s: Pick<SessionToit, 'ctl'>): ObjetPlan {
   const copie = { ...o, ...(o.batiment ? { batiment: { ...o.batiment } } : {}) } as ObjetPlan;
   restaurerSession(copie, s.ctl.depart());
+  reordonner(copie, s.ctl.ordre());
   return copie;
 }
 
@@ -486,9 +487,10 @@ function majFantomesDe(objets: readonly ObjetPlan[]): void {
  * fond le relit tout de suite plutot qu'a la prochaine ouverture du projet (`relire`, dit par le controleur, jamais devine ici).
  */
 export function validerLaSession(a: Pick<Atelier, 'pushHistory' | 'markDirty'>, o: ObjetPlan, s: Pick<SessionToit, 'ctl'>): boolean {
-  const { change, final, depart, relire } = s.ctl.valider();
+  const { change, final, depart, ordre, relire } = s.ctl.valider();
   if (change) {
     restaurerSession(o, depart);
+    reordonner(o, ordre);
     a.pushHistory(o);
     restaurerSession(o, final);
     a.markDirty(o);

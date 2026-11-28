@@ -31,6 +31,7 @@ const ZONES: { cle: string; nom: string; emplacements: Emplacement[] }[] = [
   { cle: 'Z5', nom: 'Inspecteur', emplacements: ['inspecteur'] },
   { cle: 'Z6', nom: 'Résultats', emplacements: ['tiroir'] },
   { cle: 'Z8', nom: 'Dialogues', emplacements: ['premierPas', 'parcours', 'barreFacade'] },
+  { cle: 'Z10', nom: 'Atelier du toit', emplacements: ['atelierToit'] },
   { cle: 'clavier', nom: 'Raccourcis clavier', emplacements: ['clavier'] }
 ];
 
@@ -40,13 +41,13 @@ const NOMS_EMPLACEMENTS: Record<Emplacement, string> = {
   menuFichier: 'Menu Fichier', menuExporter: 'Menu Exporter', menuAffichage: 'Menu Affichage', menuAide: 'Menu Aide', menuAdmin: 'Menu Admin',
   surimpression: 'Surimpression du plan', selection: 'Barre de sélection', inspecteur: 'Inspecteur', explorateur: 'Explorateur',
   tiroir: 'Tiroir des résultats', vue3d: 'Vue 3D', visionneuse: 'Visionneuse GLB', clavier: 'Clavier',
-  premierPas: 'Premier pas', parcours: 'Parcours (dialogue en plusieurs étapes)', barreFacade: 'Barre de progression de la façade', sansObjet: 'Sans objet'
+  premierPas: 'Premier pas', parcours: 'Parcours (dialogue en plusieurs étapes)', barreFacade: 'Barre de progression de la façade', atelierToit: 'Atelier du toit (Z10)', sansObjet: 'Sans objet'
 };
 
 const NOMS_GROUPES: Record<string, string> = {
   projet: 'Projet', fichier: 'Fichier', export: 'Exports', objet: 'Objets', vue: 'Vues', affichage: 'Affichage',
   mesure: 'Mesures', terrasse: 'Terrasse', '3d': 'Vue 3D', visionneuse: 'Visionneuse GLB',
-  plu: 'PLU', facade: 'Façade'
+  plu: 'PLU', facade: 'Façade', toit: 'Atelier du toit'
 };
 
 const CLASSES: Classe[] = ['compact', 'moyen', 'large'];

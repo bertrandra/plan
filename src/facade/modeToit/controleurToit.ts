@@ -14,7 +14,7 @@
 // ni React.
 
 import { champsBatiment } from '../../model/champsFonction.js';
-import { aChange, annuler, creerHistorique, egaux, empiler, peutAnnuler, peutRetablir, photographier, restaurer, retablir, revenirAuDepart, type ChampsToit, type HistoriqueToit } from './sessionToit.js';
+import { aChange, annuler, creerHistorique, egaux, empiler, ordreDe, peutAnnuler, peutRetablir, photographier, reordonner, restaurer, retablir, revenirAuDepart, type ChampsToit, type HistoriqueToit, type OrdreDesCles } from './sessionToit.js';
 import { appliquerAuBatiment, appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, groupesDe, groupesDuBatiment, lireElement, redimensionnerElement, valeurDuBatiment, valeurDuGroupe, supprimerElement, type CibleElement, type GroupeChoix } from './elements.js';
 import { piece } from './pieces.js';
 import { brouillonDe, ceQuiDisparait, decoupe, faitageDUnPas, faitageDeLaPortee, formeEnPlace, poserForme, poserPiece, porteeDuGeste, raisonDePiece, reprendreLectureAuto, sensDeLaPortee, tournerLeSens,
@@ -120,8 +120,10 @@ export interface ControleurToit {
 
   /** L'instantane de depart : ce que le projet tient tant que la session n'est pas validee. */
   depart(): ChampsToit;
+  /** L'ordre des cles du batiment a l'ouverture (le depart rendu l'est au bit pres). */
+  ordre(): OrdreDesCles;
   /** Ferme la session en gardant ses gestes : le batiment est a son etat final ; l'adaptateur pose l'etape d'historique. */
-  valider(): { change: boolean; final: ChampsToit; depart: ChampsToit; relire: boolean };
+  valider(): { change: boolean; final: ChampsToit; depart: ChampsToit; ordre: OrdreDesCles; relire: boolean };
   /** Ferme la session sans rien garder : le depart revient, au bit pres. */
   quitterSansGarder(): void;
   readonly ferme: boolean;
@@ -130,9 +132,13 @@ export interface ControleurToit {
 /** Les gestes nommes d'une commande, pour dire d'avance s'ils s'appliquent (un bouton grise lit cela). */
 export type GesteNomme = 'faitage' | 'sens' | 'regler' | 'redimensionner' | 'dupliquer' | 'retirer' | 'tournerCorps' | 'scinder' | 'retourGauche' | 'retourDroite' | 'fusionner' | 'regles' | 'decouper';
 
-const NATURE_DU_GESTE: Record<GesteNomme, Nature> = {
+/**
+ * La nature de chaque geste nomme. « Découper ce toit » n'en a pas : c'est le geste explicite qui leve l'impasse d'un toit d'un seul
+ * tenant, offert la ou elle se dit (sous les formes, et au-dessus des pieces a ajouter), dans les deux intentions.
+ */
+const NATURE_DU_GESTE: Record<GesteNomme, Nature | null> = {
   faitage: 'modifie', sens: 'modifie', regler: 'modifie', redimensionner: 'modifie', retirer: 'modifie', tournerCorps: 'modifie', scinder: 'modifie',
-  fusionner: 'modifie', regles: 'modifie', decouper: 'modifie', dupliquer: 'cree', retourGauche: 'cree', retourDroite: 'cree'
+  fusionner: 'modifie', regles: 'modifie', decouper: null, dupliquer: 'cree', retourGauche: 'cree', retourDroite: 'cree'
 };
 
 /** Les champs du toit compares sans la marque `toitFige` : un geste qui ne ferait que figer n'a rien change. */
@@ -145,6 +151,8 @@ interface EtatSession { intention: IntentionToit; choix: Choix; voitLeProjet: bo
 interface Noyau {
   o: ObjetPlan;
   hist: HistoriqueToit;
+  /** L'ordre des cles a l'ouverture : le depart rendu l'est au bit pres, jusque dans l'ordre du fichier. */
+  ordre: OrdreDesCles;
   e: EtatSession;
   corps(): CorpsToit[];
   selectionValide(): CibleElement | null;
@@ -161,7 +169,7 @@ interface Noyau {
 }
 
 function creerNoyau(o: ObjetPlan, intention: IntentionToit): Noyau {
-  const n = { o, hist: creerHistorique(o), e: { intention, choix: { selection: null, batimentEntier: false, facade: null }, voitLeProjet: false, ferme: false, glisse: false } } as unknown as Noyau;
+  const n = { o, hist: creerHistorique(o), ordre: ordreDe(o), e: { intention, choix: { selection: null, batimentEntier: false, facade: null }, voitLeProjet: false, ferme: false, glisse: false } } as unknown as Noyau;
   n.corps = () => o.batiment?.corpsToit ?? [];
   /** La selection si l'element existe encore. */
   n.selectionValide = () => (n.e.choix.selection && lireElement(n.corps(), n.e.choix.selection) ? n.e.choix.selection : null);
@@ -215,7 +223,7 @@ function creerNoyau(o: ObjetPlan, intention: IntentionToit): Noyau {
     return n.raisonDeNature(p?.famille === 'toit' ? 'modifie' : 'cree') ?? raisonDePiece(o, id, n.choixCourant());
   };
   n.raisonDuGeste = (g: GesteNomme): string | null => {
-    const r = n.raisonDeNature(NATURE_DU_GESTE[g]);
+    const r = n.raisonDeNature(NATURE_DU_GESTE[g] ?? NATURE_DE[n.e.intention]);
     if (r) return r;
     const t = n.choisi(), l = n.corps();
     const surCorps = t?.type === 'corps' ? t.rang : null;
@@ -237,7 +245,7 @@ function creerNoyau(o: ObjetPlan, intention: IntentionToit): Noyau {
 }
 
 /** Ce que l'on lit, et ce que l'on choisit (rien n'est ecrit) : l'etat, les raisons, l'intention, la cible, la facade regardee. */
-function lecture(n: Noyau): Pick<ControleurToit, 'cle' | 'ferme' | 'etat' | 'raisonDePiece' | 'raisonDuGeste' | 'choisirIntention' | 'selectionner' | 'choisirBatimentEntier' | 'regarder' | 'position' | 'depart'> {
+function lecture(n: Noyau): Pick<ControleurToit, 'cle' | 'ferme' | 'etat' | 'raisonDePiece' | 'raisonDuGeste' | 'choisirIntention' | 'selectionner' | 'choisirBatimentEntier' | 'regarder' | 'position' | 'depart' | 'ordre'> {
   return {
     cle: n.o.key,
     get ferme() { return n.e.ferme; },
@@ -271,7 +279,9 @@ function lecture(n: Noyau): Pick<ControleurToit, 'cle' | 'ferme' | 'etat' | 'rai
 
     position: () => n.hist.i,
 
-    depart: () => structuredClone(n.hist.pas[0] as ChampsToit)
+    depart: () => structuredClone(n.hist.pas[0] as ChampsToit),
+
+    ordre: () => n.ordre
   };
 }
 
@@ -289,7 +299,7 @@ function gestesDuToit(n: Noyau): Pick<ControleurToit, 'choisirForme' | 'decouper
       n.reprendre();
       const d = decoupe(n.o);
       if (!d) return refus('Ce toit est déjà découpé en corps.');
-      return n.transaction('modifie', (b) => poserForme(b, d.piece, n.portee()));
+      return n.transaction(NATURE_DE[n.e.intention], (b) => poserForme(b, d.piece, n.portee()));
     },
 
     reglerFaitage(sens) { n.reprendre(); const p = n.portee(); return n.transaction('modifie', (b) => faitageDUnPas(b, p, sens)); },
@@ -460,11 +470,12 @@ function pile(n: Noyau): Pick<ControleurToit, 'apercu' | 'finGlisser' | 'annuler
       const final = photographier(n.o), change = aChange(n.hist);
       n.e.ferme = true;
       // « Règles » rallumees (le toit n'est plus fige a la fin) : la lecture automatique le relit tout de suite.
-      return { change, final, depart: structuredClone(n.hist.pas[0] as ChampsToit), relire: change && !final.toitFige };
+      return { change, final, depart: structuredClone(n.hist.pas[0] as ChampsToit), ordre: n.ordre, relire: change && !final.toitFige };
     },
 
     quitterSansGarder() {
       restaurer(n.o, n.hist.pas[0] as ChampsToit);
+      reordonner(n.o, n.ordre);
       n.e.voitLeProjet = false;
       n.e.ferme = true;
     }

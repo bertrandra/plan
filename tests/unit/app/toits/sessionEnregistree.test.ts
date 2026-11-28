@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { objetsHorsSession, validerLaSession, type SessionToit } from '../../../../src/app/toits/modeToit.js';
-import { creerHistorique, ecrireLeGeste, empiler, restaurer } from '../../../../src/facade/modeToit/sessionToit.js';
+import { objetsHorsSession, validerLaSession } from '../../../../src/app/toits/modeToit.js';
+import { creerControleurToit, type ControleurToit } from '../../../../src/facade/modeToit/controleurToit.js';
 import { serializeObjects } from '../../../../src/io/serialisation.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
@@ -14,12 +14,14 @@ const maison = (): ObjetPlan => ({
   batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, corpsToit: [structuredClone(corps)], toitLidarLu: 7 },
 }) as unknown as ObjetPlan;
 const voisin = (): ObjetPlan => ({ key: 'v', name: 'Abri', type: 'polygon', fonction: 'batiment', pts: corps.pts, elevation: 2 }) as unknown as ObjetPlan;
-const session = (o: ObjetPlan): SessionToit => ({ cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, indice: false, vueAvant: null, isole: false, validee: false });
+const session = (o: ObjetPlan): { cle: string; ctl: ControleurToit } => ({ cle: o.key, ctl: creerControleurToit(o) });
 
 /** Un geste du mode : un panneau solaire, et l'egout du corps principal descendu (l'elevation suit). */
-function geste(o: ObjetPlan, s: SessionToit): void {
-  ecrireLeGeste(o, [{ ...structuredClone(corps), elementsToit: [{ type: 'solaire', pan: 0, centreM: 5, basM: 1 }] } as unknown as CorpsToit], 4.5);
-  empiler(s.hist, o);
+function geste(o: ObjetPlan, s: { ctl: ControleurToit }): void {
+  // Comme la poignee « Hauteur à l'égout » : un glisser, puis sa fin.
+  s.ctl.apercu([{ ...structuredClone(corps), elementsToit: [{ type: 'solaire', pan: 0, centreM: 5, basM: 1 }] } as unknown as CorpsToit], 4.5);
+  s.ctl.finGlisser();
+  void o;
 }
 
 describe('ce qui s enregistre pendant une session du Mode Toit', () => {
@@ -41,7 +43,7 @@ describe('ce qui s enregistre pendant une session du Mode Toit', () => {
     const o = maison(), s = session(o);
     geste(o, s);
     const enregistre = serializeObjects(objetsHorsSession([o], s));
-    restaurer(o, s.hist.pas[0] ?? {});
+    s.ctl.quitterSansGarder();
     expect(serializeObjects([o])).toEqual(enregistre);
   });
 

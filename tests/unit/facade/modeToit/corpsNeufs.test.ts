@@ -3,7 +3,8 @@ import { corpsNeuf, deplacerCorps, orienterFaitage, rangPrincipal, rangsDeCorps,
 import { pousserLeMur } from '../../../../src/facade/modeToit/pousserMur.js';
 import { glisser } from '../../../../src/facade/modeToit/poignees.js';
 import { corpsDeSaillie } from '../../../../src/facade/modeToit/saillies.js';
-import { appliquerPiece, raisonIndisponible } from '../../../../src/three/gestesToits.js';
+import { poser } from './poser.js';
+import { raisonDePiece } from '../../../../src/facade/modeToit/gestes.js';
 import { listerElements } from '../../../../src/facade/modeToit/elements.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
@@ -50,20 +51,22 @@ describe('poser un corps', () => {
     expect(Math.abs(b2.pts[0]!.x - b.pts[0]!.x) + Math.abs(b2.pts[0]!.y - b.pts[0]!.y)).toBeGreaterThan(1);
   });
 
-  it('les gestes de la palette posent les corps, et un contour en L demande d abord la forme', () => {
+  it('les pieces de l atelier posent les corps, et un toit encore d un seul tenant demande d abord d etre decoupe', () => {
     const o = maison();
-    for (const id of ['corps:aile', 'corps:retour', 'corps:biaise']) { expect(raisonIndisponible(o, id)).toBeNull(); expect(appliquerPiece(o, id)).toBe(true); }
+    const choix = { selection: null, batimentEntier: false, facade: null };
+    expect(raisonDePiece(o, 'corps:aile', choix)).toMatch(/découpé en corps/);
+    for (const id of ['corps:aile', 'corps:retour', 'corps:biaise']) { expect(poser(o, id)).toBe(true); expect(raisonDePiece(o, id, choix)).toBeNull(); }
     expect(o.batiment?.corpsToit).toHaveLength(4);
     expect(o.batiment?.toitFige).toBe(true);
     const enL = { ...maison(), pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 3 }, { x: 4, y: 3 }, { x: 4, y: 8 }, { x: 0, y: 8 }] } as unknown as ObjetPlan;
-    expect(raisonIndisponible(enL, 'corps:aile')).toMatch(/forme du toit/);
+    expect(raisonDePiece(enL, 'corps:aile', choix)).toMatch(/découpé en corps/);
   });
 });
 
 describe('les corps dans le plan', () => {
   it('liste les corps quand il y en a plusieurs, le principal d abord', () => {
     const o = maison();
-    appliquerPiece(o, 'corps:aile');
+    poser(o, 'corps:aile');
     const l = listerElements(o.batiment!.corpsToit!).filter((e) => e.cible.type === 'corps');
     expect(l.map((e) => e.libelle)).toEqual(['Corps principal', 'Corps 2']);
     expect(rangPrincipal(o.batiment!.corpsToit!)).toBe(0);

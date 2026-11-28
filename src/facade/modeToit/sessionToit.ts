@@ -41,6 +41,21 @@ export function restaurer(o: ObjetPlan, c: ChampsToit): void {
   else o.elevation = c.elevation;
 }
 
+/** L'ordre des cles de l'objet et de son sous-objet `batiment` : rendu avec le depart, il rend un fichier identique octet pour octet. */
+export interface OrdreDesCles { objet: string[]; batiment: string[] | null }
+export const ordreDe = (o: ObjetPlan): OrdreDesCles => ({ objet: Object.keys(o), batiment: o.batiment ? Object.keys(o.batiment) : null });
+
+/** Remet les cles de l'objet et de son batiment dans l'ordre `ordre` (les cles nouvelles a la fin) : les valeurs ne changent pas. */
+export function reordonner(o: ObjetPlan, ordre: OrdreDesCles): void {
+  const trier = (x: Record<string, unknown>, cles: string[]) => {
+    const vu = { ...x };
+    for (const k of Object.keys(x)) delete x[k];
+    for (const k of [...cles.filter((c) => c in vu), ...Object.keys(vu).filter((c) => !cles.includes(c))]) x[k] = vu[k];
+  };
+  if (o.batiment && ordre.batiment) trier(o.batiment as unknown as Record<string, unknown>, ordre.batiment);
+  trier(o as unknown as Record<string, unknown>, ordre.objet);
+}
+
 export const egaux = (a: ChampsToit, b: ChampsToit): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 /** La pile de la session : `pas[0]` est le depart, `i` l'instantane courant. */

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { aimanter, cadreDe, cibleDesPoignees, cotesDe, EGOUT_MIN_M, glisser, murVersLOeil, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
-import { appliquerPiece } from '../../../../src/three/gestesToits.js';
+import { poser } from './poser.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
 import { silhouetteVersLOeil } from '../../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
@@ -8,7 +8,7 @@ import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
 const avecTout = (): CorpsToit[] => {
   const o = maison();
-  for (const id of ['facade:bow-window', 'sur:pignon', 'sur:cheminee', 'sur:jacobine', 'sur:fenetre-toit', 'sur:solaire']) appliquerPiece(o, id);
+  for (const id of ['facade:bow-window', 'sur:pignon', 'sur:cheminee', 'sur:jacobine', 'sur:fenetre-toit', 'sur:solaire']) poser(o, id);
   return o.batiment!.corpsToit!;
 };
 
@@ -80,7 +80,7 @@ describe('glisser', () => {
 
   it('une galerie a deux bords et un retrait de mur qui se tirent, un bow-window ses deux bords seulement', () => {
     const o = maison();
-    appliquerPiece(o, 'facade:galerie');
+    poser(o, 'facade:galerie');
     const corps = o.batiment!.corpsToit!, rang = corps.findIndex((c) => c.saillie?.genre === 'galerie'), cible = { type: 'saillie', rang, i: 0 } as const;
     expect(poigneesDe(corps, cible).map((p) => p.id)).toEqual(['pos', 'larg', 'prof', 'haut', 'gauche', 'retrait']);
     const g0 = corps[rang]!.saillie!, droite = g0.centreM + g0.largeurM / 2;
@@ -214,7 +214,7 @@ describe('glisser', () => {
 
   it('une galerie plus haute que l egout de la maison qui descend reste dessous', () => {
     const o = maison();
-    appliquerPiece(o, 'facade:galerie');
+    poser(o, 'facade:galerie');
     const corps = o.batiment!.corpsToit!;
     const rang = corps.findIndex((k) => k.saillie?.genre === 'galerie');
     const haute = glisser(corps, { type: 'saillie', rang, i: 0 }, 'haut', { vert: 0.5 }).corps;
