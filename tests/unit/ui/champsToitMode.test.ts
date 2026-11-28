@@ -23,10 +23,13 @@ const cles = (c: ContexteChamps) => champsVisibles(sectionToit(), c).map((x: Cha
 const champ = <T extends Champ>(_c: ContexteChamps, cle: string): T => { const ch = sectionToit().champs.find((x) => x.cle === cle); if (!ch) throw new Error(cle); return ch as T; };
 
 describe('Toit en 3D', () => {
-  it('sans mesure ni corps, le choix ne se montre pas et le toit unique se regle', () => {
+  it('sans mesure ni corps, le choix ne se montre pas ; le toit se resume et s ouvre dans l atelier du toit, jamais ici', () => {
     const c = contexte({});
     expect(cles(c)).not.toContain('toitMode');
-    expect(cles(c)).toEqual(expect.arrayContaining(['toitForme', 'toitHauteur', 'toitFaitage']));
+    expect(cles(c)).toEqual(expect.arrayContaining(['toitResume', 'toitModifier']));
+    for (const cle of ['toitForme', 'toitHauteur', 'toitFaitage', 'appentisOuvert']) expect(cles(c)).not.toContain(cle);
+    expect(champ<ChampLecture>(c, 'toitResume').valeur(c)).toBe('Toit à deux pans · faîtage à 9,0 m');
+    expect((champ(c, 'toitModifier') as Champ & { agit: unknown }).agit).toEqual({ commande: 'toit.modifier' });
   });
 
   it('avec une mesure LiDAR sans corps : un toit par corps par defaut, « tel que mesure » propose, la mesure decrite', () => {
@@ -39,7 +42,6 @@ describe('Toit en 3D', () => {
     expect(mode.options(c).map((o) => o.valeur)).toEqual(['mesure', 'volumes', 'simple']);
     expect(cles(c)).toContain('toitMesure');
     expect(champ<ChampLecture>(c, 'toitMesure').valeur(c)).toBe('égout 4,2 m · faîte 7,8 m · 27 × 19 cellules à 0,50 m · LiDAR HD de l’IGN');
-    expect(cles(c)).not.toContain('toitForme');
     expect(cles(c)).not.toContain('toitCorps');
     // Un toit par corps : la liste des corps ; un seul toit : ses reglages reviennent.
     mode.ecrire(c, 'volumes');
@@ -48,7 +50,6 @@ describe('Toit en 3D', () => {
     expect(champ<ChampLecture>(c, 'toitCorps').valeur(c)).toContain('Corps 8,0 × 8,0 m : deux pans · égout 6,0 m');
     expect(cles(c)).not.toContain('toitMesure');
     mode.ecrire(c, 'simple');
-    expect(cles(c)).toEqual(expect.arrayContaining(['toitForme', 'toitHauteur']));
     expect(cles(c)).not.toContain('toitCorps');
   });
 
@@ -148,44 +149,5 @@ describe('Materiau de la couverture', () => {
   it('ne se montre pas sur un toit plat simple', () => {
     const c = contexte({ toit: { forme: 'plat', hauteur: 0, angleFaitage: 0 } });
     expect(cles(c)).not.toContain('toitMateriau');
-  });
-});
-
-describe('Direction du faitage', () => {
-  it('se saisit comme la forme et la hauteur : le toit passe en source saisie', () => {
-    const c = contexte({});
-    const ch = champ<Champ & { ecrire: (c: ContexteChamps, v: number) => void }>(c, 'toitFaitage');
-    expect(c.obj.batiment?.toit?.source).toBe('bdtopo');
-    ch.ecrire(c, 200);
-    expect(c.obj.batiment?.toit).toMatchObject({ angleFaitage: 20, source: 'saisie' });
-  });
-});
-
-describe('Appentis ouvert ou ferme', () => {
-  const MAISON: CorpsToit = { pts: [{ x: 0, y: 3 }, { x: 12, y: 3 }, { x: 12, y: 8 }, { x: 0, y: 8 }], posFaitage: 2.5, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 };
-  const GALERIE: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 3 }, { x: 0, y: 3 }], posFaitage: 3, faitage: 3.4, egouts: [2.4, 3.4], pignons: [], ecart: 0.1 };
-
-  it('se montre quand un corps est un appentis, et s ecrit sur tous les appentis sans toucher aux autres corps', () => {
-    const c = contexte({ corpsToit: [MAISON, GALERIE], modeToit: 'corps' });
-    expect(cles(c)).toContain('appentisOuvert');
-    const ch = champ<ChampChoix>(c, 'appentisOuvert');
-    expect(ch.lire(c)).toBe('');
-    expect(c.obj.batiment?.toitFige).toBeFalsy();
-    ch.ecrire(c, 'ouvert');
-    expect(c.obj.batiment?.corpsToit?.map((k) => k.ouvert)).toEqual([undefined, true]);
-    // Fige, comme un element de facade : la relecture LiDAR suivante ne refait pas les corps sans lui.
-    expect(c.obj.batiment?.toitFige).toBe(true);
-    expect(ch.lire(c)).toBe('ouvert');
-    ch.ecrire(c, 'ferme');
-    expect(c.obj.batiment?.corpsToit?.map((k) => k.ouvert)).toEqual([undefined, false]);
-    expect(ch.lire(c)).toBe('ferme');
-    // « Sans indication » retire la cle : le dessin redevient celui du toit seul.
-    ch.ecrire(c, '');
-    expect(c.obj.batiment?.corpsToit?.[1]).not.toHaveProperty('ouvert');
-  });
-
-  it('ne se montre pas sans appentis, ni hors du mode corps et pignons', () => {
-    expect(cles(contexte({ corpsToit: [MAISON], modeToit: 'corps' }))).not.toContain('appentisOuvert');
-    expect(cles(contexte({ corpsToit: [MAISON, GALERIE], modeToit: 'simple' }))).not.toContain('appentisOuvert');
   });
 });

@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { creerRegistre } from '../../../../src/app/commandes.js';
 import { creerMagasin } from '../../../../src/app/magasin.js';
-import { brancherToitCatalogue, chargerGestesToits } from '../../../../src/app/ecouteurs/toitCatalogue.js';
+import { brancherToitCatalogue } from '../../../../src/app/ecouteurs/toitCatalogue.js';
 import { etatToit, modeToitCourant, sessionToit } from '../../../../src/app/toits/modeToit.js';
 import { dialogues } from '../../../../src/shell/dialogues.js';
 import type { Atelier } from '../../../../src/app/atelier.js';
@@ -33,7 +33,6 @@ async function monter() {
   monte ??= brancher();
   monte.etat.objects[0] = maison();
   monte.etat.selectedKey = 'm';
-  await chargerGestesToits();
   expect(monte.cmd.executer('toit.modifier')).toBe(true);
   return monte;
 }
@@ -66,8 +65,9 @@ describe('le corps choisi au mode Toit', () => {
     const { cmd } = await monter();
     choisirCorps(cmd, 0);
     cmd.executer('toit.scinder');
-    expect(sessionToit()?.selection).toEqual({ type: 'corps', rang: 1, i: 0 });
-    cmd.executer('toit.facade', bouton({ rang: '0', mur: '0' }));
+    expect(sessionToit()?.ctl.etat().selection).toEqual({ type: 'corps', rang: 1, i: 0 });
+    // Le plan des facades de la Vue 3D (sans scene ici, la session n'y est pas attachee : la methode du mode, que la commande appelle).
+    modeToitCourant()?.choisirFacade(0, 0);
     expect(etatToit().selection).toEqual({ type: 'corps', rang: 0, i: 0 });
     expect(etatToit().designation).toMatch(/^Corps principal · /);
     expect(etatToit().rangCorps).toBe(0);
@@ -80,9 +80,9 @@ describe('le corps choisi au mode Toit', () => {
     // Couper a choisi la nouvelle partie (rang 1) ; on revient au batiment entier, puis on annule la coupe.
     cmd.executer('toit.selection', bouton({}));
     cmd.executer('toit.annuler');
-    expect(sessionToit()?.selection).toEqual({ type: 'corps', rang: 0, i: 0 });
+    expect(sessionToit()?.ctl.etat().selection).toEqual({ type: 'corps', rang: 0, i: 0 });
     cmd.executer('toit.retablir');
-    expect(sessionToit()?.selection).toBeNull();
+    expect(sessionToit()?.ctl.etat().selection).toBeNull();
   });
 
   it('un reglage annule : le corps sur lequel il avait ete fait est de nouveau choisi', async () => {

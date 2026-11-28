@@ -22,8 +22,8 @@ import { Horloge } from './Horloge.js';
 import { EntreeMaison } from './EntreeMaison.js';
 import { BoutonPhotographierFacade } from './BoutonPhotographierFacade.js';
 
-// Le panneau du mode Toit et le catalogue des toits (three/gestesToits.ts) se chargent a l'ouverture de la Vue 3D (AD-10).
-const ModeToit = lazy(() => import('./ModeToit.js').then((m) => ({ default: m.ModeToit })));
+// Ce que l'atelier du toit pose sur la scene (zones/vue3d/ToitEn3d.tsx) se charge a l'ouverture de la Vue 3D (AD-10).
+const ToitEn3d = lazy(() => import('./ToitEn3d.js').then((m) => ({ default: m.ToitEn3d })));
 // Le panneau du photomontage, sa lecture de l'EXIF et son calage se chargent quand on y entre (app/photomontage/etat.ts).
 const Photomontage = lazy(() => import('./Photomontage.js').then((m) => ({ default: m.Photomontage })));
 import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoint, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
@@ -136,7 +136,7 @@ const COMMANDES_VUE3D = ['3d.enregistrerPointDeVue', 'audit.suivre', '3d.heureDo
  * La cle de la Vue 3D (zones/composants/abonnement.ts). Montree, elle suit ce qu'elle lit du plan : les attributs des objets (la
  * selection, l'isolement, les reglages de la terrasse), l'audit, l'etat de ses commandes et le lieu ; pas la forme des objets ni
  * chaque rendu du plan (la scene 3D, elle, se refait par ses propres chemins). En session du toit, elle les suit tous, comme le
- * panneau du mode qu'elle porte (zones/vue3d/ModeToit.tsx) : l'indice, les poignees et le plan du toit se posent d'apres la
+ * atelier du toit qu'elle porte (zones/AtelierToit.tsx, Z10, et zones/vue3d/ToitEn3d.tsx) : l'indice, les poignees et le plan du toit se posent d'apres la
  * session et la camera, qu'aucune cle ne decrit. Cachee sur le plan, sa cle est gelee.
  */
 export function cleVue3d(s: EtatMagasin, commandes: Pick<RegistreCommandes, 'etat'>, vues: Pick<ServiceVues3d, 'libelleLieu'>,
@@ -380,7 +380,7 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
         <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { poserHote3d('vue3d', el); }}
           style={pleinePage ? { height: 'calc(100dvh - 60px)' } : undefined}>
           {affichage3d.comparaison && <EtiquettesDeuxVues vues={affichage3d.comparaison} />}
-          {affichage3d.vue3d === 'pret' && <Suspense fallback={null}><ModeToit magasin={magasin} commandes={commandes} /></Suspense>}<Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />
+          {affichage3d.vue3d === 'pret' && <Suspense fallback={null}><ToitEn3d magasin={magasin} commandes={commandes} /></Suspense>}<Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />
           {/* Monte meme ferme : la liste de fumee et les ecouteurs retrouvent les curseurs par leur identifiant. */}
           <div id="reglageHeure3d" className="reglageHeure3d" role="group" aria-label="Heure et date du soleil" hidden={!heure}>
             <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} heureLegale={vues.heureLegale()} info={affichage3d.soleilInfo} />

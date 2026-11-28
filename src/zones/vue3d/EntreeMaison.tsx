@@ -1,6 +1,6 @@
 // L'entree du mode Toit, posee sur la scene (MD/spec-mode-toit-3d.md, « Modifier ou ajouter ») : deux gestes dits en mots, jamais une
 // icone seule. « Modifier » ouvre la session sur ce qui existe ; « Ajouter » l'ouvre sur le catalogue des pieces a poser. Les deux
-// portent chacun sa couleur et son mot, les memes que dans le panneau du mode (app/toits/intention.ts).
+// portent chacun sa couleur et son mot, les memes que dans l'atelier du toit (facade/modeToit/controleurToit.ts::MOTS_INTENTION).
 //
 // Elle remplace le bouton « Modifier la toiture » de la colonne des commandes de camera (retour du proprietaire, 24 novembre 2026 :
 // « on ne sait pas ce qui modifie et ce qui cree ») : un geste n'existe qu'a un endroit (design-ui, §1).
@@ -8,7 +8,7 @@
 import { useEffect, useRef } from 'react';
 import { Icone } from '../icones.js';
 import { showToast } from '../../shell/dialogs.js';
-import { resumeDuToit } from '../../facade/modeToit/simple.js';
+import { resumeDuToit } from '../../facade/modeToit/gestes.js';
 import { batimentVise, batimentsRetouchables, estRetouchable, prendreFocusDeSortie } from '../../app/toits/modeToit.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { Magasin } from '../../app/magasin.js';
@@ -29,7 +29,9 @@ const NOMS_MAX = 3;
 export function EntreeMaison({ commandes, magasin }: { commandes: RegistreCommandes; magasin: Magasin }) {
   const e = commandes.etat('toit.modifier'), ajout = commandes.etat('toit.ajouter'), ce = commandes.etat('toit.modifierCe');
   const ref = useRef<HTMLButtonElement>(null);
-  useEffect(() => { if (ref.current && prendreFocusDeSortie()) ref.current.focus(); });
+  // Le focus se rend apres le rendu de l'atelier du toit (Z10, une autre racine) : tant qu'il n'a pas retire `data-mode-toit`, la feuille de
+  // style cache encore cette entree, et un focus pose maintenant serait perdu.
+  useEffect(() => { if (ref.current && prendreFocusDeSortie()) { const b = ref.current; setTimeout(() => { b.focus(); }, 0); } });
   const etat = magasin.store.getState().etat;
   const vise = batimentVise(etat.objects, etat.selectedKey);
   if (e.utilisable && estRetouchable(vise)) {

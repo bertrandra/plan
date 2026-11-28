@@ -532,7 +532,7 @@ src/facade/regles/           layer 3 — the rules themselves, pure and synchron
                                                               (validation.ts::EFFETS_ARBITRES, Claude enters it as a
                                                               constat); on the others a note taken on site wins (D21,
                                                               regles/decisions.ts::avecReserveSurPlace).
-src/facade/modeToit/         layer 3 — the Mode Toit editor's pure code (session, handles, projections, new bodies), not rules
+src/facade/modeToit/         layer 3 — the roof editor's pure code: its controller (controleurToit.ts) and decisions (gestes.ts), session, handles, new bodies; not rules (§5.2.7)
   facades/{detection,structure,profils,surcharges,texture,conformite}.ts   facade settings and profiles
   facades/ia.ts              the rules that decide on the façade run's observations (lot F2): the ×3 vote, the wall pose candidate,
                              the half-timber zone that excludes poses lying inside it, the gable tips (diagnosis or alert, never a
@@ -785,6 +785,41 @@ reading, catalogue forms), `facade/calage/` (coarse and fine registration, the s
 itself (`analyse`, `analyseMur`, `fusion`, `gabaritMur`, `profil`, `ouvertures`, `geometrie`, `contexteFacade`, `corpusReel`). Linear
 algebra lives once in `geometry/lineaire.ts`, the median in `util/stats.ts`; `model/types.ts` keeps the plan's objects and
 re-exports `points.ts`, `typesReleve.ts`, `typesToit.ts` and `typesCalcul.ts`.
+
+### 5.2.7 The roof editing controller — one decision, two adapters (28 November 2026)
+
+*The owner asked for "its own controller, perfect, no legacy". An architecture review had shown that every discrepancy came from a
+rule rewritten per path: the simple roof was set one way by the 2D inspector and another by the 3D panel; the "which body does a
+gesture act on" question was answered five times; `toitFige` was set by hand in about twenty-four places; the gesture logic lived in
+`three/` because the catalogue's example data did.*
+
+**One controller, view-independent, in the business layer.** `facade/modeToit/controleurToit.ts` (layer 3: no React, no three, no
+DOM, no module state) is the only door through which a roof is edited by hand. An instance per session holds the snapshot stack
+(`sessionToit.ts`, whose `CHAMPS_DU_TOIT` is the single list of fields a gesture may touch), the intention (*modifier* / *ajouter*), the
+target (an element, "Bâtiment entier", the façade being looked at) and the "show the project's roof" flag. Its API is intents —
+`choisirForme`, `decouper`, `reglerFaitage`, `tournerSens`, `regler`, `poserPiece`, `poserDecroche`, `redimensionner`, `dupliquer`,
+`retirer`, `tournerCorps`, `scinder`, `retourDAngle`, `fusionner`, `placerSurLeMur`, `basculerRegles`, the handle drag (`apercu`,
+`finGlisser`, `annulerGlisser`), `defaire`, `refaire`, `revenirAuDepart`, `voirLeProjet`, `valider`, `quitterSansGarder` — plus a
+readable state (`etat()`: scope in words, what a shape would remove, the shape in place, ridge and direction, the target's choice
+groups) and reasons (`raisonDePiece`, `raisonDuGeste`) that buttons grey with. Every gesture is one transaction: it resumes the
+session state, computes in a draft (`gestes.ts::brouillonDe`), compares, writes, freezes (`toitFige`) and pushes once; "Règles" is the
+only write that does not freeze. The *modifier*/*ajouter* promise ("nothing is created" / "nothing existing is touched") is enforced
+here, not by which buttons are shown.
+
+**Where each decision lives.** `gestes.ts` (layer 3, pure): the scope of a gesture (`porteeDuGeste`, the only one), shapes on a body,
+on the whole roof or on a single-piece roof (cut into bodies, one per rectangle of the outline), ridge steps, direction, what a piece
+adds, why it cannot, what disappears, the summary line. `pieces.ts`: the catalogue's pieces as data. `exemplesToits.ts`: the
+catalogue's example bodies as data (three/catalogueToits.ts keeps only the isometric drawing). `saillies.ts::BORNES_SAILLIE`: the only
+bounds of a façade element. `facade/regles/toits/elementsDesMurs.ts`: the only defaults of a posed chimney or dormer, shared with the
+audit (which still writes through the engine, `corpsSousContrainte`).
+
+**Two thin adapters.** The roof workshop, zone **Z10** (`zones/AtelierToit.tsx`, `MD/spec-ihm-zones.md` §4.9), is the only place a roof
+is edited, on the plan as in the 3D view; it reads the controller and emits `toit.*` commands (`app/ecouteurs/toitCatalogue.ts`, thin
+bindings). The 3D view (`app/toits/modeToit.ts` and `zones/vue3d/ToitEn3d.tsx`) adds what only happens on the scene — the façade
+camera, handles, the façade navigator, touching a wall — and attaches to a session opened on the plan when the 3D view opens. The 2D
+inspector (Z5) only summarises the roof and opens Z10. Removed: `three/gestesToits.ts`, `facade/modeToit/simple.ts`,
+`app/toits/intention.ts`, `zones/vue3d/ModeToit.tsx`, the inspector's roof fields and the `toit.modifierEn3d` command; old project
+files are data and read as before.
 
 ### 5.3 Data view
 

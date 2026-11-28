@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appliquerPiece } from '../../../../src/three/gestesToits.js';
+import { poser } from './poser.js';
 import { corpsDeSaillie, empriseDeSaillie, facettesBowWindow, vitresBowWindow, replacerSaillie, retirerSaillie, murDuCorps, murLePlusProche } from '../../../../src/facade/modeToit/saillies.js';
 import { saillieValide } from '../../../../src/model/corpsToitEtendu.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
@@ -138,7 +138,7 @@ describe('le fichier', () => {
   });
   it('un bow pose par la palette fait l aller-retour', () => {
     const o = { key: 'b', type: 'polygon', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan;
-    appliquerPiece(o, 'facade:bow-arc');
+    poser(o, 'facade:bow-arc');
     const copie = JSON.parse(JSON.stringify(o.batiment?.corpsToit)) as CorpsToit[];
     expect(copie[1]!.saillie).toEqual(o.batiment!.corpsToit![1]!.saillie);
   });

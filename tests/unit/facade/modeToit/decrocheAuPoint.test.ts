@@ -3,7 +3,7 @@ import { reculAimante, traveeDecrochee, DECROCHE_MIN_M } from '../../../../src/f
 import { gaucheEnDebut } from '../../../../src/facade/modeToit/decroche.js';
 import { appliquerChoix, groupesDe, valeurDuGroupe } from '../../../../src/facade/modeToit/elements.js';
 import { axeUtilisable, cotesDe, glisser, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
-import { raisonIndisponible } from '../../../../src/three/gestesToits.js';
+import { raisonDePiece } from '../../../../src/facade/modeToit/gestes.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 // Le decroche au point (demande du proprietaire, novembre 2026 : « je selectionne un point sur l'egout et je recule a droite ou a gauche
@@ -79,8 +79,8 @@ describe('le decroche au point', () => {
   it('se pose sur la facade regardee d un corps, comme la travee', () => {
     const c = maison();
     const o = { key: 'b', type: 'polygon', fonction: 'batiment', pts: c.pts, batiment: { corpsToit: [c] } } as unknown as ObjetPlan;
-    expect(raisonIndisponible(o, 'facade:decroche', null)).toMatch(/Regardez d’abord la façade où poser le décroché/);
-    expect(raisonIndisponible(o, 'facade:decroche', { rang: 0, mur: 0 } as never)).toBeNull();
+    expect(raisonDePiece(o, 'facade:decroche', { selection: null, batimentEntier: false, facade: null })).toMatch(/Regardez d’abord la façade où poser le décroché/);
+    expect(raisonDePiece(o, 'facade:decroche', { selection: null, batimentEntier: false, facade: { rang: 0, mur: 0 } })).toBeNull();
   });
 
   it('un axe trop court a l ecran s allonge, sans changer de direction', () => {

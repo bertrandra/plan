@@ -83,6 +83,7 @@ Trois défauts de structure, que le découpage doit corriger :
 └──────────────────────────────────────────────────────────────────────────────┘
    Z8  Dialogues (import cadastre, actualisation IGN, textures, confirmations)
    Z9  Notifications (toasts, bandeau d'erreur, indicateur d'enregistrement)
+   Z10 Atelier du toit (édition d'un toit, sur le plan et dans la Vue 3D ; 28 novembre 2026, §4.9)
 ```
 
 Chaque zone a **une** responsabilité et **un** contrat avec le Core (§5). Une commande n'apparaît
@@ -99,6 +100,7 @@ que dans une zone, plus éventuellement dans un menu de Z1 pour le clavier et la
 | **Z7 Barre d'état** | Où l'on en est : serveur, enregistrement, échelle, pointeur, sélection | Jamais cliquable, sauf pour ouvrir Z9 |
 | **Z8 Dialogues** | Les parcours en plusieurs étapes et les confirmations | Modaux, fermables par Échap |
 | **Z9 Notifications** | Ce qui vient d'arriver | Non bloquant, empilable |
+| **Z10 Atelier du toit** | L'édition du toit d'un bâtiment, sur le plan comme dans la Vue 3D | Le seul endroit où l'on édite un toit ; aucune règle de toit (§4.9) |
 
 ---
 
@@ -295,6 +297,33 @@ reste au-dessus, à l'opposé des actions (en haut au téléphone). **Un avertis
 notification** : une ligne en clair, au vouvoiement, sans nom de fichier, en tête du menu Admin, et une pastille sur ce menu
 jusqu'à sa première ouverture de la session (`ligneAdminCapacitesForcees`, `app/acces.ts`) ; le détail technique va à la console.
 
+### 4.9 Z10 — Atelier du toit  *(28 novembre 2026, décision du propriétaire)*
+
+« Crée son propre contrôleur, je veux que ce soit parfait, pas de legacy. » L'édition d'un toit a sa zone, et une seule.
+
+- **Fichier** : `zones/AtelierToit.tsx`, monté par `zones/monter.tsx` dans `#zoneAtelierToit` (index.html), chargé à la première session
+  (`zones/AtelierToitALaDemande.tsx`, AD-10). Son panneau `.panneauToit` (`data-zone="Z10"`) se pose par un portail sur le canevas
+  montré : `#stage` sur le plan, la scène de la Vue 3D (`hotes3d.vue3d`) dans la 3D, pour que le plan et la scène se cadrent dans ce
+  qu'il laisse libre.
+- **Ce qu'elle porte** : le commutateur Modifier / Ajouter et sa promesse ; la portée des gestes en mots (« Sur : Corps principal ») et,
+  quand il y a le choix, les pastilles (« Bâtiment entier », les corps, les éléments) ; le parcours simple (forme, hauteur du faîtage,
+  sens ; six pièces à poser, grisées avec leur raison) ; « Défaire » dès le premier geste ; « Plus de réglages » (refaire, revenir au
+  départ, voir le toit du projet, les autres formes et pièces, l'inspecteur de la cible, ses gestes, les Règles ; en 3D seulement, les
+  vues, isoler, recadrer) ; au pied, « Quitter sans garder » et « Valider » (et « Poser … » quand on ajoute). Toutes ses commandes sont
+  `toit.*`, exposées `atelierToit` dans `app/exposition.ts`.
+- **Ce qu'elle ne porte jamais** : une règle de toit. Elle lit l'état du contrôleur du toit (`facade/modeToit/controleurToit.ts`, par
+  `app/toits/modeToit.ts::sessionToit`) et émet ses intentions par le registre ; ce qui est permis, borné, visé et ce qui va disparaître
+  est dit par le contrôleur. Aucune autre zone n'édite un toit : Z5 le résume (forme, faîtage, source) et l'ouvre (« Modifier le toit »,
+  `toit.modifier`) ; Z4 (la Vue 3D) garde ce qui se fait sur la scène — poignées, plan des façades, toucher d'un mur, indicateur
+  d'insertion (`zones/vue3d/ToitEn3d.tsx`), qui passent eux aussi par le contrôleur.
+- **Par classe d'écran** : au téléphone, une feuille basse (58 % au plus, repliable par sa languette), sur le plan comme en 3D ; à la
+  tablette, une carte au bas du canevas ; au bureau, une colonne à droite du canevas (contre son bord sur le plan, à gauche de la
+  colonne de la caméra en 3D).
+- **Entrée** : « Modifier le toit » de l'inspecteur d'un bâtiment (sur le plan), « Modifier le toit » / « Ajouter au toit » au bas de la
+  scène, ou un bâtiment nommé (`toit.modifierCe`) dans la Vue 3D. La zone s'ouvre sur la vue montrée ; passer du plan à la 3D (ou
+  l'inverse) garde la session et ses gestes. **Sortie** : « Valider » (une étape d'historique), « Quitter sans garder » (la question
+  d'abandon quand quelque chose a changé), Échap ; ouvrir la visionneuse ou choisir un autre objet pose d'abord la question.
+
 ---
 
 ## 5. Le contrat entre les zones et le Core
@@ -304,7 +333,7 @@ Le point clé de la reconstruction : **les zones ne se parlent pas entre elles**
 aux écouteurs.
 
 ```
-Zone (Z1…Z9)  ──lit──▶  État (EtatApp + états de vue)  ◀──écrit──  Commande
+Zone (Z1…Z10) ──lit──▶  État (EtatApp + états de vue)  ◀──écrit──  Commande
    │                                                                   ▲
    └──────────────────── émet ──────────────────────────────────────────┘
                                           │

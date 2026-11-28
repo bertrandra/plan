@@ -56,6 +56,8 @@ const SOURCES: Record<Exclude<Emplacement, 'sansObjet'>, string[]> = {
   // Les reglages de la Vue 3D rendent aussi les champs du voisinage (ui/champs/voisinage3d.ts).
   vue3d: [...fichiers('src/zones/vue3d').filter((f) => f.endsWith('.tsx')).filter((f) => !/Visionneuse/.test(f)), 'src/ui/champs/voisinage3d.ts'],
   visionneuse: ['src/zones/vue3d/Visionneuse.tsx'],
+  // Z10, l'atelier du toit : sur le plan comme dans la Vue 3D.
+  atelierToit: ['src/zones/AtelierToit.tsx'],
   clavier: ['src/app/clavier.ts'],
   premierPas: ['src/app/boot.ts'],
   // Les dialogues de la declaration prealable et du devis rendent les champs de ui/champs/declaration.ts et devis.ts, leur bouton compris.

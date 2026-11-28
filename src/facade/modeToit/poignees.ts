@@ -9,7 +9,7 @@
 
 import { hauteurDuToitEn, point, repere } from '../toits/toitCorps.js';
 import { facettesElementsToit, facettesLucarnes, type Sommet } from '../toits/toitFormes.js';
-import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
+import { bornerSaillie, bornesDeSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
 import { deplacerCorps, orienterFaitage, rangPrincipal } from './corpsNeufs.js';
 import { aimanterAuContour, pousserLeMur, type Arete } from './pousserMur.js';
 import { orientationDuMur } from './sens.js';
@@ -458,11 +458,13 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
     // le bord fixe bougerait).
     // La largeur tombe aux 2 cm : sa moitie reste au centimetre, et le milieu (arrondi au centimetre par bornerSaillie) ne decale pas le
     // bord fixe d'un demi-centimetre.
-    const wMax = (fixe: number) => Math.max(1.2, Math.min(6, fixe, f.L - 0.2));
+    // Les bornes uniques (saillies.ts::bornesDeSaillie) : la largeur reste dans le mur depuis le bord fixe.
+    const bs = bornesDeSaillie(h, s), wMin = bs.largeur.min;
+    const wMax = (fixe: number) => Math.max(wMin, Math.min(fixe, bs.largeur.max));
     const pair = (w: number) => Math.round(w * 50) / 50;
-    if (id === 'larg') { const droite = coller(s.centreM + s.largeurM / 2 + dl), gauche = s.centreM - s.largeurM / 2, w = pair(borne(droite - gauche, 1.2, wMax(f.L - gauche))); return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, largeurM: w, centreM: gauche + w / 2 })), guides }; }
+    if (id === 'larg') { const droite = coller(s.centreM + s.largeurM / 2 + dl), gauche = s.centreM - s.largeurM / 2, w = pair(borne(droite - gauche, wMin, wMax(f.L - gauche))); return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, largeurM: w, centreM: gauche + w / 2 })), guides }; }
     if (id === 'gauche') {
-      const droite = s.centreM + s.largeurM / 2, gauche = coller(s.centreM - s.largeurM / 2 + dl), w = pair(borne(droite - gauche, 1.2, wMax(droite)));
+      const droite = s.centreM + s.largeurM / 2, gauche = coller(s.centreM - s.largeurM / 2 + dl), w = pair(borne(droite - gauche, wMin, wMax(droite)));
       return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, largeurM: w, centreM: droite - w / 2 })), guides };
     }
     if (id === 'retrait') {
@@ -470,7 +472,7 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
       const r = borne(vingt((c.retraitM ?? 0) - dp), 0, Math.min(1, s.profondeurM / 2));
       return { corps: avec(depart, t.rang, { ...c, retraitM: r }), guides };
     }
-    if (id === 'prof') return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, profondeurM: borne(s.profondeurM + dp, 0.2, s.niveau === 'rdc' ? 1.5 : 6) })), guides };
+    if (id === 'prof') return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, profondeurM: borne(s.profondeurM + dp, bs.profondeur.min, bs.profondeur.max) })), guides };
     if (id === 'haut') return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, hauteurM: centi(borne(Math.min(...c.egouts) + dv, 1, 12)) })), guides };
     return rien;
   }

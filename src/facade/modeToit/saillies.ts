@@ -60,12 +60,36 @@ const RESTE_SOUS_RETRAIT_M = 1;
 /** Le recul du rez-de-chaussee que porte un bow-window, en metres ; 0 : la facade droite (le dessin d'avant). */
 export const retraitDuRdc = (s: SaillieFacade | undefined): number => (s?.genre === 'bow-window' && (s.rdcEnRetraitM ?? 0) > 0 ? (s.rdcEnRetraitM as number) : 0);
 
+/**
+ * Les bornes d'un element de facade, la definition unique (revue d'architecture du 28 novembre 2026, constat 4 : quatre chemins en avaient
+ * chacun une, et « Agrandir » ramenait une galerie de 8 m a 6 m). Le pas de « Agrandir » / « Réduire », la poignee qui tire un bord, la
+ * poignee de la saillie et la pose les lisent ici, et `bornerSaillie` les applique a toute ecriture.
+ */
+export const BORNES_SAILLIE = {
+  /** La largeur la plus petite, et ce qui reste au moins de mur de part et d'autre de l'element. */
+  largeurMinM: 0.6, margeMurM: 0.2,
+  /** La saillie la plus petite et la plus grande ; sous le premier etage, un bow-window ne saille pas plus de 1,5 m. */
+  profondeurMinM: 0.3, profondeurMaxM: 6, profondeurSousEtageMaxM: 1.5,
+  /** Le pas de « Agrandir » et « Réduire ». */
+  pasLargeurM: 0.3
+} as const;
+
+/** Les bornes de la largeur et de la saillie de l'element `s` sur le corps `h`. */
+export function bornesDeSaillie(h: CorpsToit, s: Pick<SaillieFacade, 'mur' | 'genre' | 'niveau'>): { largeur: { min: number; max: number }; profondeur: { min: number; max: number } } {
+  const { L } = murDuCorps(h, s.mur), B = BORNES_SAILLIE;
+  const sousEtage = s.genre === 'bow-window' && s.niveau === 'rdc';
+  return {
+    largeur: { min: B.largeurMinM, max: Math.max(B.largeurMinM, L - B.margeMurM) },
+    profondeur: { min: B.profondeurMinM, max: sousEtage ? B.profondeurSousEtageMaxM : B.profondeurMaxM }
+  };
+}
+
 /** Les reglages bornes : la saillie tient sur son mur, sans depasser ses bouts ; un recul du rez-de-chaussee laisse une piece derriere lui. */
 export function bornerSaillie(h: CorpsToit, s: SaillieFacade): SaillieFacade {
-  const { L } = murDuCorps(h, s.mur);
-  const largeurM = centimetre(Math.min(Math.max(s.largeurM, 0.6), Math.max(0.6, L - 0.2)));
+  const b = bornesDeSaillie(h, s), { L } = murDuCorps(h, s.mur);
+  const largeurM = centimetre(Math.min(Math.max(s.largeurM, b.largeur.min), b.largeur.max));
   const centreM = centimetre(Math.min(Math.max(s.centreM, largeurM / 2), Math.max(largeurM / 2, L - largeurM / 2)));
-  const borne: SaillieFacade = { ...s, largeurM, centreM, profondeurM: centimetre(Math.min(Math.max(s.profondeurM, 0.3), 6)) };
+  const borne: SaillieFacade = { ...s, largeurM, centreM, profondeurM: centimetre(Math.min(Math.max(s.profondeurM, b.profondeur.min), b.profondeur.max)) };
   const r = retraitDuRdc(s);
   if (r > 0) {
     // La profondeur du corps en travers du mur : celle de son mur voisin.

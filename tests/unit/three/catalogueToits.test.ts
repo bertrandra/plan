@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { EXEMPLES_TOITS, corpsDeLExemple, vueIsometrique } from '../../../src/three/catalogueToits.js';
+import { vueIsometrique } from '../../../src/three/catalogueToits.js';
+import { EXEMPLES_TOITS, corpsDeLExemple } from '../../../src/facade/modeToit/exemplesToits.js';
 import { formeDesCorps, FORMES_TOIT_CATALOGUE } from '../../../src/model/formeToit.js';
 import { TYPES_LUCARNE } from '../../../src/model/corpsToitEtendu.js';
 

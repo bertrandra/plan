@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { creerRegistre } from '../../../../src/app/commandes.js';
 import { creerMagasin } from '../../../../src/app/magasin.js';
-import { brancherToitCatalogue, chargerGestesToits } from '../../../../src/app/ecouteurs/toitCatalogue.js';
+import { brancherToitCatalogue } from '../../../../src/app/ecouteurs/toitCatalogue.js';
 import { brancherObjets } from '../../../../src/app/ecouteurs/objets.js';
 import { etatToit, modeToitCourant, sessionToit } from '../../../../src/app/toits/modeToit.js';
 import { dialogues } from '../../../../src/shell/dialogues.js';
@@ -11,9 +11,9 @@ import type { Atelier } from '../../../../src/app/atelier.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 import type { EtatApp } from '../../../../src/core/state.js';
 
-// Une session du mode Toit ne se perd plus sans qu'on le demande (audit de la navigation, 6 novembre 2026) : Annuler du projet annule
-// la session, quitter la Vue 3D ou choisir un autre objet pose d'abord la question, Echap a un seul effet, le retour du navigateur vaut
-// Echap.
+// Une session de l'atelier du toit ne se perd plus sans qu'on le demande (audit de la navigation, 6 novembre 2026) : Annuler du projet
+// annule la session, passer du plan a la 3D la garde, ouvrir la visionneuse ou choisir un autre objet pose d'abord la question, Echap a un
+// seul effet, le retour du navigateur vaut Echap.
 
 const corps = (): CorpsToit => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 8 }, { x: 0, y: 8 }], posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 });
 const maison = (): ObjetPlan => ({
@@ -29,7 +29,7 @@ function monter() {
   monte.etat.objects[0] = maison();
   monte.etat.selectedKey = 'm';
   monte.magasin.definirVue('vue3d');
-  monte.undo.mockClear(); monte.versLePlan.mockClear(); (monte.a.pushHistory as ReturnType<typeof vi.fn>).mockClear();
+  monte.undo.mockClear(); monte.versLePlan.mockClear(); monte.versLaVisionneuse.mockClear(); (monte.a.pushHistory as ReturnType<typeof vi.fn>).mockClear();
   return monte;
 }
 
@@ -45,6 +45,8 @@ function brancher() {
   brancherObjets(a, cmd);
   const versLePlan = vi.fn(() => { magasin.definirVue('plan'); });
   cmd.declarer({ id: 'vue.plan', libelle: 'Plan', groupe: 'vue', executer: versLePlan });
+  const versLaVisionneuse = vi.fn(() => { magasin.definirVue('visionneuse'); });
+  cmd.declarer({ id: 'vue.visionneuse', libelle: 'Visionneuse', groupe: 'vue', executer: versLaVisionneuse });
   brancherToitCatalogue(a, { rebatirBatiment: () => {}, rafraichir: () => { magasin.notifier(); }, magasin }, cmd);
   const faitage = () => etat.objects.find((o) => o.key === 'm')?.batiment?.corpsToit?.[0]?.faitage;
   /** Un geste de la session : la pente du corps choisi passe a 45 degres. */
@@ -56,7 +58,7 @@ function brancher() {
     Object.assign(r.dataset, { groupe: 'pente', valeur: '45' });
     cmd.executer('toit.regler', r);
   };
-  return { etat, magasin, a, cmd, undo, versLePlan, faitage, geste };
+  return { etat, magasin, a, cmd, undo, versLePlan, versLaVisionneuse, faitage, geste };
 }
 
 const touche = (key: string, init: KeyboardEventInit = {}) => {
@@ -66,7 +68,6 @@ const touche = (key: string, init: KeyboardEventInit = {}) => {
 };
 
 async function ouvrir(m: ReturnType<typeof monter>) {
-  await chargerGestesToits();
   expect(m.cmd.executer('toit.modifier')).toBe(true);
   expect(sessionToit()).not.toBeNull();
 }
@@ -93,32 +94,51 @@ describe('une session du mode Toit qui ne se perd pas', () => {
     m.cmd.executer('toit.abandonner');
   });
 
-  it('quitter la Vue 3D avec des changements : la question d abord, « Rester » ne quitte rien, « Abandonner » quitte', async () => {
+  it('passer de la Vue 3D au plan garde la session et ses gestes : l atelier s y pose ; revenir a la 3D les retrouve', async () => {
     const m = monter();
     await ouvrir(m);
     m.geste();
-    expect(m.cmd.executer('vue.plan')).toBe(false);
-    expect(m.versLePlan).not.toHaveBeenCalled();
+    const fait = m.faitage();
+    expect(m.cmd.executer('vue.plan')).toBe(true);
+    await Promise.resolve();
+    expect(dialogues.courant()).toBeNull();
+    expect(sessionToit()).not.toBeNull();
+    expect(etatToit().en3d).toBe(false);
+    expect(m.faitage()).toBe(fait);
+    // Sur le plan, ce qui ne se fait qu'en 3D n'est pas offert ; les gestes du toit le sont.
+    expect(m.cmd.etat('toit.vueDessus').utilisable).toBe(false);
+    expect(m.cmd.etat('toit.annuler').utilisable).toBe(true);
+    m.cmd.executer('toit.abandonner');
+    dialogues.repondreSecondaire();
+    expect(sessionToit()).toBeNull();
+  });
+
+  it('ouvrir la visionneuse avec des changements : la question d abord, « Rester » ne quitte rien, « Abandonner » quitte', async () => {
+    const m = monter();
+    await ouvrir(m);
+    m.geste();
+    expect(m.cmd.executer('vue.visionneuse')).toBe(false);
+    expect(m.versLaVisionneuse).not.toHaveBeenCalled();
     const d = dialogues.courant();
     expect(d?.type === 'choix' && [d.tertiaire?.libelle, d.secondaire.libelle, d.principal.libelle]).toEqual(['Rester', 'Abandonner', 'Valider']);
     dialogues.repondreTertiaire();
     expect(sessionToit()).not.toBeNull();
-    expect(m.versLePlan).not.toHaveBeenCalled();
-    m.cmd.executer('vue.plan');
+    expect(m.versLaVisionneuse).not.toHaveBeenCalled();
+    m.cmd.executer('vue.visionneuse');
     const fait = m.faitage();
     dialogues.repondreSecondaire();
     expect(sessionToit()).toBeNull();
-    expect(m.versLePlan).toHaveBeenCalledTimes(1);
+    expect(m.versLaVisionneuse).toHaveBeenCalledTimes(1);
     expect(m.faitage()).not.toBe(fait);
   });
 
-  it('sans changement, quitter la Vue 3D ferme la session sans question', async () => {
+  it('sans changement, ouvrir la visionneuse ferme la session sans question', async () => {
     const m = monter();
     await ouvrir(m);
-    expect(m.cmd.executer('vue.plan')).toBe(false);
+    expect(m.cmd.executer('vue.visionneuse')).toBe(false);
     expect(dialogues.courant()).toBeNull();
     expect(sessionToit()).toBeNull();
-    expect(m.versLePlan).toHaveBeenCalledTimes(1);
+    expect(m.versLaVisionneuse).toHaveBeenCalledTimes(1);
   });
 
   it('choisir un autre objet avec des changements : la selection revient, la question est posee, « Valider » ecrit puis choisit', async () => {

@@ -8,7 +8,7 @@
 // Pur : pas de DOM, pas de scene.
 
 import { point, repere } from '../toits/toitCorps.js';
-import { bornerSaillie, murDuCorps, NOM_SAILLIE, replacerSaillie, retirerSaillie, retraitDuRdc, saillieDe } from './saillies.js';
+import { BORNES_SAILLIE, bornerSaillie, bornesDeSaillie, murDuCorps, NOM_SAILLIE, replacerSaillie, retirerSaillie, retraitDuRdc, saillieDe } from './saillies.js';
 import { rangPrincipal, rangsDeCorps, supprimerCorps } from './corpsNeufs.js';
 import { formeDuCorps } from '../regles/toits/faits.js';
 import { avecMurHaut, avecSens, murHautDe, murHautReglable, orientationDuMur, sensDuCorps, sensDuToit, sensReglable, tournerLeToit } from './sens.js';
@@ -193,7 +193,7 @@ export function dupliquerElement(corps: readonly CorpsToit[], t: CibleElement): 
   return { corps: avec(corps, t.rang, { ...c, elementsToit: [...(c.elementsToit ?? []), { ...e, sM: centre }] }), cible: { type: e.type, rang: t.rang, i: (c.elementsToit ?? []).length } };
 }
 
-/** Agrandit (+1) ou reduit (-1) l'element d'un cran. Les bornes sont celles de la maquette : un pignon de 1,4 a 8 m, un bow-window de 1,2 a 6 m, un element de 0,5 a 2,2. */
+/** Agrandit (+1) ou reduit (-1) l'element d'un cran. Un pignon de 1,4 a 8 m, un element de facade dans les bornes de saillies.ts, un element de 0,5 a 2,2. */
 export function redimensionnerElement(corps: readonly CorpsToit[], t: CibleElement, sens: 1 | -1): CorpsToit[] {
   const c = corps[t.rang];
   // Une travee se regle par ses poignees (ses deux bords), pas par un cran.
@@ -201,8 +201,11 @@ export function redimensionnerElement(corps: readonly CorpsToit[], t: CibleEleme
   const r = repere(c.pts);
   if (t.type === 'saillie' && c.saillie) {
     const h = corps[c.saillie.hote];
-    const largeur = borne(c.saillie.largeurM + sens * 0.3, 1.2, 6);
-    return h ? replacerSaillie(corps, t.rang, bornerSaillie(h, { ...c.saillie, largeurM: largeur })) : corps.slice();
+    if (!h) return corps.slice();
+    // Les bornes uniques (saillies.ts::bornesDeSaillie) ; « Agrandir » ne reduit jamais un element deja plus large que la borne.
+    const b = bornesDeSaillie(h, c.saillie), w = c.saillie.largeurM, pas = sens * BORNES_SAILLIE.pasLargeurM;
+    const largeur = sens > 0 ? Math.max(w, Math.min(w + pas, b.largeur.max)) : Math.min(w, Math.max(w + pas, b.largeur.min));
+    return replacerSaillie(corps, t.rang, bornerSaillie(h, { ...c.saillie, largeurM: largeur }));
   }
   if (t.type === 'pignon') {
     const p = c.pignons[t.i];

@@ -68,6 +68,49 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - Laissés tels quels : les noms sans accents de la démonstration (« Dalle beton », « Fenetre cuisine »…) entrent dans le témoin
   `projet.json` ; la casse des noms sous « Plus de réglages » n'existe qu'au mode Toit, chantier séparé.
 - Fumée : point 207 ; point 201 adapté (« Décor » au lieu de la case « importer »).
+- **Un seul contrôleur d'édition du toit, et l'atelier du toit, nouvelle zone Z10** (demande du propriétaire, 28 novembre 2026 : « je
+  veux que ce soit parfait, pas de legacy »). Tout ce qui modifie un toit à la main passe désormais par `facade/modeToit/controleurToit.ts`
+  (couche métier, ni React, ni three, ni DOM) : il tient la pile de la session, l'intention (Modifier / Ajouter), la cible, la façade
+  regardée, et écrit, fige et empile en une seule porte. L'atelier du toit (`zones/AtelierToit.tsx`) est le **seul endroit où l'on
+  édite un toit, sur le plan comme dans la Vue 3D** ; la Vue 3D n'en garde que ses poignées, le plan des façades et le toucher d'un
+  mur. Dans l'inspecteur, la section « Toit » résume le toit (forme, faîtage, source) et l'ouvre par « Modifier le toit » ; ses champs
+  « Toit », « Hauteur du faîtage », « Direction du faîtage », « Appentis » et les lignes des éléments de façade sont retirés : leurs
+  réglages sont dans l'atelier. Une session ouverte sur le plan garde ses gestes quand on passe à la 3D, et inversement.
+- **« Quitter sans garder »** remplace « Annuler » au pied de l'atelier (la question d'abandon reste), et **« Défaire »** est sous les
+  yeux dès le premier geste (constat 10 de la revue).
+- **Sur quoi agit un geste, une seule règle, dite à l'écran** (« Sur : Corps principal ») : l'élément ou le corps choisi, sinon le
+  corps de la façade regardée, sinon le corps principal ; tout le toit seulement quand « Bâtiment entier » est choisi. Une forme sans
+  choix ne remplace plus tous les corps (constat 2) : elle va au corps visé et garde ce qui y est posé ; sous « Bâtiment entier »,
+  l'atelier dit avant le geste ce qui disparaîtra.
+- **Modifier ne crée rien, Ajouter ne touche rien d'existant, et c'est le contrôleur qui le tient** (constat 6) : « Dupliquer » et le
+  retour d'angle passent du côté « Ajouter » ; un toit encore d'un seul tenant ne devient plus des corps en silence pour qu'une pièce
+  s'y pose.
+- **Les bornes d'un élément de façade sont uniques** (`saillies.ts::BORNES_SAILLIE`, constat 4) : « Agrandir » ne ramène plus une
+  galerie de 8 m à 6 m, la poignée de la saillie d'un appentis de 3 m ne le réduit plus à 1,5 m.
+- **Une souche et une lucarne posées à la main prennent les valeurs de l'audit** (constat 9 : 0,60 × 0,50 m, débouché 40 cm au-dessus
+  du faîtage, la largeur de lucarne par type de `facade/regles/toits/elementsDesMurs.ts`), au lieu des 0,70 × 0,70 m du mode Toit.
+
+### Corrigé
+
+- **Abandonner rend tout le toit, « Règles » comprises** (constat 1) : la mesure LiDAR et la version de lecture que « Règles » retirait
+  n'étaient dans aucun instantané ; Abandonner, Revenir au départ et le Ctrl+Z du projet après Valider les rendent maintenant, au bit
+  près (`sessionToit.ts::CHAMPS_DU_TOIT`, la liste unique).
+- **Un réglage pendant « Voir le toit du projet » ne perd plus la session** (constat 3) : chaque geste se calcule sur l'état de la
+  session dans la même transaction.
+- **L'impasse du toit d'un seul tenant** (audit UX du 28 novembre 2026, la maison en L de la démonstration) : toucher une forme, celle
+  en place comprise, découpe le toit en corps, un par rectangle du bâtiment ; côté « Ajouter », les pièces sont grisées avec leur
+  raison et le bouton « Découper ce toit » lève l'impasse.
+- Au téléphone, le bouton « Déplier le plan des façades » de la Vue 3D montre de nouveau son icône (un carré vide : la règle qui cachait
+  le plan replié cachait aussi l'icône du bouton ; signalé par l'audit UX).
+- La marque `toitFige` n'est plus posée à la main en vingt-quatre endroits (constat 5) : toute écriture du contrôleur fige, sauf
+  « Règles » ; la validation ne relit le toit que si la personne a rallumé les « Règles ».
+
+- Fumée : point 208 (l'atelier ouvert sur le plan puis attaché à la 3D, l'impasse levée, « Défaire », la forme sans choix, « Bâtiment
+  entier », « Voir le toit du projet », « Règles » puis « Quitter sans garder ») ; les points du mode Toit adaptés (97, 132, 136, 138,
+  142, 145, 198).
+
+Rien ne change dans le moteur, les exports ni les quantités : les empreintes de `tests/fixtures/golden/` sont identiques, le toit
+d'AE 101 aussi (`identite.ts`), les toits lus (LiDAR, BD TOPO, audit) ne changent pas, et les anciens fichiers se lisent comme avant.
 
 ## [5.45.0] — 2026-11-28
 

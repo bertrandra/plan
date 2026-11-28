@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { validerLaSession, type SessionToit } from '../../../../src/app/toits/modeToit.js';
+import { validerLaSession } from '../../../../src/app/toits/modeToit.js';
+import { creerControleurToit, type ControleurToit } from '../../../../src/facade/modeToit/controleurToit.js';
+import { reprendreLectureAuto } from '../../../../src/facade/modeToit/gestes.js';
 import { toitsDepuisLidar, type ObjetAToit } from '../../../../src/app/toits/toitsLidar.js';
 import { glisser } from '../../../../src/facade/modeToit/poignees.js';
-import { annuler, creerHistorique, ecrireLeGeste, empiler } from '../../../../src/facade/modeToit/sessionToit.js';
 import { hauteurToitEn, plansDuToit } from '../../../../src/facade/toits/toit.js';
 import { projecteurLocal } from '../../../../src/geo/projection.js';
 import { niveauActuel, origineActuelle } from '../../../../src/model/protections.js';
 import { hauteurAuPointLePlusHaut } from '../../../../src/model/volumesToit.js';
-import { reprendreLectureAuto } from '../../../../src/three/gestesToits.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../src/model/types.js';
 
 // La poignee « Hauteur à l'égout » du mode Toit (MD/spec-mode-toit-3d.md, poignees ; MD/spec-flux-batiment.md, « Le toit a la main ») :
@@ -21,7 +21,6 @@ const maison = (): ObjetPlan => ({
   key: 'm', name: 'Maison', type: 'polygon', fonction: 'batiment', bdtopo: { id: 'B1', hauteur: 3.5 }, pts: rect, elevation: 8,
   batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, corpsToit: [structuredClone(lu)], toitLidarLu: 7 },
 }) as unknown as ObjetPlan;
-const session = (o: ObjetPlan): SessionToit => ({ cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'facade', corpsIsole: null, selection: null, indice: false, vueAvant: null, isole: false, validee: false });
 
 /** Un lecteur LiDAR qui mesure toujours le meme deux-pans de 3 m sur un egout de 8 m : la lecture fausse que la personne corrige. */
 function lecteurA8m() {
@@ -34,12 +33,12 @@ function lecteurA8m() {
 }
 
 /** La personne tire la poignee de l'egout de 4,5 m vers le bas, puis valide la session. */
-function corriger(o: ObjetPlan): SessionToit {
-  const s = session(o);
+function corriger(o: ObjetPlan): { ctl: ControleurToit } {
+  const ctl = creerControleurToit(o);
   const r = glisser(o.batiment!.corpsToit!, { type: 'facade', rang: 0, i: 0, mur: 0 }, 'egout', { vert: -4.5 });
-  ecrireLeGeste(o, r.corps, r.elevation);
-  empiler(s.hist, o);
-  return s;
+  ctl.apercu(r.corps, r.elevation);
+  ctl.finGlisser();
+  return { ctl };
 }
 
 describe('la poignee de l egout du mode Toit', () => {
@@ -81,7 +80,7 @@ describe('la poignee de l egout du mode Toit', () => {
 
   it('annuler dans la session rend l egout, l elevation et la marque d avant', () => {
     const o = maison(), s = corriger(o);
-    expect(annuler(s.hist, o)).toBe(true);
+    expect(s.ctl.defaire().fait).toBe(true);
     expect(o.batiment!.corpsToit![0]!.egouts).toEqual([8, 8]);
     expect(o.elevation).toBe(8);
     expect(o.batiment?.egoutChoisi).toBeUndefined();

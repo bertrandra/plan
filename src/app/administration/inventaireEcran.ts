@@ -59,7 +59,7 @@ export const ZONES_DOM: Record<string, string> = {
   zoneSurimpression: 'Z4 Canevas', stage: 'Z4 Canevas', zoneVues3d: 'Z4 Vues 3D', zoneSelection: 'Z4 Barre de sélection',
   zoneInspecteur: 'Z5 Inspecteur', zoneResultats: 'Z6 Résultats', zoneEtat: 'Z7 Barre d’état',
   zoneDialogues: 'Z8 Dialogues', zoneNotifications: 'Z9 Notifications', zoneFeuilles: 'Feuilles (téléphone)',
-  zoneNavigation: 'Navigation (téléphone)', zoneReleve: 'Éditeur de façade'
+  zoneNavigation: 'Navigation (téléphone)', zoneReleve: 'Éditeur de façade', zoneAtelierToit: 'Z10 Atelier du toit'
 };
 
 /**
@@ -73,7 +73,9 @@ export const CONTENEURS_EMPLACEMENTS: Record<Exclude<Emplacement, 'clavier' | 's
   vue3d: ['zoneVues3d'], visionneuse: ['zoneVues3d'], inspecteur: ['zoneInspecteur'], tiroir: ['zoneResultats'], premierPas: ['zoneDialogues'],
   parcours: ['zoneDialogues'],
   // La barre de progression de la facade : l'ecran de la calibration aujourd'hui (hors des zones du plan), le parcours de l'audit demain.
-  barreFacade: ['zoneDialogues']
+  barreFacade: ['zoneDialogues'],
+  // Z10, l'atelier du toit : sa racine, et le canevas montre sur lequel son panneau se pose (le plan, ou la scene de la Vue 3D).
+  atelierToit: ['zoneAtelierToit', 'stage', 'zoneVues3d']
 };
 
 /** Le conteneur de zone (index.html) qui porte l'element, ou `null` hors de toute zone. */

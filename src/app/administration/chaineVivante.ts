@@ -15,7 +15,7 @@ import { VERSIONS_PROMPT, VERSIONS_SCHEMA, versionCourante } from '../../regles/
 import { SUJETS } from '../regles/sujets/index.js';
 import { VERSION_LECTURE_TOITS } from '../toits/toitsLidar.js';
 import * as FORME_TOIT from '../../model/formeToit.js';
-import { EXEMPLES_TOITS } from '../../three/catalogueToits.js';
+import { EXEMPLES_TOITS } from '../../facade/modeToit/exemplesToits.js';
 
 /** Un seuil tel que l'ecran le montre : son nom, sa valeur avec son unite, et pourquoi il vaut cela. */
 export interface LigneSeuil { nom: string; valeur: string; pourquoi: string }

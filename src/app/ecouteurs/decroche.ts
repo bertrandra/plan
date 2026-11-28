@@ -10,12 +10,10 @@ import { PERMISSION_ECRITURE } from '../acces.js';
 import { sessionToit, type ModeToit } from '../toits/modeToit.js';
 import { murDuCorps } from '../../facade/modeToit/saillies.js';
 import { gaucheEnDebut } from '../../facade/modeToit/decroche.js';
-import { RECUL_DECROCHE_CM, traveeDecrochee } from '../../facade/modeToit/travees.js';
+import { RECUL_DECROCHE_CM } from '../../facade/modeToit/travees.js';
 import { RECUL_TRAVEE_MAX_M } from '../../model/corpsToitEtendu.js';
-import { champsBatiment } from '../../model/champsFonction.js';
 import { moteur3d } from '../../three/demande3d.js';
 import { dialogues } from '../../shell/dialogues.js';
-import { showToast } from '../../shell/dialogs.js';
 import { desarmerSaillie } from '../../interaction/choixSaillie.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetPlan } from '../../model/types.js';
@@ -32,15 +30,16 @@ export const decrocheArme = (): boolean => !!courant?.arme();
  * `raison` : pourquoi le decroche n'a pas de sens sur la facade regardee (celle du catalogue, `raisonIndisponible` de 'facade:decroche'),
  * null quand il en a.
  */
-export function brancherDecroche(cmd: RegistreCommandes, mode: Pick<ModeToit, 'ecrire' | 'selectionner'>, batiment: () => ObjetPlan | undefined,
-  raison: () => string | null, rafraichir: () => void): GesteDecroche {
+export function brancherDecroche(cmd: RegistreCommandes, mode: Pick<ModeToit, 'geste'>, batiment: () => ObjetPlan | undefined,
+  raison: () => string | null, rafraichir: () => void, en3d: () => boolean = () => true): GesteDecroche {
   // Arme pour une session : une autre session (le meme batiment rouvert) ne l'herite pas.
   let armePour: object | null = null;
   const estArme = () => armePour !== null && armePour === sessionToit();
   const facade = () => { const s = sessionToit(); return s ? s.facade ?? s.derniere : null; };
   cmd.declarer({
     id: 'toit.decrocher', libelle: 'Décrocher ici', groupe: 'toit', permission: PERMISSION_ECRITURE,
-    actif: () => !!sessionToit() && raison() === null, raisonInactive: () => (sessionToit() ? raison() : null),
+    // Le point se touche dans la Vue 3D : sur le plan, la piece n'est pas offerte.
+    actif: () => !!sessionToit() && en3d() && raison() === null, raisonInactive: () => (sessionToit() ? raison() : null),
     executer: () => {
       // Un second appui sur la vignette armee la lache : retour a la modification (retour du proprietaire, 8 novembre 2026). La consigne
       // (« touchez l'egout ou le mur ») est dite par l'indicateur d'etat du mode, tant que l'insertion dure : plus de message ephemere.
@@ -51,20 +50,9 @@ export function brancherDecroche(cmd: RegistreCommandes, mode: Pick<ModeToit, 'e
     }
   });
 
-  /** Pose le decroche au point `x` (metres depuis le debut du mur), du cote choisi, a la profondeur dite en centimetres. */
+  /** Pose le decroche au point `x` (metres depuis le debut du mur), du cote choisi, a la profondeur dite en centimetres : par le controleur. */
   const poser = (rang: number, mur: number, x: number, cote: 'gauche' | 'droite', reculCm: number): void => {
-    const c = batiment()?.batiment?.corpsToit?.[rang];
-    const k = c ? traveeDecrochee(c, mur, x, cote, reculCm / 100, gaucheEnDebut(c, mur)) : null;
-    if (!c || !k) { showToast('Pas de décroché ici : le point est dans une travée, ou le mur est trop court de ce côté.'); return; }
-    const i = c.travees?.length ?? 0;
-    const fait = mode.ecrire((o) => {
-      const cc = o.batiment?.corpsToit?.[rang];
-      if (!cc) return false;
-      cc.travees = [...(cc.travees ?? []), k];
-      champsBatiment(o).toitFige = true;
-      champsBatiment(o).modeToit = 'corps';
-    });
-    if (fait) mode.selectionner({ type: 'travee', rang, i });
+    mode.geste((c) => c.poserDecroche(rang, mur, x, cote, reculCm / 100));
   };
 
   const geste: GesteDecroche = {

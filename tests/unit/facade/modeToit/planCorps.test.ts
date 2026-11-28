@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ligneDeFaitage, marqueursDuCorps, orientationDuCorps } from '../../../../src/facade/modeToit/planCorps.js';
-import { appliquerPiece } from '../../../../src/three/gestesToits.js';
+import { poser } from './poser.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 // Un corps de 10 x 6 : faitage le long de x, a y = 3 ; egouts 3 m, faitage 5,5 m.
@@ -26,7 +26,7 @@ describe('la ligne de faitage du mode Plan', () => {
 describe('les marqueurs du mode Plan', () => {
   it('un par element pose, a sa place sur le toit', () => {
     const o = maison();
-    for (const id of ['forme:deux-pans', 'sur:pignon', 'sur:cheminee', 'sur:fenetre-toit', 'sur:solaire', 'sur:jacobine']) appliquerPiece(o, id);
+    for (const id of ['forme:deux-pans', 'sur:pignon', 'sur:cheminee', 'sur:fenetre-toit', 'sur:solaire', 'sur:jacobine']) poser(o, id);
     const m = marqueursDuCorps(o.batiment!.corpsToit![0]!);
     expect(m.map((x) => x.type).sort()).toEqual(['cheminee', 'fenetre-toit', 'lucarne', 'pignon', 'solaire']);
     for (const x of m) { expect(x.x).toBeGreaterThanOrEqual(-0.01); expect(x.x).toBeLessThanOrEqual(10.01); expect(x.y).toBeGreaterThanOrEqual(-0.01); expect(x.y).toBeLessThanOrEqual(6.01); }
