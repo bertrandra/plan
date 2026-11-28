@@ -1,7 +1,7 @@
 // Z10, l'atelier du toit (MD/spec-ihm-zones.md §3, MD/spec-mode-toit-3d.md) : le seul endroit ou l'on edite un toit, sur le plan comme
-// dans la Vue 3D. Le parcours simple (modifier le toit en trois reglages, ajouter une piece parmi six), « Défaire », et derriere « Plus de
-// réglages » la barre de la session, les autres formes, l'inspecteur de la cible et le catalogue entier ; au pied, « Quitter sans garder »
-// et « Valider ».
+// dans la Vue 3D. Le parcours simple (modifier le toit en trois reglages, ajouter une piece parmi six), « Défaire », et derriere
+// « Plus de réglages » la barre de la session, les autres formes, l'inspecteur de la cible et le catalogue entier ; au pied,
+// « Quitter sans garder » et « Valider ».
 //
 // L'atelier lit l'etat du controleur du toit (facade/modeToit/controleurToit.ts, par la session : app/toits/modeToit.ts) et emet ses
 // intentions par les commandes du registre : il ne sait ni poser, ni borner, ni dire sur quoi agit un geste. Il se pose sur le canevas
