@@ -259,6 +259,9 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'cadastre.retour': etape(Z8, IMPORT, 'Retour à l’étape précédente'),
   'cadastre.nomProjet': etape(Z8, IMPORT, 'Nom du projet'),
   'cadastre.creerProjet': etape(Z8, IMPORT, 'Créer (ou remplir) le projet', { ecrit: { annulable: false, droits: 'commande' } }),
+  'cadastre.apercuAgrandir': etape(Z8, IMPORT, 'Agrandir l’aperçu des parcelles (molette, pincer, touche +)'),
+  'cadastre.apercuReduire': etape(Z8, IMPORT, 'Réduire l’aperçu des parcelles (touche −)'),
+  'cadastre.apercuToutVoir': etape(Z8, IMPORT, 'Tout voir : recadrer l’aperçu sur toutes les parcelles'),
   // Actualiser IGN (zones/parcours/Actualisation.tsx).
   // Le mode audit (zones/parcours/AuditCas.tsx, AuditFin.tsx) : la fiche s'ouvre d'un appui long sur
   // un batiment de la Vue 3D, ou depuis la liste des cas.

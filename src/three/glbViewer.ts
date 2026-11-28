@@ -20,6 +20,22 @@ import { reglerSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
 import { ensureGLTFLoaderLoaded, estTexturePartagee } from './chargeurs.js';
 import { estMesh, estLumiere, estTexture } from './gardes.js';
+import { tenirAuDessusDuSol, solDepuisSommets, type SolSous } from './solCamera.js';
+
+/** Le sol d'un modele relu : les sommets du relief exporte par la Vue 3D (`sol-relief`), en coordonnees de la scene ; sinon le plan zero. */
+function solDuModele(racine: THREE_NS.Object3D): SolSous {
+  racine.updateMatrixWorld(true);
+  const relief = racine.getObjectByName('sol-relief');
+  if (!relief || !estMesh(relief)) return () => 0;
+  const pos = relief.geometry.getAttribute('position');
+  if (!pos) return () => 0;
+  const v = new THREE.Vector3(), sommets = new Float64Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i).applyMatrix4(relief.matrixWorld);
+    sommets[i * 3] = v.x; sommets[i * 3 + 1] = v.y; sommets[i * 3 + 2] = v.z;
+  }
+  return solDepuisSommets(sommets);
+}
 import { soleilDuProjet } from '../core/soleil.js';
 
 /**
@@ -309,6 +325,9 @@ export function buildGlbViewerScene(camaraAConserver: CameraConservee, tailleHos
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.target.copy(camaraAConserver ? camaraAConserver.cible : centre);
     controls.update();
+    // La camera ne passe pas sous le sol, comme dans la Vue 3D (three/solCamera.ts) : le relief exporte s'il y en a un, sinon le
+    // plan du sol, a la hauteur zero du modele.
+    tenirAuDessusDuSol(camera, controls, solDuModele(gltf.scene));
 
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5 * ECHELLE_LUMIERE);
     scene.add(hemiLight);
