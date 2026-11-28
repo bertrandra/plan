@@ -23,7 +23,7 @@ import { fusionnerAnneaux, chainerSegments } from '../../geometry/rings.js';
 import { distancePointContour } from '../../geometry/proximite.js';
 import { projecteurLocal } from '../../geo/projection.js';
 import { hauteurBatiment, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from '../../geo/bdtopo.js';
-import { objetsDepuisCadastre } from '../../geo/cadastreObjets.js';
+import { objetsDepuisCadastre, nommerLaMaison } from '../../geo/cadastreObjets.js';
 import { serializeObjects } from '../../io/serialisation.js';
 import { couleursToitsDepuisOrtho } from '../../render/couleurToitOrtho.js';
 import { toitsDepuisLidar } from '../toits/toitsLidar.js';
@@ -31,7 +31,6 @@ import { couleursMursDepuisPhotos } from '../../render/couleurMurPhoto.js';
 import { FUSION_TOL_M } from '../../geo/constantesCadastre.js';
 import { lireRelief, demandeReliefDuPlan } from '../../geo/relief.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
-import { maisonDe } from '../../model/placement.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { droitsCourants } from '../acces.js';
 import {
@@ -745,16 +744,6 @@ async function reliefImporte(objets: ObjetPlan[], e: EtatImportCadastre, occuper
   } catch (err) {
     return 'Relief non lu : ' + ((err as Error).message || err) + ' « Lire le relief » le réessaie.';
   }
-}
-
-/**
- * Le batiment principal de la parcelle s'appelle « Maison » (audit UX de la 5.45.0, constat 4) : « Residentiel (2 niv.) » est le
- * nom technique de la BD TOPO, que la personne ne reconnait pas. Pose ici, comme la terrasse de depart, et non dans
- * `objetsDepuisCadastre`, qui rend ce que dit le cadastre (son empreinte le garde) ; l'usage et les etages restent dans `bdtopo`.
- */
-export function nommerLaMaison(objets: ObjetPlan[]): void {
-  const m = maisonDe(objets);
-  if (m && m.bdtopo) m.name = 'Maison';
 }
 
 /** La fin du parcours : le plan construit, enregistre comme nouveau projet (ou charge en local). */
