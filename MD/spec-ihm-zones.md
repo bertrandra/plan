@@ -245,6 +245,11 @@ ses chiffres clés et l'estimation HT, et « Voir la nomenclature » (choisit la
 tablette montre sous les onglets du tiroir replié et le téléphone en pied de la feuille Chiffrage (`ui/chiffrage.ts`) ; rien n'y
 est calculé par la zone.
 
+**Au bureau, le plan prend toute la hauteur** (audit UX de la 5.45.0, constat 2) jusqu'à la barre d'estimation : elle était
+figée à 62 % de la fenêtre (`app/assemblage/cadrage.ts`, `hauteurDuPlanAuBureau`). La palette ne dépasse pas le plan et défile ;
+sous 1 200 px de large, l'explorateur s'ouvre replié tant que la personne n'a rien choisi, et son geste (le pli de la colonne) est
+retenu sur l'appareil (`app/preferenceExplorateur.ts`).
+
 ### 4.7 Z7 — Barre d'état
 
 Mode local ou serveur, « Enregistré à 18:38 » ou « modifications non enregistrées », échelle du

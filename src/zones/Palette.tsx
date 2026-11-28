@@ -74,7 +74,8 @@ export function Palette({ magasin, commandes }: PropsPalette) {
   // Sur telephone, la palette est la feuille Outils (spec-ihm-mobile §6.2) : Annuler est dans la
   // barre haute, les groupes ont un titre, les outils sont des tuiles, et la raison d'un refus est
   // ecrite sous le groupe — une infobulle ne s'affiche pas au doigt (§8).
-  const groupes = compact ? GROUPES.filter(g => g.titre !== 'Historique') : GROUPES;
+  // A la tablette aussi (audit UX de la 5.45.0, polissages) : la barre haute porte deja Annuler et Retablir, le rail les doublait.
+  const groupes = classe !== 'large' ? GROUPES.filter(g => g.titre !== 'Historique') : GROUPES;
   const contenu = (
     <nav aria-label="Outils du plan" className={compact ? 'paletteTuiles' : undefined}>
       {groupes.map((g) => {

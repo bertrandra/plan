@@ -1098,7 +1098,8 @@ const POINTS = {
     const ordre = retour.every((x, k) => proches(x, attendu[k], 1e-9));
     const c2 = await classe(page);
     const vide = await page.evaluate((c2) => {
-      const b = c2 === 'compact' ? document.querySelector('.barreCompacte [data-commande="objet.annuler"]') : document.getElementById('undoBtn');
+      // Au telephone et a la tablette, Annuler est dans la barre haute seulement (audit UX de la 5.45.0, polissages).
+      const b = c2 !== 'large' ? document.querySelector('.barreCompacte [data-commande="objet.annuler"]') : document.getElementById('undoBtn');
       return b ? b.disabled : null;
     }, c2);
     return { ok: ordre, mesure: `cinq glissers du sommet ${j} défaits dans l'ordre ${ordre ? 'exact' : 'FAUX (' + [x0, ...etapes].map((x) => x.toFixed(2)).join(' ') + ' / ' + retour.map((x) => x.toFixed(2)).join(' ') + ')'} ; bouton Annuler ${vide === null ? 'absent' : vide ? 'grisé' : 'encore actif (pile non vide : gestes antérieurs du chargement)'}` };
@@ -7998,6 +7999,84 @@ const POINTS = {
     mesures.push('total « ' + (total[4] || '') + ' » (fourchette ' + total[2] + ' – ' + total[3] + ')');
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
   },
+  205: async (page, f) => {
+    // La mise en page de chaque classe (audit UX de la 5.45.0, constats 2, 11 et 12). Au bureau : le plan prend la hauteur jusqu'a la
+    // barre d'estimation, la palette defile sans passer dessous ; a 1 100 px de large l'explorateur s'ouvre replie, et le pli choisi
+    // est retenu au rechargement. A la tablette : aucune cible de moins de 44 px (plan, inspecteur, tiroir, prix saisis, feuille
+    // Projet), « Chiffrage recalculé » seulement tiroir replie, Annuler une seule fois. Au telephone, en Vue 3D : quatre commandes au
+    // plus dans la colonne, le geste du doigt en mots, le zoom et le reste dans « Réglages de la vue 3D ».
+    const echecs = [], mesures = [];
+    const petites = (sel) => page.evaluate((sel) => [...document.querySelectorAll(sel)].filter((e) => {
+      const r = e.getBoundingClientRect(), st = getComputedStyle(e);
+      return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && r.bottom > 0 && r.top < innerHeight && e.type !== 'checkbox' && e.type !== 'radio' && !e.closest('svg') && (r.width < 43.5 || r.height < 43.5);
+    }).map((e) => (e.getAttribute('aria-label') || e.textContent || e.id).trim().slice(0, 30) + ' ' + Math.round(e.getBoundingClientRect().width) + 'x' + Math.round(e.getBoundingClientRect().height)), sel);
+    const CIBLES = 'button, input, select, summary, [role=tab], label:has(input)';
+    if (f.nom === 'large') {
+      const lire = () => page.evaluate(() => {
+        const s = document.getElementById('stage').getBoundingClientRect(), b = document.querySelector('.bandeEstimation')?.getBoundingClientRect();
+        const pal = document.getElementById('zonePalette'), pr = pal.getBoundingClientRect();
+        return { h: Math.round(s.height), bas: Math.round(s.bottom), bande: b ? Math.round(b.top) : innerHeight, palBas: Math.round(pr.bottom), defile: pal.scrollHeight > pal.clientHeight + 1, explorateur: window.__plan.magasin().explorateurOuvert };
+      });
+      const m = await lire();
+      if (m.h < 0.7 * 900 * 0.95 || m.bas > m.bande || m.palBas > m.bande) echecs.push('bureau 1440 × 900 : ' + JSON.stringify(m));
+      mesures.push('1440 × 900 : plan de ' + m.h + ' px de haut, bas à ' + m.bas + ' (barre à ' + m.bande + '), palette ' + (m.defile ? 'qui défile' : 'entière'));
+      await page.setViewportSize({ width: 1100, height: 800 });
+      await page.evaluate(() => localStorage.removeItem('plan.explorateurOuvert'));
+      await page.reload(); await page.waitForSelector('#stage svg'); await page.waitForTimeout(800);
+      const etroit = await lire();
+      if (etroit.explorateur) echecs.push('1100 px : l’explorateur s’ouvre déplié');
+      await page.locator('[data-controle="explorateur.replier"]').click(); await page.waitForTimeout(300);
+      await page.reload(); await page.waitForSelector('#stage svg'); await page.waitForTimeout(800);
+      const retenu = await lire();
+      if (!retenu.explorateur) echecs.push('1100 px : le pli choisi n’est pas retenu');
+      mesures.push('1100 × 800 : explorateur replié d’office, déplié et retenu au rechargement ; plan ' + retenu.h + ' px');
+      await page.evaluate(() => localStorage.removeItem('plan.explorateurOuvert'));
+      await page.setViewportSize({ width: 1440, height: 900 });
+    } else if (f.nom === 'moyen') {
+      await selectionner(page, TERRASSE);
+      await inspecteur(page);
+      const insp = await petites(CIBLES);
+      const tiroirAvant = await page.evaluate(() => window.__plan.magasin().tiroir);
+      const bandeauReplie = await page.locator('.bandeauChiffrage').isVisible().catch(() => false);
+      await page.evaluate(() => window.__plan.ouvrirResultats('bom')); await page.waitForTimeout(500);
+      const bandeauOuvert = await page.locator('.bandeauChiffrage').isVisible().catch(() => false);
+      const tiroir = await petites(CIBLES);
+      await feuille(page, 'projet');
+      await page.evaluate(() => document.querySelectorAll('#projectBar details.menu').forEach((d) => d.setAttribute('open', '')));
+      await page.waitForTimeout(250);
+      const projet = await petites('#projectBar ' + CIBLES.split(', ').join(', #projectBar '));
+      await feuille(page, null);
+      const annuler = await page.evaluate(() => [...document.querySelectorAll('[data-commande="objet.annuler"]')].filter((e) => e.getBoundingClientRect().width > 0).length);
+      const toutes = [...new Set([...insp, ...tiroir, ...projet])];
+      if (toutes.length) echecs.push('cibles de moins de 44 px : ' + toutes.join(' | '));
+      if (tiroirAvant !== 'replie' || !bandeauReplie || bandeauOuvert) echecs.push('tiroir ' + tiroirAvant + ' à la sélection, bandeau ' + bandeauReplie + ' replié / ' + bandeauOuvert + ' ouvert');
+      if (annuler !== 1) echecs.push(annuler + ' boutons Annuler visibles');
+      mesures.push('aucune cible sous 44 px (inspecteur, tiroir, feuille Projet) ; bandeau du chiffrage tiroir replié seulement ; Annuler ' + annuler + ' fois');
+    } else {
+      await page.evaluate(() => window.__plan.executer('vue.3d'));
+      await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 60000 });
+      await vue3dEconome(page);
+      await page.waitForTimeout(600);
+      const col = await page.evaluate(() => [...document.querySelectorAll('#terrasse3dZoomControls button')].filter((b) => b.getBoundingClientRect().width > 0).map((b) => b.textContent.trim() || b.getAttribute('aria-label')));
+      const mots = await page.evaluate(() => [...document.querySelectorAll('#terrasse3dZoomControls .gesteChoix')].map((b) => b.textContent.trim()));
+      const commandes = col.length - mots.length + (mots.length ? 1 : 0);
+      if (commandes > 4 || mots.join() !== 'Tourner,Déplacer,Zoomer') echecs.push('colonne : ' + col.join(', '));
+      await page.locator('#terrasse3dModePan').click(); await page.waitForTimeout(200);
+      const mode = await page.evaluate(() => document.querySelector('#terrasse3dModePan')?.getAttribute('aria-pressed'));
+      await page.locator('#terrasse3dModeOrbit').click();
+      if (mode !== 'true') echecs.push('« Déplacer » ne se choisit pas');
+      await page.locator('#reglages3dBtn').click(); await page.waitForTimeout(400);
+      const camera = await page.evaluate(() => [...document.querySelectorAll('#zoneReglages3d fieldset')].find((x) => /Caméra/.test(x.querySelector('legend')?.textContent ?? ''))?.textContent ?? '');
+      const z0 = await page.evaluate(() => window.__plan.scene3d()?.camera.position.distanceTo(window.__plan.scene3d().controls.target));
+      await page.locator('#terrasse3dZoomIn').click(); await page.waitForTimeout(400);
+      const z1 = await page.evaluate(() => window.__plan.scene3d()?.camera.position.distanceTo(window.__plan.scene3d().controls.target));
+      await feuille(page, null);
+      if (!/Rapprocher.*Éloigner.*Quart de tour à gauche.*Image PNG/.test(camera)) echecs.push('groupe « Caméra et image » : « ' + camera.slice(0, 120) + ' »');
+      if (!(z1 < z0)) echecs.push('« Rapprocher » ne rapproche pas (' + z0 + ' → ' + z1 + ')');
+      mesures.push('colonne : ' + col.join(', ') + ' (' + commandes + ' commandes) ; « Caméra et image » : Rapprocher ' + (z0 ?? 0).toFixed(1) + ' → ' + (z1 ?? 0).toFixed(1) + ' m');
+    }
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
+  },
   199: async (page) => {
     // Relire un projet existant donne ce que donne un projet neuf (retour du proprietaire a Hardencourt, 27 novembre 2026 : « le L est
     // en 2 toits et 1 lucarne decouverte » sur son projet rouvert, « c'est bon sur un nouveau projet sur la meme adresse, actualiser
@@ -12146,11 +12225,13 @@ function pointsPour(nomClasse) {
   //       et qui coche (etape 3), le zoom garde d'une etape a l'autre, « Tout voir ».
   // 202 : se deplacer sur le plan 2D sans attraper d'objet : glisser sur un objet non choisi deplace la vue, un toucher choisit,
   //       l'objet choisi se deplace, la parcelle choisie deplace la vue (interaction/choixGeste.ts).
+  // 205 : la mise en page par classe : plan en pleine hauteur et explorateur replie sous 1 200 px au bureau, 44 px a la tablette,
+  //       la colonne de la Vue 3D en quatre commandes au telephone (audit UX de la 5.45.0, constats 2, 11 et 12).
   // 204 : l'ouverture sans selection, l'avertissement de l'admin dans son menu, la barre de selection d'un terrain au doigt, la
   // surface au cadastre et tracee, le total retenu du chiffrage (audit UX de la 5.45.0, constats 1, 3, 5 et 9).
   // 203 : la camera de la Vue 3D ne passe plus sous le sol : orbite poussee vers le bas, deplacement, molette ou pincement, camera
   //       posee sous le sol ; l'oeil reste a 0,30 m au-dessus du sol sous lui, la cible sur le sol ou au-dessus.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

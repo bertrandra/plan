@@ -273,7 +273,7 @@ emplacement qu'en `2.0.2`, restylé avec le §5.
 | Sélecteur de projet, Enregistrer | feuille **Projet** (bouton ☰ de la barre haute) | menu Projet | inchangé |
 | Menus Fichier, Exporter, Affichage, Aide | feuille **Projet** : quatre groupes dépliables, mêmes entrées, mêmes cases et réglages, dans le même ordre | menus déroulants (`details.menu`) | inchangé |
 | Bouton Exporter rapide | icône ⭳ de la barre haute, ouvre le groupe Exporter de la feuille Projet | icône de la barre haute | menu Exporter |
-| Annuler | icône ↶ de la barre haute | rail d'outils | palette |
+| Annuler, Rétablir | icônes ↶ ↷ de la barre haute | barre haute (audit UX de la 5.45.0 : plus dans le rail, qui les doublait) | palette |
 | Vues Plan / 3D / Visionneuse | commande segmentée flottante en haut du plan | commande segmentée dans la barre haute | commande segmentée dans la barre haute |
 | Liens compte (« Mes projets », « Se déconnecter ») | fin de la feuille Projet | menu Projet | inchangé |
 | Version | fin de la feuille Projet, lisible (plus d'infobulle) | menu Aide › Version | pastille, inchangé |
@@ -292,7 +292,7 @@ la même liste d'entrées.
 | Créer : Polygone, Rectangle, Chemin, Cercle, Parasol, Point de vue | feuille **Outils** (bouton central **+** de la barre de navigation), tuiles 3 × 2 | rail d'outils, groupe Créer | palette, inchangé |
 | Éditer : Dupliquer, Reculer, Position initiale, Supprimer | feuille Outils, groupe « Éditer · *nom de la sélection* » (4 tuiles), **et** feuille de sélection (§6.4) | rail, groupe Éditer | palette, inchangé |
 | Outils : Cote, Aligner | feuille Outils, groupe Mesurer ; Cote aussi dans la barre de navigation | rail, groupe Outils | palette, inchangé |
-| Annuler | barre haute (§6.1) | rail, en tête | palette, inchangé |
+| Annuler | barre haute (§6.1) | barre haute (§6.1) | palette, inchangé |
 | Refus | capacité : tuile effacée ; permission ou quota : tuile grisée avec cadenas et la phrase du registre **écrite sous le groupe** ; contexte : grisée | idem, phrase dans l'aide (appui long) | infobulle, inchangé |
 
 Une création depuis la feuille Outils la referme, pose l'objet au centre de la vue visible (pas du
@@ -366,6 +366,10 @@ se perd**.
 | Pointeur (x, y) | dans la pastille, pendant un glisser | pastille | inchangé |
 | Version | feuille Projet | menu Aide | inchangé |
 
+**Tablette au doigt** (audit UX de la 5.45.0, constat 11) : 44 px partout, onglets et hauteurs du tiroir, sélecteur Plan / Vue 3D,
+plis des panneaux, prix saisis de la nomenclature, feuille Projet compris. Le bandeau « Chiffrage recalculé » de l'inspecteur ne se
+montre que tiroir replié ; le tiroir ne s'ouvre à mi-hauteur que sur demande (un onglet, « Chiffrage », « Voir la nomenclature »).
+
 ### 6.8 Z8 — Dialogues, Z9 — Notifications
 
 | Élément | compact | moyen et large |
@@ -388,7 +392,7 @@ de la plateforme garde son mot à côté de la couleur.
 | Élément | compact | moyen | large |
 |---|---|---|---|
 | Canevas | plein écran sous la barre haute (plus 420 px fixes) | plein écran | hauteur `calc(100vh - barres)` au lieu de 420 px ; plein écran inchangé |
-| Zoom +/−, Orbite/Déplacer/Zoom, PNG, Hauteur d'yeux | colonne flottante de boutons de 44 px à droite | idem | idem (boutons de 36 px au lieu de 30) |
+| Zoom +/−, Orbite/Déplacer/Zoom, PNG, Hauteur d'yeux | colonne flottante à droite, **trois ou quatre commandes** (audit UX de la 5.45.0, constat 12) : le geste d'un doigt en commande segmentée avec des mots (« Tourner », « Déplacer », « Zoomer »), « Hauteur des yeux », et ce qui vise l'objet choisi (isoler, photographier une façade) ; zoom +/−, quarts de tour, image PNG et photomontage dans la feuille Réglages 3D, groupe « Caméra et image », en mots (le pincement et le glisser zooment et tournent déjà) ; la vitrine garde sa colonne entière | colonne flottante de boutons de 44 px à droite | idem (boutons de 36 px au lieu de 30) |
 | Réglages (filaire, tous les objets, opaques, textures, ombres) | feuille **Réglages 3D** (bouton ⚙ flottant) en interrupteurs | panneau flottant | bandeau au-dessus, inchangé |
 | Soleil (date, semaine, heure, intensité, lumière d'appoint) | barre flottante en bas : heure en curseur pleine largeur ; date, semaine, intensité et appoint dans la feuille Réglages 3D | barre flottante | inchangé |
 | Enregistrer la vue comme point de vue ; aller à un point de vue | feuille Réglages 3D | panneau | inchangé |
@@ -677,7 +681,7 @@ visionneuse ; **Rail** rail d'outils ; **Pal** palette ; **M:x** menu x ; **Suri
 
 | Commande | Libellé | compact | moyen | large |
 |---|---|---|---|---|
-| `objet.annuler` | Annuler | H ; ⌨ | Rail ; ⌨ | Pal ; ⌨ (par le registre, D6) |
+| `objet.annuler` | Annuler | H ; ⌨ | H ; ⌨ | Pal ; ⌨ (par le registre, D6) |
 | `objet.ajouter.polygone` | Polygone | FO | Rail | Pal |
 | `objet.ajouter.rectangle` | Rectangle | FO | Rail | Pal |
 | `objet.ajouter.chemin` | Chemin | FO | Rail | Pal |
