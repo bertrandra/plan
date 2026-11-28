@@ -8,7 +8,6 @@
 // comportement de la 1.2.0, et ce que le drapeau de l'etape 4 finira par rendre impossible.
 
 import { CAPACITE_LECTURE_SEULE, CAPACITES } from '../plateforme/capacites.js';
-import { showToast } from '../shell/dialogs.js';
 import { PHRASE_QUOTA, type Commande, type Droits } from './commandes.js';
 import type { ServiceContexte } from '../plateforme/contexte.js';
 import type { Session } from '../plateforme/session.js';
@@ -70,12 +69,27 @@ export function avertissementCapacitesForcees(): string | null {
     + (contexte ? ' La plateforme ne l’attribue pas à ce compte : déclarez-la et attribuez-la dans backprod, puis retirez-la de CAPACITES_FORCEES (app/acces.ts).' : '');
 }
 
-/** A l'ouverture : l'avertissement de l'admin, en notification et dans la console, s'il y a lieu. */
+/**
+ * La meme chose pour l'ecran, en une ligne et au vouvoiement, sans nom de fichier (audit UX de la 5.45.0, constat 1) : elle vit
+ * en tete du menu Admin. Le detail technique (ou retirer la capacite) reste dans la console.
+ */
+export function ligneAdminCapacitesForcees(): string | null {
+  const sansDroit = capacitesForceesSansDroit();
+  if (!sansDroit.length || !estAdministrateur()) return null;
+  const noms = sansDroit.map((c) => Object.values(CAPACITES).find((x) => x.code === c)?.libelle ?? c);
+  return (noms.length > 1 ? noms.join(', ') + ' sont ouverts' : noms[0] + ' est ouvert') + ' à tous les comptes, sans attendre la plateforme'
+    + (contexte ? ', qui ne l’attribue pas encore à ce compte.' : '.');
+}
+
+/**
+ * A l'ouverture : l'avertissement de l'admin, dans la console seulement. Ce n'est plus une notification (audit UX de la 5.45.0,
+ * constat 1) : neuf secondes a chaque ouverture, il couvrait « Confirmer » et la barre basse ; il se lit en tete du menu Admin
+ * (`ligneAdminCapacitesForcees`), que marque une pastille jusqu'a sa premiere ouverture de la session.
+ */
 export function prevenirAdminDesCapacitesForcees(): void {
   const texte = avertissementCapacitesForcees();
   if (!texte) return;
   console.warn(texte);
-  showToast(texte);
 }
 
 /** Le droit d'ecrire sur l'organisation, tel que la plateforme le nomme. */

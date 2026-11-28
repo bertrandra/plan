@@ -37,3 +37,21 @@ export function retenirProjetNeuf(id: string): void {
 export function modeleGarde(id: string): boolean {
   try { return localStorage.getItem(cle(id)) === String(SCHEMA_VERSION); } catch { return false; }
 }
+
+/**
+ * L'arrivee dans le projet qu'un import par adresse vient de creer (audit UX de la 5.45.0, constat 4) : il s'ouvre cadre sur la
+ * maison et la terrasse de depart, une fois, dans cet onglet (io/api.ts, `ouvrirSurLaTerrasse`). Rouvert ensuite, il est cadre
+ * sur son terrain comme tout projet.
+ */
+const CLE_ARRIVEE = 'planInteractif.arriveeImport';
+export function retenirArriveeImport(id: string): void {
+  try { sessionStorage.setItem(CLE_ARRIVEE, id); } catch { /* sans stockage : cadre sur le terrain */ }
+}
+/** Vrai une seule fois, a la premiere ouverture du projet que l'import vient de creer. */
+export function prendreArriveeImport(id: string): boolean {
+  try {
+    if (sessionStorage.getItem(CLE_ARRIVEE) !== id) return false;
+    sessionStorage.removeItem(CLE_ARRIVEE);
+    return true;
+  } catch { return false; }
+}

@@ -11,7 +11,7 @@
 // ecran dans les deux cas. Le depot traduit les codes de la plateforme dans ce vocabulaire-la.
 
 import { au } from '../util/tableaux.js';
-import { retenirProjetNeuf } from './modeleGarde.js';
+import { retenirProjetNeuf, prendreArriveeImport } from './modeleGarde.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 
 /** Ce que Plan demande au depot des projets (io/depotPlateforme.ts l'ecrit pour la plateforme). */
@@ -268,6 +268,7 @@ export async function chargerProjetInitial(
     ouvrirAdresse: false,
     // La demonstration du premier pas s'ouvre cadree sur sa terrasse et la maison qu'elle touche, comme l'essai sans compte ;
     // rouverte ensuite, c'est un projet comme un autre, cadre sur son terrain.
-    ouvrirSurLaTerrasse: demoCreee
+    // Le projet qu'un import par adresse vient de creer aussi, a sa premiere ouverture (audit UX de la 5.45.0, constat 4).
+    ouvrirSurLaTerrasse: demoCreee || prendreArriveeImport(voulu)
   };
 }

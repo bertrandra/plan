@@ -165,7 +165,14 @@ export function creerCadrage(etat: EtatApp, magasin: Magasin, s: Surface, d: Dep
     cadrerTerrasse() {
       const t = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey);
       const et = t && !d.objetMasque(t) ? empriseDe([t]) : null;
-      if (!t || !et) return false;
+      if (!t || !et) {
+        // Sans terrasse (un import sans terrasse de depart) : la maison, si elle est la, plutot que tout le terrain.
+        const m = maisonDe(etat.objects);
+        const em = m && !d.objetMasque(m) ? empriseDe([m]) : null;
+        if (!em) return false;
+        cadrerEmprise(em);
+        return true;
+      }
       // La maison compte si elle touche la terrasse (a 2 m pres) : c'est elle qui situe la terrasse ;
       // une maison au fond du jardin ferait de ce cadrage celui du terrain entier.
       const m = maisonDe(etat.objects);

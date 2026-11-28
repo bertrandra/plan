@@ -33,6 +33,9 @@ export function Partage({ service, commandes, magasin, fermer }: { service: Serv
   const [erreurListe, poserErreurListe] = useState<string | null>(null);
   // Les retraits annonces dont le toast court encore : la ligne le dit, et son bouton attend.
   const [enRetrait, poserEnRetrait] = useState<ReadonlySet<string>>(new Set());
+  // Le toast de chaque retrait annonce : « Annuler le retrait », sur la ligne, le retient. Les notifications passent sous les
+  // dialogues (Z9 sous Z8, audit UX de la 5.45.0, constat 1) : le geste pour se raviser vit donc dans le dialogue.
+  const toastsRetrait = useRef(new Map<string, number>());
   const vivant = useRef(true);
   useEffect(() => () => { vivant.current = false; }, []);
 
@@ -49,15 +52,20 @@ export function Partage({ service, commandes, magasin, fermer }: { service: Serv
 
   const retirer = (l: LienPartage): void => {
     poserEnRetrait((s) => new Set(s).add(l.id));
-    const oublier = () => { if (vivant.current) poserEnRetrait((s) => { const n = new Set(s); n.delete(l.id); return n; }); };
+    const oublier = () => { toastsRetrait.current.delete(l.id); if (vivant.current) poserEnRetrait((s) => { const n = new Set(s); n.delete(l.id); return n; }); };
     const qui = l.recipient_label ? ' de « ' + l.recipient_label + ' »' : '';
     // Le retrait part a la fin du toast (ou quand on le ferme) ; « Annuler » le retient. Il part meme si le dialogue est ferme.
-    notifications.emettreAvecAction('Le lien' + qui + ' sera retiré : il ne s’ouvrira plus.', 'Annuler', oublier, () => {
+    const id = notifications.emettreAvecAction('Le lien' + qui + ' sera retiré : il ne s’ouvrira plus.', 'Annuler', oublier, () => {
       void service.retirer(l.id).then(
         () => { showToast('Lien' + qui + ' retiré.'); oublier(); if (vivant.current) void relire(); },
         (e: unknown) => { oublier(); showToast('Le lien' + qui + ' n’a pas été retiré : ' + phraseRefusPartage(e)); }
       );
     }, DELAI_RETRAIT_MS);
+    toastsRetrait.current.set(l.id, id);
+  };
+  const garder = (l: LienPartage): void => {
+    const id = toastsRetrait.current.get(l.id);
+    if (id !== undefined) notifications.agir(id);
   };
 
   return (
@@ -78,7 +86,7 @@ export function Partage({ service, commandes, magasin, fermer }: { service: Serv
       {cree
         ? <LienCree cree={cree} nom={service.nom()} tactile={tactile} autre={() => poserCree(null)} />
         : <FormulairePartage service={service} cree={(c) => { if (vivant.current) { poserCree(c); void relire(); } }} />}
-      <ListeLiens liens={liens} erreur={erreurListe} enRetrait={enRetrait} retirer={retirer} />
+      <ListeLiens liens={liens} erreur={erreurListe} enRetrait={enRetrait} retirer={retirer} garder={garder} />
       <div className="piedDialogue">
         <button type="button" data-controle="partage.fermer" className="secondary" onClick={fermer}>Fermer</button>
       </div>
@@ -173,7 +181,7 @@ function LienCree({ cree, nom, tactile, autre }: { cree: Cree; nom: string; tact
 }
 
 /** Les liens du projet, les plus recents d'abord (l'ordre de la plateforme) : pour qui, l'etat, l'echeance, les ouvertures. */
-function ListeLiens({ liens, erreur, enRetrait, retirer }: { liens: LienPartage[] | null; erreur: string | null; enRetrait: ReadonlySet<string>; retirer: (l: LienPartage) => void }) {
+function ListeLiens({ liens, erreur, enRetrait, retirer, garder }: { liens: LienPartage[] | null; erreur: string | null; enRetrait: ReadonlySet<string>; retirer: (l: LienPartage) => void; garder: (l: LienPartage) => void }) {
   return (
     <section className="liensPartage" aria-label="Les liens de ce projet">
       <div className="titreSectionPartage">Liens de ce projet</div>
@@ -195,9 +203,11 @@ function ListeLiens({ liens, erreur, enRetrait, retirer }: { liens: LienPartage[
                   {' · '}{l.open_count === 0 ? 'jamais ouvert' : 'ouvert ' + l.open_count + ' fois'}
                   {l.last_opened_at && ', la dernière le ' + dateLongue(l.last_opened_at)}
                 </div>
-                {l.status === 'ACTIVE' && (
-                  <button type="button" data-controle="partage.retirer" className="small secondary" disabled={attend}
-                    aria-label={'Retirer le lien' + (l.recipient_label ? ' de ' + l.recipient_label : '')} onClick={() => retirer(l)}>Retirer</button>
+                {l.status === 'ACTIVE' && (attend
+                  ? <button type="button" data-controle="partage.garder" className="small secondary"
+                      aria-label={'Annuler le retrait du lien' + (l.recipient_label ? ' de ' + l.recipient_label : '')} onClick={() => garder(l)}>Annuler le retrait</button>
+                  : <button type="button" data-controle="partage.retirer" className="small secondary"
+                      aria-label={'Retirer le lien' + (l.recipient_label ? ' de ' + l.recipient_label : '')} onClick={() => retirer(l)}>Retirer</button>
                 )}
               </li>
             );

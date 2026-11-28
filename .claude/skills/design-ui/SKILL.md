@@ -27,7 +27,7 @@ opérationnel, plus les conventions visuelles tirées de `src/styles/app.css`.
 | Z6 Résultats | `zones/Resultats.tsx`, `app/tiroir.ts` | BOM, débit, coupe, implantation, chantier, cotes, PLU, résumé — lecture seule sauf prix et cadences | Un réglage de construction |
 | Z7 Barre d'état | `zones/BarreEtat.tsx` | Serveur, enregistrement, échelle, pointeur, sélection, version | Un clic (sauf l'indicateur d'enregistrement) |
 | Z8 Dialogues | `zones/Dialogues.tsx`, `shell/dialogues.ts` | Parcours en plusieurs étapes, confirmations ; fermables par Échap | Un message informatif |
-| Z9 Notifications | `zones/Notifications.tsx`, `shell/notifications.ts` | Toasts empilés, bandeau d'erreur fermable | Une question à l'utilisateur |
+| Z9 Notifications | `zones/Notifications.tsx`, `shell/notifications.ts` | Toasts empilés, bandeau d'erreur fermable | Une question à l'utilisateur, un avertissement à l'admin |
 | Z10 Atelier du toit | `zones/AtelierToit.tsx` (racine `#zoneAtelierToit`, panneau posé sur le canevas montré) | Le seul endroit où l'on édite un toit, sur le plan et en 3D : Modifier / Ajouter, « Plus de réglages », Défaire, Valider, Quitter sans garder ; il lit le contrôleur du toit et émet ses commandes `toit.*` | Une règle de toit (elle est dans `facade/modeToit/controleurToit.ts`), un champ de toit dans Z5 |
 
 Règles :
@@ -37,6 +37,11 @@ Règles :
 - **Les zones ne se parlent pas.** Elles lisent le magasin (`app/magasin.ts`, Zustand) et émettent
   des commandes. Pas d'import d'une zone dans une autre, pas de `document.getElementById` d'une
   région voisine.
+- **Z9 passe sous Z8** (audit UX de la 5.45.0) : un toast ne couvre jamais le bouton d'un dialogue ; se raviser dans un dialogue
+  se fait sur place, pas dans un toast. Au doigt, les toasts vont en haut, sous la barre, jamais sur les actions, la barre de
+  navigation, une feuille ou le tiroir. Un avertissement pour l'administrateur est une ligne en tête du menu Admin (pastille
+  jusqu'à la première ouverture de la session), jamais un toast, jamais un nom de fichier.
+- **Un projet s'ouvre sans rien de choisi.** Au doigt, un terrain verrouillé touché n'a qu'une barre discrète, « Propriétés ».
 - **Terrasse est un contexte, pas une vue** : sélectionner une terrasse fait apparaître sa section
   dans Z5 et ses onglets dans Z6. Ne pas réintroduire de mode Terrasse.
 - **Remplacer, c'est supprimer** : une région remplacée disparaît d'`index.html`, elle n'est pas

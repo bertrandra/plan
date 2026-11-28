@@ -58,7 +58,7 @@ describe('le menu Admin', () => {
   it('l administrateur de la plateforme n y trouve que le mode audit', async () => {
     vi.resetModules();
     const acces = await import('../../../src/app/acces.js');
-    acces.poserAcces({} as never, { courant: () => null, charger: async () => ({ roles: ['tenant_admin'] }) } as never);
+    acces.poserAcces({} as never, { courant: () => null, aCapacite: () => true, charger: async () => ({ roles: ['tenant_admin'] }) } as never);
     expect(await acces.confirmerAdministrateur()).toBe(true);
     const { MenuAdmin } = await import('../../../src/zones/BarreApplication.js');
     const hote = document.createElement('div');
@@ -72,7 +72,7 @@ describe('le menu Admin', () => {
   it('un compte sans role d administration ne le voit pas', async () => {
     vi.resetModules();
     const acces = await import('../../../src/app/acces.js');
-    acces.poserAcces({} as never, { courant: () => null, charger: async () => ({ roles: ['membre'] }) } as never);
+    acces.poserAcces({} as never, { courant: () => null, aCapacite: () => true, charger: async () => ({ roles: ['membre'] }) } as never);
     expect(await acces.confirmerAdministrateur()).toBe(false);
     expect(acces.estAdministrateur()).toBe(false);
   });

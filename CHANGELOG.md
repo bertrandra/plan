@@ -7,6 +7,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Un projet s'ouvre sans rien de choisi** (audit UX de la 5.45.0, constat 3) : la démonstration, un import, un fichier rouvert.
+  Au doigt, un toucher sur un terrain verrouillé (la parcelle du projet, une parcelle voisine) le choisit sans feuille : une barre
+  d'une ligne (57 px au lieu de 171) dit son nom et propose « Propriétés ». La règle des gestes de #791 ne change pas.
+- **L'avertissement de l'administrateur n'est plus un toast** (constat 1) : neuf secondes à chaque ouverture, il couvrait
+  « Confirmer » de la retouche du terrain, la fiche de sélection et la barre basse. Il se lit en une ligne, au vouvoiement et sans
+  nom de fichier, en tête du menu Admin, marqué d'une pastille jusqu'à sa première ouverture de la session ; le détail technique
+  reste dans la console. **Les toasts passent sous les dialogues** (Z9 sous Z8) et, au téléphone et à la tablette, en haut de
+  l'écran, traversés par le doigt ; « Annuler » d'un retrait de lien de partage se fait sur la ligne du lien.
+- **Chiffrage : un seul total à l'écran** (constat 5). « Total retenu HT » prend le prix saisi de chaque ligne, sinon son prix
+  calculé sur le débit, sinon le milieu de sa fourchette, et dit d'où il vient ; la fourchette passe en second. Les prix calculés
+  sont en italique, les prix saisis marqués « saisi ». Tous les montants de l'écran ont leurs milliers séparés (« 1 295,00 € »).
+  À l'écran seulement : ni le devis, ni les PDF, ni le CSV, ni le résumé ne changent.
+- **Arrivée après un import par adresse** (constat 4) : le projet créé s'ouvre cadré sur la maison et la terrasse de départ, rien
+  de choisi, et la photo aérienne couvre la vue ; le bâtiment principal s'appelle « Maison » (l'usage et les étages de la BD TOPO
+  restent dans ses données ; le nom est posé après `objetsDepuisCadastre`, dont l'empreinte ne bouge pas).
+- **Surface de la parcelle** (constat 9) : « 716 m² (cadastre) » à l'import, et dans la fiche de la parcelle les deux,
+  « 716 m² au cadastre · 723 m² tracés ».
+- Fumée : point 204 (ouverture, menu Admin, barre de sélection, surface, total retenu) ; points 12, 34, 162, 167 et 192 adaptés.
 - **Un seul contrôleur d'édition du toit, et l'atelier du toit, nouvelle zone Z10** (demande du propriétaire, 28 novembre 2026 : « je
   veux que ce soit parfait, pas de legacy »). Tout ce qui modifie un toit à la main passe désormais par `facade/modeToit/controleurToit.ts`
   (couche métier, ni React, ni three, ni DOM) : il tient la pile de la session, l'intention (Modifier / Ajouter), la cible, la façade
@@ -41,6 +59,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   raison et le bouton « Découper ce toit » lève l'impasse.
 - La marque `toitFige` n'est plus posée à la main en vingt-quatre endroits (constat 5) : toute écriture du contrôleur fige, sauf
   « Règles » ; la validation ne relit le toit que si la personne a rallumé les « Règles ».
+
+- Fumée : point 205 (l'atelier ouvert sur le plan puis attaché à la 3D, l'impasse levée, « Défaire », la forme sans choix, « Bâtiment
+  entier », « Voir le toit du projet », « Règles » puis « Quitter sans garder ») ; les points du mode Toit adaptés (97, 132, 136, 138,
+  142, 145, 198).
 
 Rien ne change dans le moteur, les exports ni les quantités : les empreintes de `tests/fixtures/golden/` sont identiques, le toit
 d'AE 101 aussi (`identite.ts`), les toits lus (LiDAR, BD TOPO, audit) ne changent pas, et les anciens fichiers se lisent comme avant.

@@ -374,7 +374,7 @@ se perd**.
 | Import cadastre (3 étapes) | plein écran, en-tête avec étape et fermer, pied collant avec les boutons ; aperçu SVG à pleine largeur, toucher = même effet que le clic | boîte centrée, restylée |
 | Actualisation IGN | feuille modale ; Échap ferme (corrige D11) | boîte, Échap ferme |
 | Sélecteur de textures | plein écran, recherche en tête, grille 3 colonnes, pied Annuler/Enregistrer ; Échap ferme (corrige D11) | boîte, Échap ferme |
-| Toasts | au-dessus de la barre de navigation (et non plus à 64 px du bas), largeur maximale moins 32 px | inchangé |
+| Toasts | en haut, sous la barre haute (audit UX de la 5.45.0 : au-dessus de la barre de navigation, ils couvraient la feuille ouverte et ses actions), largeur maximale moins 32 px ; toujours sous les dialogues (Z9 sous Z8) | moyen : en haut, comme au téléphone ; large : en bas, sous les dialogues |
 | Bandeau d'erreur | en haut de l'écran en `compact` (le bas est pris par la navigation), fermable | inchangé |
 
 ### 6.9 Porte et premier pas

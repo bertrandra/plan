@@ -19,7 +19,7 @@ import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import type { Construction, LigneBom, ObjetPlan } from '../../model/types.js';
-import { totauxBom, euros, eurosCentimes } from '../../ui/chiffrage.js';
+import { totauxBom, euros, eurosCentimes, origineDuRetenu } from '../../ui/chiffrage.js';
 
 type ChampLongueurs = 'longueursLames' | 'longueursBois' | 'longueursLambourde';
 
@@ -66,14 +66,14 @@ function TableDebit({ c, d, cle, resultats }: { c: Construction; d: Debit; cle: 
                 onValider={(t) => { const v = lireNombre(t); resultats.saisir(() => setPrixBarre(c, cle, L, isNaN(v) ? null : v)); }} /></td>
               <td><SaisieNombre controle="nomenclature.prix" valeur={prixM2De(c, cle, L).toFixed(2)} titre="Prix au m² pour cette longueur : il recalcule le prix de la barre" estime={estime}
                 onValider={(t) => { const v = lireNombre(t); if (!isNaN(v)) resultats.saisir(() => setPrixM2(c, cle, L, v)); }} /></td>
-              <td className="nombre">{(n * prixBarre(c, cle, L)).toFixed(2) + ' €'}</td>
+              <td className="nombre">{eurosCentimes(n * prixBarre(c, cle, L))}</td>
               <td className="noteLigne">{parts.join(' · ') || '—'}</td>
             </tr>
           );
         })}
         <tr style={{ fontWeight: 600 }}>
           <td>Total</td><td>{longueurs.reduce((s, L) => s + (d.achats[L] ?? 0), 0) + ' barres'}</td><td>{d.achatMl.toFixed(2) + ' ml'}</td>
-          <td></td><td></td><td>{coutDebit(c, d, cle).toFixed(2) + ' €'}</td><td></td>
+          <td></td><td></td><td>{eurosCentimes(coutDebit(c, d, cle))}</td><td></td>
         </tr>
       </tbody>
     </table>
@@ -111,29 +111,36 @@ function TableBom({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesT
     <>
       <table className="attrTable" id="terrasseBomTable">
         <tbody>
-          <tr><th>Poste</th><th>Qté</th><th>Prix bas</th><th>Prix haut</th><th>Prix réel (total ligne)</th></tr>
-          {lignes.map(l => (
-            <tr key={l.poste}>
-              <td>{l.label}</td>
-              <td>{l.qte.toFixed(l.unite === 'u' ? 0 : 2) + ' ' + l.unite}</td>
-              <td>{l.prixBas ? (l.prixBas.toFixed(2) + ' €/' + l.unite) : '—'}</td>
-              <td>{l.prixHaut ? (l.prixHaut.toFixed(2) + ' €/' + l.unite) : '—'}</td>
-              {l.calcule
-                // Chiffre depuis le debit, longueur par longueur : le saisir ici aussi ferait deux
-                // sources de verite qui peuvent diverger.
-                ? <td className="nombre">{(l.prixReel ?? 0).toFixed(2) + ' €'}<div className="noteLigne">{typeof l.calcule === 'string' ? l.calcule : 'calcule'}</div></td>
-                : <td><SaisieNombre controle="nomenclature.prix" valeur={l.prixReel !== null && l.prixReel !== undefined ? String(l.prixReel) : ''} placeholder="non saisi"
-                    libelle={'Prix réel : ' + l.label} largeur={110} onValider={(t) => saisirReel(l.poste, t)} /></td>}
-            </tr>
-          ))}
-          {/* Le total general, en pied de table : la fourchette estimee (prix bas et haut fois les quantites) et le reel saisi.
-              A l'ecran seulement : ni le resume ni les PDF ne le lisent. */}
+          <tr><th>Poste</th><th>Qté</th><th>Prix bas</th><th>Prix haut</th><th>Prix de la ligne</th></tr>
+          {lignes.map(l => {
+            const saisi = !l.calcule && l.prixReel !== null && l.prixReel !== undefined;
+            return (
+              <tr key={l.poste} className={l.calcule ? 'lignePrixCalcule' : saisi ? 'lignePrixSaisi' : undefined}>
+                <td>{l.label}</td>
+                <td>{l.qte.toFixed(l.unite === 'u' ? 0 : 2).replace('.', ',') + ' ' + l.unite}</td>
+                <td>{l.prixBas ? (eurosCentimes(l.prixBas) + '/' + l.unite) : '—'}</td>
+                <td>{l.prixHaut ? (eurosCentimes(l.prixHaut) + '/' + l.unite) : '—'}</td>
+                {l.calcule
+                  // Chiffre depuis le debit, longueur par longueur : le saisir ici aussi ferait deux
+                  // sources de verite qui peuvent diverger. Ecrit en italique, « calcule » : rien n'y a ete tape.
+                  ? <td className="nombre prixCalcule">{eurosCentimes(l.prixReel ?? 0)}<div className="noteLigne">{typeof l.calcule === 'string' ? l.calcule : 'calcule'}</div></td>
+                  : <td className={saisi ? 'prixSaisi' : undefined}>
+                      <SaisieNombre controle="nomenclature.prix" valeur={l.prixReel !== null && l.prixReel !== undefined ? String(l.prixReel) : ''} placeholder="non saisi"
+                        libelle={'Prix réel : ' + l.label} largeur={110} onValider={(t) => saisirReel(l.poste, t)} />
+                      {saisi && <div className="noteLigne marquePrixSaisi">saisi</div>}
+                    </td>}
+              </tr>
+            );
+          })}
+          {/* Le total, en pied de table (audit UX de la 5.45.0, constat 5) : un seul nombre, le total retenu — chaque ligne a son prix
+              saisi, sinon calcule, sinon le milieu de sa fourchette —, et la fourchette en second. A l'ecran seulement : ni le resume
+              ni les PDF ne le lisent. */}
           <tr id="terrasseBomTotals" className="ligneTotalBom">
-            <td>Total HT</td>
+            <td>Total retenu HT</td>
             <td></td>
-            <td className="nombre">{euros(total.bas)}</td>
-            <td className="nombre">{euros(total.haut)}</td>
-            <td className="nombre">{total.reel !== null ? 'Réel saisi : ' + eurosCentimes(total.reel) : 'Réel : non saisi'}</td>
+            <td className="nombre fourchetteBom">{euros(total.bas)}</td>
+            <td className="nombre fourchetteBom">{euros(total.haut)}</td>
+            <td className="nombre totalRetenu">{euros(total.retenu)}<div className="noteLigne">{origineDuRetenu(total)}</div></td>
           </tr>
         </tbody>
       </table>
@@ -207,7 +214,7 @@ function Appuis({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesTer
             const carnet = c.prixPlots as Record<string, number | undefined>;
             if (v === undefined) delete carnet[m.cle]; else carnet[m.cle] = v;
           }), '')}
-          {ligne('À acheter', ap.unites + ' plots', prixSaisi ? 'prix saisi' : 'prix estimé', ap.cout.toFixed(2) + ' €')}
+          {ligne('À acheter', ap.unites + ' plots', prixSaisi ? 'prix saisi' : 'prix estimé', eurosCentimes(ap.cout))}
         </tbody></table>
         <div className="hint">
           {'Le prix d\'un plot dépend surtout de sa hauteur de réglage : compter ' + (PLOT_MODELES[0]?.prix ?? 0).toFixed(2) + ' à ' +
@@ -229,7 +236,7 @@ function Appuis({ obj, layers, resultats }: PropsTerrasse & { layers: CouchesTer
             onValider={(t) => { const v = parseInt(t, 10); resultats.saisir(() => { c.visParBoite = (isNaN(v) || v < 1) ? 1 : v; }); }} />, '')}
         {ligne('À acheter', a.unites + ' vis', a.parBoite > 1
           ? a.boites + ' × ' + a.parBoite + (a.unites > n ? ' (soit ' + (a.unites - n) + ' d\'avance)' : '')
-          : 'à l\'unité', a.cout.toFixed(2) + ' €')}
+          : 'à l\'unité', eurosCentimes(a.cout))}
       </tbody></table>
       <div className="hint">
         {'Le prix d\'une vis de fondation dépend surtout de sa longueur, donc du sol : compter ' + VIS_PRICE.bas + ' à ' + VIS_PRICE.haut +
