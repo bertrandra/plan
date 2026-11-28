@@ -25,6 +25,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Surface de la parcelle** (constat 9) : « 716 m² (cadastre) » à l'import, et dans la fiche de la parcelle les deux,
   « 716 m² au cadastre · 723 m² tracés ».
 - Fumée : point 204 (ouverture, menu Admin, barre de sélection, surface, total retenu) ; points 12, 34, 162, 167 et 192 adaptés.
+- **Au bureau, le plan prend toute la hauteur** (audit UX de la 5.45.0, constat 2) jusqu'à la barre d'estimation, au lieu de 62 %
+  de la fenêtre : 340 × 476 → 558 × 534 px en 1 024 × 768, 596 × 496 → 596 × 637 en 1 280 × 800, 756 × 558 → 756 × 737 en
+  1 440 × 900, 1 236 × 670 → 1 236 × 917 en 1 920 × 1 080. La palette ne dépasse plus le plan et défile (« Cercle » et la suite
+  passaient sous la barre d'estimation) ; sous 1 200 px de large, l'explorateur s'ouvre replié, et le pli choisi est retenu.
+- **Tablette : 44 px partout** (constat 11) : onglets et hauteurs du tiroir (38, 36 × 32), sélecteur Plan / Vue 3D (36), plis des
+  panneaux, prix saisis de la nomenclature (21), feuille Projet (« Enregistrer » 22, cases 32). Le bandeau « Chiffrage recalculé »
+  ne se montre que tiroir replié ; Annuler et Rétablir ne sont plus qu'une fois, dans la barre haute.
+- **Vue 3D au téléphone** (constat 12) : la colonne passe de onze icônes à quatre commandes, le geste d'un doigt en mots
+  (« Tourner », « Déplacer », « Zoomer ») et « Hauteur des yeux » ; zoom, quarts de tour, image PNG et photomontage vont dans
+  « Réglages de la vue 3D », groupe « Caméra et image », en mots. La vitrine garde sa colonne.
+- Polissages : sélecteur Plan / 3D, onglets du tiroir, cases des étapes de l'import et poignée des feuilles à 44 px au doigt ; les
+  onglets du tiroir qui défilent s'estompent du côté où il en reste ; « Enregistrer » passe en secondaire quand tout est enregistré.
+- Fumée : point 205 (mise en page par classe) ; point 9 adapté.
 
 ## [5.45.0] — 2026-11-28
 
