@@ -411,6 +411,9 @@
   details.menu li.menuChamps .champCurseur .valeurCurseur{ flex-basis:100%; text-align:left; white-space:nowrap; font-size:0.72rem; color:var(--ink-soft); }
   html:not([data-classe="large"]) details.menu li.menuChamps input[type=range]{ min-height:44px; }
   /* Le titre d'un choix exclusif du menu (le fond) : en petites capitales, comme les en-tetes de section. */
+  /* L'avertissement de l'admin, en tete du menu Admin (constat 1 de l'audit UX) : une ligne de texte, pas une entree. */
+  details.menu li.menuNote{ padding:8px 12px; max-width:300px; font-family:var(--sans); font-size:0.74rem; line-height:1.35; color:var(--ink-soft); border-bottom:1px solid var(--hairline); white-space:normal; }
+  .pastilleMenu{ display:inline-block; width:8px; height:8px; margin-left:6px; border-radius:999px; background:var(--alerte); vertical-align:middle; }
   details.menu li.menuTitre{ padding:6px 12px 2px; font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
   details.menu li.menuAide{ padding:4px 12px 6px; font-family:var(--serif); font-style:italic; font-size:0.7rem; color:var(--ink-soft); max-width:260px; }
   /* Les raccourcis du menu Aide : une liste a lire, pas des entrees a choisir (app/clavier.ts). */
@@ -542,9 +545,10 @@
   button.danger{ background:var(--danger); border-color:var(--danger); color:var(--danger-bg); }
   /* Z9, les notifications (zones/Notifications.tsx) : les toasts empiles au-dessus de la barre
      d'etat, les erreurs en bandeau plein pied jusqu'a ce qu'on les ferme. */
-  /* Au-dessus du voile des dialogues (9998) : un toast annonce parfois un geste du dialogue ouvert, et son « Annuler » doit se toucher. */
+  /* Sous le voile des dialogues (9998) : Z9 passe sous Z8 (audit UX de la 5.45.0, constat 1). Un toast ne couvre jamais le bouton
+     d'un dialogue ; ce qui laisse se raviser dans un dialogue s'y fait sur place (« Annuler le retrait » du partage). */
   .notificationsToasts{
-    position:fixed; left:50%; bottom:64px; transform:translateX(-50%); z-index:9999;
+    position:fixed; left:50%; bottom:64px; transform:translateX(-50%); z-index:9997;
     display:flex; flex-direction:column-reverse; gap:6px; align-items:center; max-width:80vw; pointer-events:none;
   }
   .toast{
@@ -1133,6 +1137,14 @@
   input.saisieEstimee{ opacity:0.7; }
   /* Le total general de la Nomenclature, en pied de table : un filet au-dessus, en gras, les montants alignes. */
   table.attrTable tr.ligneTotalBom td{ font-weight:700; color:var(--ink); border-top:1.5px solid var(--rule); font-variant-numeric:tabular-nums; }
+  /* Calcule ou saisi, a l'oeil et en mots (audit UX de la 5.45.0, constat 5) : le prix calcule sur le debit en italique et
+     « calcule » dessous ; le prix tape par la personne bord accent et « saisi » dessous ; la fourchette du total en retrait. */
+  table.attrTable td.prixCalcule{ font-style:italic; color:var(--ink-soft); }
+  table.attrTable td.prixSaisi input{ border-color:var(--accent); }
+  .marquePrixSaisi{ color:var(--accent); font-weight:600; }
+  table.attrTable tr.ligneTotalBom td.fourchetteBom{ font-weight:400; color:var(--ink-soft); }
+  table.attrTable tr.ligneTotalBom td.totalRetenu{ color:var(--accent); }
+  table.attrTable tr.ligneTotalBom td.totalRetenu .noteLigne{ font-weight:400; }
   /* Au bureau, l'estimation de la terrasse en barre fixe au bas de la fenetre, sur la barre d'etat : le tiroir commence sous le
      pli (l'atelier prend la hauteur de la palette), et le prix restait hors de vue. Meme largeur que le tiroir ; la page garde
      de quoi defiler jusqu'au bout sous elle. */
@@ -1481,6 +1493,12 @@
   .chiffreEstimation dd{ color:var(--accent); }
   .selectionActions{ display:flex; gap:8px; }
   .selectionActions button{ flex:1; min-height:44px; border-radius:var(--r-bouton); font-family:var(--sans); font-size:14px; font-weight:600; }
+  /* Un terrain verrouille choisi d'un toucher : une barre d'une ligne, son nom et « Proprietes » (constat 3 de l'audit UX). */
+  .feuilleSelection.selectionDiscrete{ padding:6px 8px 6px 16px; gap:0; }
+  .selectionDiscrete .selectionNom{ font-size:16px; }
+  .selectionDiscrete .selectionFonction{ font-size:12px; }
+  .selectionDiscrete .selectionEntete{ gap:6px; }
+  .selectionDiscrete .selectionEntete > button.secondary{ min-height:44px; padding:0 14px; border-radius:var(--r-bouton); font-family:var(--sans); font-size:14px; font-weight:600; }
   html[data-classe="moyen"] .feuilleSelection{
     left:88px; right:auto; bottom:calc(var(--reserve-bas, 0px) + 12px); width:340px;
     border:1px solid var(--border); border-radius:var(--r-panneau); box-shadow:var(--ombre-flottante);
@@ -1782,7 +1800,8 @@
   html[data-classe="compact"] #zoneResultatsPied{ flex:none; padding:10px 16px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--hairline); background:var(--panel-bg); }
   .piedChiffrage{ display:flex; flex-direction:column; gap:10px; }
   .piedChiffrageTotal{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
-  .piedChiffrageLibelle{ font-size:14px; color:var(--ink-soft); }
+  .piedChiffrageLibelle{ font-size:14px; color:var(--ink-soft); display:flex; flex-direction:column; gap:2px; }
+  .tuileFourchette{ font-size:12px; color:var(--ink-soft); font-variant-numeric:tabular-nums; font-family:var(--sans); font-weight:400; }
   .piedChiffrageValeur{ font-family:var(--serif); font-size:22px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; text-align:right; }
   .piedChiffrageActions{ display:grid; grid-template-columns:repeat(auto-fit, minmax(0, 1fr)); gap:8px; }
   .piedChiffrageActions button{
@@ -1889,7 +1908,12 @@
   html[data-classe="compact"] .corpsTextures{ flex-direction:column; }
   html[data-classe="compact"] .grilleTextures{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
   /* Les toasts au-dessus de la barre de navigation ; le bandeau d'erreur en haut, le bas etant pris. */
-  html[data-classe="compact"] .notificationsToasts{ bottom:calc(var(--reserve-bas) + 12px); max-width:calc(100vw - 32px); }
+  /* Au telephone et a la tablette, les messages passent en haut, sous la barre : en bas, ils couvraient la barre de navigation, la
+     feuille ouverte, ses actions et le tiroir (constat 1). Le doigt les traverse, sauf le bouton d'un message qui laisse se raviser. */
+  html:not([data-classe="large"]) .notificationsToasts{ bottom:auto; top:calc(env(safe-area-inset-top, 0px) + 6px); flex-direction:column; max-width:calc(100vw - 32px); }
+  /* Au bureau, au-dessus de la barre d'estimation, qui porte le total et ses gestes. */
+  html[data-classe="large"]:has(.bandeEstimation) .notificationsToasts{ bottom:150px; }
+  html:not([data-classe="large"]) .notificationsToasts .toast:not(.toastAction){ pointer-events:none; opacity:.94; }
   html[data-classe="compact"] .toast{ font-size:14px; border-radius:var(--r-bouton); padding:12px 16px; }
   html:not([data-classe="large"]) .toastBouton{ min-height:44px; padding:6px 16px; }
   html[data-classe="compact"] .bandeauErreur{ bottom:auto; top:0; padding-top:calc(10px + env(safe-area-inset-top)); }

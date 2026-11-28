@@ -123,9 +123,8 @@ function RefusPied({ commandes, ids, tactile }: { commandes: RegistreCommandes; 
 function BandeauChiffrage({ c, ouvrir }: { c: ContexteChamps; ouvrir: () => void }) {
   const r = resumerChiffrage(c.obj, c.objets);
   if (!r) return null;
-  // La fourchette estimee, comme sous la table du BOM : la somme des prix reels ne couvre que les
-  // lignes ou un prix existe, et la montrer seule ferait croire a un total.
-  const prix = euros(r.bas) + ' – ' + euros(r.haut);
+  // Le total retenu, comme au pied de la table du BOM (audit UX de la 5.45.0, constat 5).
+  const prix = euros(r.retenu) + ' HT';
   return (
     <button type="button" className="bandeauChiffrage" data-controle="inspecteur.chiffrage" onClick={ouvrir}>
       <span className="bandeauChiffrageTextes">

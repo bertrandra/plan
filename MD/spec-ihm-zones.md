@@ -214,6 +214,12 @@ une liste de champs `{ clé, libellé, type, unité, bornes, visible(si) }` rend
 composant. Une propriété ajoutée à `Construction` sans descripteur devient une erreur de
 compilation.
 
+**Sélection à l'ouverture** (audit UX de la 5.45.0, constat 3). Un projet s'ouvre **sans rien de choisi** : la démonstration,
+un import, un fichier rouvert (`core/state.ts::creerEtat`, `io/projet.ts`). Au doigt, un toucher sur un terrain verrouillé (la
+parcelle du projet, une parcelle voisine) le choisit sans ouvrir de feuille : une barre discrète d'une ligne dit son nom et
+propose « Propriétés » (`zones/FeuilleSelection.tsx`, `selectionDiscrete`). La règle des gestes reste : un glisser sur un objet
+non choisi déplace la vue, un objet choisi et mobile se déplace.
+
 ### 4.6 Z6 — Résultats
 
 | Onglet | Aujourd'hui | Contrat | Saisie ? |
@@ -259,6 +265,15 @@ l'**éditeur** d'une façade déjà relevée, ouvert par la commande `facade.mod
 de la parcelle sur la prise de ce mur : les photos ne se prennent que là) et `facade.retirer`.
 Confirmations et invites (`shell/dialogs.ts`) deviennent le composant Dialog du design system ;
 `showToast` et `showErrBanner` deviennent Z9.
+
+**Pile de Z8 et Z9** (audit UX de la 5.45.0, constat 1). Les notifications passent **sous** les dialogues : un toast ne couvre
+jamais le bouton d'un dialogue (le voile de Z8 est à 9998, les toasts à 9997). Ce qui laisse se raviser dans un dialogue s'y fait
+sur place (« Annuler le retrait » sur la ligne d'un lien du partage), jamais dans un toast. Au téléphone et à la tablette, les
+toasts se posent **en haut**, sous la barre de l'application, jamais sur les actions principales, la barre de navigation, une
+feuille ou le tiroir ; le doigt les traverse, sauf le bouton d'un toast à action. Le bandeau d'erreur, qui attend d'être fermé,
+reste au-dessus, à l'opposé des actions (en haut au téléphone). **Un avertissement destiné à l'administrateur n'est pas une
+notification** : une ligne en clair, au vouvoiement, sans nom de fichier, en tête du menu Admin, et une pastille sur ce menu
+jusqu'à sa première ouverture de la session (`ligneAdminCapacitesForcees`, `app/acces.ts`) ; le détail technique va à la console.
 
 ---
 

@@ -71,7 +71,11 @@ function ResumeTiroir({ terrasse, objets, bande }: { terrasse: ObjetPlan; objets
     <div className={'resumeTiroir' + (bande ? ' bandeEstimation' : '')} role={bande ? 'region' : undefined} aria-label={bande ? 'Estimation de ' + terrasse.name : undefined}>
       {bande && <div className="tuileChiffrage bandeEstimationNom"><span className="tuileLibelle">Terrasse</span><span className="tuileValeur">{terrasse.name}</span></div>}
       {tuiles.map(([l, v]) => <div key={l} className="tuileChiffrage"><span className="tuileLibelle">{l}</span><span className="tuileValeur">{v}</span></div>)}
-      <div className="tuileChiffrage resumeTiroirTotal"><span className="tuileLibelle">Estimation HT</span><span className="tuileValeur">{euros(r.bas)} – {euros(r.haut)}</span></div>
+      {/* Le total retenu, la fourchette en second (audit UX de la 5.45.0, constat 5). */}
+      <div className="tuileChiffrage resumeTiroirTotal">
+        <span className="tuileLibelle">Total retenu HT</span><span className="tuileValeur">{euros(r.retenu)}</span>
+        <span className="tuileFourchette">fourchette {euros(r.bas)} – {euros(r.haut)}</span>
+      </div>
       {bande && (
         <div className="bandeEstimationActions" role="group" aria-label="Après le chiffrage">
           <button type="button" data-controle="tiroir.voirNomenclature" className="secondary" onClick={bande.voir}>Voir la nomenclature</button>
@@ -118,8 +122,8 @@ function ActionsChiffrage({ commandes, taille = 18, auDoigt = false }: { command
 }
 
 /**
- * Le pied de la feuille Chiffrage : l'estimation et les gestes qui suivent un chiffrage. L'estimation reste une fourchette :
- * la somme des prix reels ne couvre que les lignes ou un prix existe, et la montrer seule ferait croire a un total.
+ * Le pied de la feuille Chiffrage : le total retenu, la fourchette en second, et les gestes qui suivent un chiffrage. Le total
+ * retenu prend le prix saisi de chaque ligne, sinon le prix calcule sur le debit, sinon le milieu de sa fourchette (constat 5).
  */
 function PiedChiffrage({ terrasse, objets, commandes }: { terrasse: ObjetPlan; objets: ObjetPlan[]; commandes: RegistreCommandes | undefined }) {
   const r = resumerChiffrage(terrasse, objets);
@@ -127,8 +131,8 @@ function PiedChiffrage({ terrasse, objets, commandes }: { terrasse: ObjetPlan; o
   return (
     <div className="piedChiffrage">
       <div className="piedChiffrageTotal">
-        <span className="piedChiffrageLibelle">Estimation HT</span>
-        <span className="piedChiffrageValeur">{euros(r.bas)} – {euros(r.haut)}</span>
+        <span className="piedChiffrageLibelle">Total retenu HT<span className="tuileFourchette">fourchette {euros(r.bas)} – {euros(r.haut)}</span></span>
+        <span className="piedChiffrageValeur">{euros(r.retenu)}</span>
       </div>
       <div className="piedChiffrageActions"><ActionsChiffrage commandes={commandes} auDoigt /></div>
     </div>

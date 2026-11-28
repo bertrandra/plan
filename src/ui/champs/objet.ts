@@ -10,6 +10,7 @@
 import { sectionEquipement, sectionMassif } from './jardin.js';
 import { especeDe, especesChargees, especeParId, especesParTaille } from '../../model/especesArbre.js';
 import { au } from '../../util/tableaux.js';
+import { chiffreFrGroupe } from '../../util/format.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
 import { LIBELLE_FONCTION } from '../../model/defaults.js';
 import { FONCTIONS_AU_MENU, largeurChemin, longueurChemin, estOuvrage, CHEMIN } from '../../model/ouvrages/index.js';
@@ -147,6 +148,10 @@ const sectionObjet: Section = {
         const s = surfaceMontree(c) ?? 0;
         const brute = surface(c.obj) ?? 0;
         const sp = c.parcelle ? shoelace(enPoints(c.parcelle).pts) : 0;
+        // Un terrain du cadastre a deux surfaces : la contenance, arrondie et calculee autrement, et celle du trace. Les deux,
+        // nommees, plutot qu'un chiffre qui change entre l'import et la fiche (audit UX de la 5.45.0, constat 9).
+        const contenance = Number((c.obj.cadastre as { contenanceM2?: unknown } | undefined)?.contenanceM2);
+        if (estTerrain(c.obj) && contenance > 0) return chiffreFrGroupe(contenance, 0) + ' m² au cadastre · ' + chiffreFrGroupe(s, 0) + ' m² tracés';
         return s.toFixed(2) + ' m²' + (brute - s > 0.005 ? ' (ouvertures déduites : ' + (brute - s).toFixed(2) + ' m²)' : '')
           + (c.obj.key !== 'parcelle' && sp > 0 ? '  (' + (s / sp * 100).toFixed(1) + ' % de la parcelle)' : '');
       }

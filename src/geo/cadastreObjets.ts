@@ -22,6 +22,7 @@ import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
 import type { ChampsBatiment, PtBrut, ObjetPlan, ZonagePlu } from '../model/types.js';
 import type { Anneau } from './geojson.js';
 import { estOuvrage, TERRAIN, LIMITE } from '../model/ouvrages/index.js';
+import { maisonDe } from '../model/placement.js';
 
 /** Une parcelle cadastrale, telle que l'API Carto la rend. */
 export interface ParcelleCadastrale {
@@ -523,3 +524,12 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
   return objets;
 }
 
+/**
+ * Le batiment principal de la parcelle s'appelle « Maison » (audit UX de la 5.45.0, constat 4) : « Residentiel (2 niv.) » est le
+ * nom technique de la BD TOPO, que la personne ne reconnait pas. Appelee par l'import (app/cadastre/importCadastre.ts) apres
+ * `objetsDepuisCadastre`, et non dedans, qui rend ce que dit le cadastre (son empreinte le garde) ; l'usage et les etages restent dans `bdtopo`.
+ */
+export function nommerLaMaison(objets: ObjetPlan[]): void {
+  const m = maisonDe(objets);
+  if (m && m.bdtopo) m.name = 'Maison';
+}

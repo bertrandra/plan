@@ -5,6 +5,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Un projet s'ouvre sans rien de choisi** (audit UX de la 5.45.0, constat 3) : la démonstration, un import, un fichier rouvert.
+  Au doigt, un toucher sur un terrain verrouillé (la parcelle du projet, une parcelle voisine) le choisit sans feuille : une barre
+  d'une ligne (57 px au lieu de 171) dit son nom et propose « Propriétés ». La règle des gestes de #791 ne change pas.
+- **L'avertissement de l'administrateur n'est plus un toast** (constat 1) : neuf secondes à chaque ouverture, il couvrait
+  « Confirmer » de la retouche du terrain, la fiche de sélection et la barre basse. Il se lit en une ligne, au vouvoiement et sans
+  nom de fichier, en tête du menu Admin, marqué d'une pastille jusqu'à sa première ouverture de la session ; le détail technique
+  reste dans la console. **Les toasts passent sous les dialogues** (Z9 sous Z8) et, au téléphone et à la tablette, en haut de
+  l'écran, traversés par le doigt ; « Annuler » d'un retrait de lien de partage se fait sur la ligne du lien.
+- **Chiffrage : un seul total à l'écran** (constat 5). « Total retenu HT » prend le prix saisi de chaque ligne, sinon son prix
+  calculé sur le débit, sinon le milieu de sa fourchette, et dit d'où il vient ; la fourchette passe en second. Les prix calculés
+  sont en italique, les prix saisis marqués « saisi ». Tous les montants de l'écran ont leurs milliers séparés (« 1 295,00 € »).
+  À l'écran seulement : ni le devis, ni les PDF, ni le CSV, ni le résumé ne changent.
+- **Arrivée après un import par adresse** (constat 4) : le projet créé s'ouvre cadré sur la maison et la terrasse de départ, rien
+  de choisi, et la photo aérienne couvre la vue ; le bâtiment principal s'appelle « Maison » (l'usage et les étages de la BD TOPO
+  restent dans ses données ; le nom est posé après `objetsDepuisCadastre`, dont l'empreinte ne bouge pas).
+- **Surface de la parcelle** (constat 9) : « 716 m² (cadastre) » à l'import, et dans la fiche de la parcelle les deux,
+  « 716 m² au cadastre · 723 m² tracés ».
+- Fumée : point 204 (ouverture, menu Admin, barre de sélection, surface, total retenu) ; points 12, 34, 162, 167 et 192 adaptés.
+
 ## [5.45.0] — 2026-11-28
 
 Version **mineure** au sens de `MD/RELEASE.md` : une manière nouvelle de se déplacer sur le plan 2D — un glisser qui commence sur

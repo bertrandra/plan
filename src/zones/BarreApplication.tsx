@@ -12,7 +12,7 @@
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
 import { partirSansQuestion } from '../shell/depart.js';
-import { contexteCourant, sessionCourante, enAdmin, estAdministrateur, partageCourant, enEssai } from '../app/acces.js';
+import { contexteCourant, sessionCourante, enAdmin, estAdministrateur, partageCourant, enEssai, ligneAdminCapacitesForcees } from '../app/acces.js';
 import { dateLongue } from '../app/partage.js';
 import { reglesLocalesDemandees } from '../app/ecouteurs/faitsLocaux.js';
 import { BACKPROD_API_URL, vitrinePlateforme } from '../plateforme/config.js';
@@ -78,11 +78,12 @@ interface PropsMenu { magasin: Magasin; commandes: RegistreCommandes }
 // (`commandes.executer`). Hors d'un menu, une entree relit a chaque rendu.
 const MenuOuvert = createContext(true);
 
-function Deroulant({ id, titre, children }: { id: string; titre: string; children: ReactNode }) {
+function Deroulant({ id, titre, children, pastille, onOuvrir }: { id: string; titre: string; children: ReactNode; pastille?: string | null; onOuvrir?: () => void }) {
   const [ouvert, poserOuvert] = useState(false);
   return (
-    <details className="menu" id={id} onToggle={(e) => poserOuvert(e.currentTarget.open)}>
-      <summary>{titre}</summary>
+    <details className="menu" id={id} onToggle={(e) => { poserOuvert(e.currentTarget.open); if (e.currentTarget.open) onOuvrir?.(); }}>
+      {/* Une pastille, quand le menu a quelque chose a dire (l'avertissement de l'admin) : le mot est dans l'etiquette. */}
+      <summary>{titre}{pastille && <span className="pastilleMenu" role="img" aria-label={pastille} />}</summary>
       <MenuOuvert.Provider value={ouvert}>{children}</MenuOuvert.Provider>
     </details>
   );
@@ -398,6 +399,9 @@ function MenuAide({ magasin, commandes, tiroir }: { magasin: Magasin; commandes:
   );
 }
 
+/** La pastille de l'avertissement de l'admin ne se montre qu'une fois par session : jusqu'a la premiere ouverture du menu. */
+const CLE_AVERTISSEMENT_VU = 'planInteractif.avertissementAdminVu';
+
 /**
  * Le menu Admin : les ecrans secondaires de l'admin des demos (l'arbre des controleurs, la palette
  * de l'interface, la consommation de Claude, la conformite) et le mode audit (MD/spec-audit.md). Les ecrans
@@ -411,11 +415,17 @@ function MenuAide({ magasin, commandes, tiroir }: { magasin: Magasin; commandes:
  */
 export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
   const demos = enAdmin();
+  // L'avertissement de l'admin (une capacite ouverte d'office que la plateforme n'attribue pas) : une ligne en tete du menu, et une
+  // pastille sur son titre jusqu'a la premiere ouverture de la session (audit UX de la 5.45.0, constat 1 : ce n'est plus un toast).
+  const avertissement = ligneAdminCapacitesForcees();
+  const [vu, poserVu] = useState(() => { try { return sessionStorage.getItem(CLE_AVERTISSEMENT_VU) === '1'; } catch { return false; } });
   if (!demos && !estAdministrateur()) return null;
   const aller = (adresse: string) => (e: React.MouseEvent<HTMLElement>) => { fermer(e); location.assign(adresse); };
+  const marquerVu = () => { if (vu) return; poserVu(true); try { sessionStorage.setItem(CLE_AVERTISSEMENT_VU, '1'); } catch { /* sans stockage : la pastille revient */ } };
   return (
-    <Deroulant id="menuAdmin" titre="Admin">
+    <Deroulant id="menuAdmin" titre="Admin" pastille={avertissement && !vu ? 'Un avertissement à lire' : null} onOuvrir={marquerVu}>
       <ul role="menu">
+        {avertissement && <li role="none" className="menuNote avertissementAdmin">{avertissement}</li>}
         <li role="menuitem">
           <button type="button" data-controle="admin.audit" onClick={aller(demos ? '?admin&mode=audit' : '?mode=audit')}>
             <span className="coche" aria-hidden="true" />Mode audit (promenade)

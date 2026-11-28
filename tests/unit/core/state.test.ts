@@ -7,15 +7,12 @@ import type { ObjetPlan, Mesure } from '../../../src/model/types.js';
 const identite = (objs: unknown[]) => objs as ObjetPlan[];
 
 describe('etat de l application', () => {
-  it('selectionne la terrasse a l ouverture quand il y en a une', () => {
-    // C'est l'objet qu'on vient regarder en arrivant.
-    const etat = creerEtat({ objects: [{ key: 'parcelle', name: 'Parcelle' }, { key: 'terrasse', name: 'Terrasse' }] }, identite);
-    expect(etat.selectedKey).toBe('terrasse');
-  });
-
-  it('retombe sur le premier objet sinon', () => {
-    const etat = creerEtat({ objects: [{ key: 'parcelle', name: 'Parcelle' }, { key: 'maison', name: 'Maison' }] }, identite);
-    expect(etat.selectedKey).toBe('parcelle');
+  it('ouvre un projet sans rien selectionner, terrasse ou non', () => {
+    // Audit UX de la 5.45.0, constat 3 : rien n'est choisi tant que la personne n'a rien designe.
+    const avec = creerEtat({ objects: [{ key: 'parcelle', name: 'Parcelle' }, { key: 'terrasse', name: 'Terrasse' }] }, identite);
+    expect(avec.selectedKey).toBeNull();
+    const sans = creerEtat({ objects: [{ key: 'parcelle', name: 'Parcelle' }, { key: 'maison', name: 'Maison' }] }, identite);
+    expect(sans.selectedKey).toBeNull();
   });
 
   it('accepte un projet vide sans rien selectionner', () => {

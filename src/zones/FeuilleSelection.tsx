@@ -24,7 +24,7 @@ import type { RegistreCommandes } from '../app/commandes.js';
 import type { Explorateur } from '../app/explorateur.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { ObjetPlan } from '../model/types.js';
-import { estTerrasse } from '../model/fonctions.js';
+import { estTerrasse, estTerrain } from '../model/fonctions.js';
 import { largeurChemin, longueurChemin } from '../model/ouvrages/index.js';
 import { surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
 
@@ -50,7 +50,7 @@ function chiffres(o: ObjetPlan, objets: ObjetPlan[]): [string, string][] {
   if (estTerrasse(o)) {
     liste.push(['Hauteur finie', nombre(hauteurFinieMm(o) / 10, 1).replace(/,0$/, '') + ' cm']);
     const r = resumerChiffrage(o, objets);
-    if (r) liste.push(['Estimation', euros(r.bas) + ' – ' + euros(r.haut)]);
+    if (r) liste.push(['Total retenu', euros(r.retenu)]);
   }
   return liste.slice(0, 3);
 }
@@ -85,6 +85,25 @@ export function FeuilleSelection({ magasin, commandes, explorateur, tiroir }: Pr
       </button>
     );
   };
+  // Un terrain verrouille (la parcelle du projet, une parcelle voisine) est le fond du plan : un toucher le choisit souvent sans
+  // le vouloir. Il ne prend donc qu'une barre discrete, son nom et « Proprietes » (audit UX de la 5.45.0, constat 3) ; la feuille
+  // entiere couvrait un tiers du plan pour un objet qu'on ne modifie presque jamais.
+  if (o.locked && estTerrain(o)) {
+    return (
+      <section className="feuilleSelection selectionDiscrete" aria-label="Sélection">
+        <div className="selectionEntete">
+          <div className="selectionTitres">
+            <span className="selectionNom">{o.name}</span>
+            <span className="selectionFonction">{LIBELLE_FONCTION[o.fonction || 'autre'] || 'Terrain'} · verrouillé</span>
+          </div>
+          <button type="button" className="secondary" data-controle="selection.proprietes" onClick={ouvrirProprietes}>Propriétés</button>
+          <button type="button" className="boutonIcone" data-controle="selection.deselectionner" aria-label="Désélectionner" title="Désélectionner" onClick={() => explorateur.selectionner(null)}>
+            <Icone nom="fermer" taille={20} />
+          </button>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="feuilleSelection" aria-label="Sélection">
       <div className="selectionEntete">
@@ -100,7 +119,7 @@ export function FeuilleSelection({ magasin, commandes, explorateur, tiroir }: Pr
       </div>
       <dl className="selectionChiffres">
         {chiffres(o, etat.objects).map(([l, v]) => (
-          <div key={l} className={'chiffreCle' + (l === 'Estimation' ? ' chiffreEstimation' : '')}><dt>{l}</dt><dd>{v}</dd></div>
+          <div key={l} className={'chiffreCle' + (l === 'Total retenu' ? ' chiffreEstimation' : '')}><dt>{l}</dt><dd>{v}</dd></div>
         ))}
       </dl>
       <div className="selectionActions">

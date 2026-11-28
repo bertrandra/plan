@@ -9,12 +9,12 @@ import type { ObjetBrut, ObjetPlan } from '../../../src/model/types.js';
 const etat = (cle: string | null): EtatSelectionAccueil => { const e: EtatSelectionAccueil = { selectedKey: cle }; poserSelectionAccueil(e); return e; };
 
 describe('la selection d accueil', () => {
-  it('l ouverture d un projet la pose : la terrasse, sinon le premier objet, sinon rien', () => {
+  it('l ouverture d un projet ne choisit plus rien (audit UX de la 5.45.0, constat 3)', () => {
     const tel = (objs: ObjetBrut[]) => objs as unknown as ObjetPlan[];
     const avec = creerEtat({ objects: [{ key: 'parcelle' }, { key: 'terrasse' }] as unknown as ObjetBrut[] }, tel);
-    expect([avec.selectedKey, avec.selectionAccueil]).toEqual(['terrasse', 'terrasse']);
+    expect([avec.selectedKey, avec.selectionAccueil]).toEqual([null, null]);
     const sans = creerEtat({ objects: [{ key: 'parcelle' }] as unknown as ObjetBrut[] }, tel);
-    expect([sans.selectedKey, sans.selectionAccueil]).toEqual(['parcelle', 'parcelle']);
+    expect([sans.selectedKey, sans.selectionAccueil]).toEqual([null, null]);
     const vide = creerEtat({ objects: [] }, tel);
     expect([vide.selectedKey, vide.selectionAccueil]).toEqual([null, null]);
   });

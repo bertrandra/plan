@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { resumerChiffrage, totauxBom } from '../../../src/ui/chiffrage.js';
+import { resumerChiffrage, totauxBom, origineDuRetenu, euros, eurosCentimes } from '../../../src/ui/chiffrage.js';
 import { DEMO_OBJECTS } from '../../../src/model/demo.js';
 import { toucher } from '../../../src/core/controleurObjets.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
@@ -65,9 +65,23 @@ describe('les totaux de la nomenclature (audit de l IHM du 16 novembre 2026)', (
   // telephone : ils ne peuvent pas dire deux nombres pour une terrasse.
   it('additionne prix bas et haut fois les quantites, et les prix reels saisis', () => {
     const l = (qte: number, prixBas: number, prixHaut: number, prixReel: number | null) => ({ poste: 'p' + qte, label: '', qte, unite: 'u', prixBas, prixHaut, prixReel }) as never;
-    expect(totauxBom([l(2, 10, 20, null), l(3, 1, 2, 12.5)])).toEqual({ bas: 23, haut: 46, reel: 12.5 });
+    expect(totauxBom([l(2, 10, 20, null), l(3, 1, 2, 12.5)])).toEqual({ bas: 23, haut: 46, reel: 12.5, retenu: 42.5, saisis: 1, calcules: 0, auMilieu: 1 });
     expect(totauxBom([l(2, 10, 20, null)]).reel).toBe(null);
-    expect(totauxBom([])).toEqual({ bas: 0, haut: 0, reel: null });
+    expect(totauxBom([])).toEqual({ bas: 0, haut: 0, reel: null, retenu: 0, saisis: 0, calcules: 0, auMilieu: 0 });
+  });
+
+  it('retient le prix saisi, sinon le prix calcule, sinon le milieu de la fourchette (audit UX de la 5.45.0, constat 5)', () => {
+    const calc = { poste: 'lames', label: '', qte: 10, unite: 'ml', prixBas: 5, prixHaut: 9, prixReel: 61.2, calcule: 'calcule' } as never;
+    const milieu = { poste: 'vis', label: '', qte: 4, unite: 'u', prixBas: 10, prixHaut: 20, prixReel: null } as never;
+    const t = totauxBom([calc, milieu]);
+    expect(t.retenu).toBeCloseTo(61.2 + 60, 6);
+    expect([t.saisis, t.calcules, t.auMilieu]).toEqual([0, 1, 1]);
+    expect(origineDuRetenu(t)).toBe('1 calculé sur le débit, 1 au milieu de la fourchette');
+  });
+
+  it('ecrit les montants avec les milliers separes, comme les exports', () => {
+    expect(euros(3040.4)).toBe('3\u00a0040\u00a0€');
+    expect(eurosCentimes(1295)).toBe('1\u00a0295,00\u00a0€');
   });
 
   it('est la fourchette du resume du chiffrage', () => {
