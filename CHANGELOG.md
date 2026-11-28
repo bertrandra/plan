@@ -33,16 +33,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   gardé d'une étape à l'autre et quand on change de parcelle, et repart de « tout voir » à une nouvelle adresse. Calcul du cadre
   dans `geometry/cadreApercu.ts`, testé ; aucune quantité ni aucun export ne change.
 
-### Corrigé
-
-- **La caméra de la Vue 3D ne passe plus sous le sol** (retour de l'utilisateur : « en vue 3D je passe en dessous du sol. Aucun
-  intérêt »). Quel que soit le geste — tourner, déplacer, molette, pincement, flèches, hauteur des yeux, point de vue rappelé,
-  cadrage du mode Toit ou de l'audit — l'œil reste au moins à 0,30 m au-dessus du sol sous lui (le relief quand « Relief » est
-  actif, sinon le plan du sol), et la cible de l'orbite ne s'enfonce pas sous le sol. Arrêtée au ras du sol, la caméra garde sa
-  distance à la cible : elle ne se rapproche pas d'elle en insistant. Regarder vers le haut depuis le sol reste possible. Un ancien
-  point de vue enregistré sous le sol est remonté à l'ouverture, sans que le fichier change. La visionneuse du `.glb` suit la même
-  règle (`three/solCamera.ts`). Aucune quantité ni aucun export ne change.
-
 ### Modifié
 
 - **Se déplacer sur le plan 2D sans attraper d'objet** (demande du propriétaire : « pas facile de se déplacer car je sélectionne à
@@ -52,7 +42,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   (parcelle du projet, voisines), ce qui vient du cadastre ou de l'IGN, un objet verrouillé et la lecture seule déplacent toujours la
   vue, même choisis. À la souris, le bouton du milieu et la barre d'espace tenue (le plan ayant le focus, hors d'un champ) déplacent
   aussi la vue. Le rappel « Gestes sur le plan » de l'inspecteur le dit. La décision est une fonction pure testée
-  (`interaction/choixGeste.ts`) ; la Vue 3D ne change pas ; aucune quantité ni aucun export ne bouge.
+  (`interaction/choixGeste.ts`) ; la Vue 3D ne change pas ; aucune quantité ni aucun export ne bouge. Fumée : point 202 nouveau.
+
+### Corrigé
+
+- **La caméra de la Vue 3D ne passe plus sous le sol** (retour de l'utilisateur : « en vue 3D je passe en dessous du sol. Aucun
+  intérêt »). Quel que soit le geste — tourner, déplacer, molette, pincement, flèches, hauteur des yeux, point de vue rappelé,
+  cadrage du mode Toit ou de l'audit — l'œil reste au moins à 0,30 m au-dessus du sol sous lui (le relief quand « Relief » est
+  actif, sinon le plan du sol), et la cible de l'orbite ne s'enfonce pas sous le sol. Arrêtée au ras du sol, la caméra garde sa
+  distance à la cible : elle ne se rapproche pas d'elle en insistant. Regarder vers le haut depuis le sol reste possible. Un ancien
+  point de vue enregistré sous le sol est remonté à l'ouverture, sans que le fichier change. La visionneuse du `.glb` suit la même
+  règle (`three/solCamera.ts`). Aucune quantité ni aucun export ne change.
 
 ## [5.43.1] — 2026-11-27
 
