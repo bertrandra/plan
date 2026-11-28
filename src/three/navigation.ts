@@ -10,6 +10,7 @@
 // en arriere-plan — le reglage se ferait alors sans effet visible au retour.
 
 import { au } from '../util/tableaux.js';
+import { geste3d } from './solCamera.js';
 import { sousLePointeur } from './comparaison3d.js';
 import { zoomerLaFacade } from './vueFacadeToit.js';
 import { pincerLaFacadeDe } from './pincementFacade.js';
@@ -213,6 +214,13 @@ function pointSousLePointeur(sc: SceneTroisBase, ndc: { x: number; y: number }):
  * La molette de la Vue 3D. `repli` zoome vers la cible de l'orbite, quand le curseur vise le ciel.
  * Rend l'ecouteur et de quoi oublier le geste en cours (scene reconstruite, mode change).
  */
+/** Joue `f` comme un geste de la personne sur la camera de la Vue 3D (three/solCamera.ts, `geste3d`). */
+function enGeste(f: () => void): void {
+  const sc = vue3d.scene;
+  if (!sc) { f(); return; }
+  geste3d(sc.camera.position, sc.controls.target, f);
+}
+
 function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent) => void; oublier: () => void } {
   /** Le point vise par le geste de molette en cours : cherche une fois, il reste sous le curseur. */
   let molette: { point: THREE_NS.Vector3 | null; t: number; x: number; y: number } | null = null;
@@ -222,7 +230,9 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
    * voisinage, c'est le seul moyen d'aller voir une maison au loin. Elle passe avant OrbitControls,
    * qui ne sait zoomer que vers sa cible ; le pincement a deux doigts lui reste.
    */
-  function onMolette(e: WheelEvent): void {
+  // Un geste de la personne : la vue libre le tient (three/solCamera.ts, constat 6 de l'audit UX de la 5.45.0).
+  function onMolette(e: WheelEvent): void { enGeste(() => moletteBrute(e)); }
+  function moletteBrute(e: WheelEvent): void {
     const sc = vue3d.scene;
     if (!sc) return;
     e.preventDefault();
@@ -263,7 +273,8 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
  * Tourne la camera de `deg` degres autour de la verticale de sa cible (positif : la scene tourne vers la gauche). Les boutons et les
  * fleches du clavier font ainsi ce que fait le glisser (audit de la camera, 6 novembre 2026 : la vue ne se pilotait pas au clavier).
  */
-function tournerVue(deg: number): void {
+function tournerVue(deg: number): void { enGeste(() => tournerVueBrut(deg)); }
+function tournerVueBrut(deg: number): void {
   const sc = vue3d.scene;
   if (!sc || sc.controls.enabled === false) return;
   const { camera, controls } = sc;
@@ -284,7 +295,8 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
    * Le plancher de 0,30 m empeche de zoomer **au travers** de la cible : passe ce point, l'orbite
    * s'inverserait et la vue partirait a l'envers.
    */
-  function zoom3D(factor: number): void {
+  function zoom3D(factor: number): void { enGeste(() => zoom3DBrut(factor)); }
+  function zoom3DBrut(factor: number): void {
     if (!vue3d.scene) return;
     // Devant une facade : les boutons +/− et le zoom au glisser rapprochent la camera oblique, autour du milieu de l'image.
     if (zoomerLaFacade(vue3d.scene, 1 / factor, { x: 0, y: 0 })) return;

@@ -13,6 +13,7 @@ import { cleDuPlanLu } from '../../ui/clePlan.js';
 import { estTerrain } from '../../model/fonctions.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { Magasin } from '../../app/magasin.js';
+import { useStore } from 'zustand';
 import { memo as memoReact } from 'react';
 import { useCle, cleEtat, cleDesCotes } from '../composants/abonnement.js';
 
@@ -116,9 +117,12 @@ const TableCotes = memoReact(function TableCotes({ resultats, commandes }: { res
 export function Cotes({ magasin, resultats, commandes }: { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes }) {
   // Le tableau ne se refait que si les objets que les cotes visent, les cotes ou le droit d'ecrire changent, tiroir visible.
   const version = useCle(magasin, 'tableau des cotes', (s) => cleEtat(s) + cleDesCotes(s) + commandes.etat('mesure.supprimer').utilisable, 'resultats');
+  const surLePlan = useStore(magasin.store, (s) => s.options.mesuresSurLePlan);
   return (
     <>
       <div className="sectionTitle">Mesure</div>
+      {/* Les mesures sur le plan sont une preference d'affichage eteinte par defaut (app/mesuresSurLePlan.ts) : le tableau le dit. */}
+      {!surLePlan && <div className="hint">Les mesures ne sont pas dessinées sur le plan. Pour les y voir : menu Affichage, « Mesures des cotes sur le plan ».</div>}
       <Brouillon resultats={resultats} commandes={commandes} />
       <TableCotes resultats={resultats} commandes={commandes} version={version} />
       <div className="controls">

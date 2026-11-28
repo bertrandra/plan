@@ -70,6 +70,8 @@ export function creerRendu(d: DependancesRendu) {
     // Le repere du dessin suit la vue : un deplacement n'est qu'un decalage du viewBox (render/repere.ts).
     dessin.suivreLaVue();
     rendreScene(etat, contexteRendu());
+    // Les etiquettes qui se chevauchent : la moins prioritaire se masque, une fois l'image posee (app/assemblage/chevauchements.ts).
+    dessin.eviterChevauchements();
     tiroir.synchroniser(contexteChange);
     magasin.notifier();
     const duree = performance.now() - debut;

@@ -11,6 +11,7 @@
 import { au } from '../util/tableaux.js';
 import { projectOntoSegment } from '../geometry/segments.js';
 import type { PtBrut } from './types.js';
+import { NOM_DE_COTE_PAR_DEFAUT, NOM_DE_COIN_PAR_DEFAUT } from './formes.js';
 
 export interface FormeASommets {
   type?: string;
@@ -40,13 +41,24 @@ export function insererSommet(forme: FormeASommets, indexCote: number, clicMonde
   const b = au(forme.pts, (indexCote + 1) % n);
   const point = projectOntoSegment(clicMonde, a, b);
   forme.pts.splice(indexCote + 1, 0, point);
-  // Les noms par defaut suivent le NOUVEAU nombre de sommets, pas la position d'insertion : deux
-  // insertions successives peuvent donc produire deux « Coin 5 ». C'est le comportement du fichier
-  // d'origine, conserve tel quel (§10.3) - ces noms sont des suggestions editables, pas des cles.
   forme.vertexNames.splice(indexCote + 1, 0, 'Coin ' + forme.pts.length);
   forme.segmentNames.splice(indexCote + 1, 0, 'Cote ' + forme.pts.length);
   forme.frozenVertices.splice(indexCote + 1, 0, false);
+  renumeroter(forme);
   return point;
+}
+
+/**
+ * Les noms par defaut suivent la place, apres une insertion ou un retrait (audit UX de la 5.45.0, constat 8) : ils ne sont que des
+ * numeros, et « Cote 6 » pose au troisieme rang faisait lire 1, 2, 6, 3, 4, 5 dans les listes. Un nom saisi par la personne garde
+ * son nom. (Jusqu'a la 5.45.0, le nom neuf suivait le nombre de sommets, et deux insertions pouvaient donner deux « Coin 5 ».)
+ */
+function renumeroter(forme: FormeASommets): void {
+  forme.segmentNames.forEach((nom, i) => { if (NOM_DE_COTE_PAR_DEFAUT.test(nom)) forme.segmentNames[i] = 'Cote ' + (i + 1); });
+  forme.vertexNames.forEach((nom, i) => {
+    const m = NOM_DE_COIN_PAR_DEFAUT.exec(nom);
+    if (m) forme.vertexNames[i] = m[1] + ' ' + (i + 1);
+  });
 }
 
 /**
@@ -63,5 +75,6 @@ export function supprimerSommet(forme: FormeASommets, index: number): boolean {
   if (index < forme.segmentNames.length) forme.segmentNames.splice(index, 1);
   else forme.segmentNames.pop();
   forme.frozenVertices.splice(index, 1);
+  renumeroter(forme);
   return true;
 }

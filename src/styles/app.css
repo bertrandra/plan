@@ -1455,6 +1455,8 @@
   .groupeFlottant button + button{ border-top:1px solid var(--hairline); }
   .groupeFlottant button.actif{ background:var(--accent-light); color:var(--on-accent-light); }
   .groupeFlottant button:disabled{ opacity:0.35; }
+  /* Une etiquette du plan qui en chevauche une plus prioritaire se masque (app/assemblage/chevauchements.ts, constat 7). */
+  #stage text[data-chevauche]{ visibility:hidden; }
   .pastilleEchelle{
     position:absolute; left:10px; top:64px; z-index:5; padding:5px 10px; border-radius:10px;
     background:var(--panel-bg); border:1px solid var(--border); font-family:var(--sans); font-size:12px;
