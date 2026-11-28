@@ -151,7 +151,7 @@ son halo, reste lisible par-dessus. La couleur ne porte rien seule : le nom des 
 ruban drapé des chemins (`geometrieRubanDrape`), recoupé en mailles de 2 m au plus en long comme en
 travers, chaque sommet à la hauteur du sol sous lui (`SolRelief.hauteur`, le lecteur de la scène)
 plus 6 cm ; un disque ferme chaque bout de tronçon, pour des carrefours sans encoche. Matériau mat
-(`roughness 1`, `metalness 0`) à la couleur de `--chaussee` assombrie de 0,8 (`ATTENUATION_3D` : le soleil et la courbe de
+(`roughness 1`, `metalness 0`) à la couleur de `--chaussee-3d` (§8) assombrie de 0,8 (`ATTENUATION_3D` : le soleil et la courbe de
 film de la scène éclaircissent un sol face au ciel, et l'ambre paraissait délavé, presque blanc sur le Plan IGN), dans la couche de profondeur des
 chemins (`COUCHES_SOL.chemin`, décalage de polygone) : il gagne contre le sol, la photo et le Plan
 IGN, sans scintiller. Découpé au sol dessiné (un ruban hors du sol flotterait). Il reçoit les ombres
@@ -243,6 +243,28 @@ de la bordure, et une face qui descend au sol à la limite. Trois mailles mates 
 `rues-trottoirs`, `rues-bordures`), dans la couche des chemins, hors export, sans ombre portée.
 Les plaques des noms se posent au milieu de la chaussée et tiennent dans sa largeur (3,20 m au plus,
 1,50 m au moins, `hauteurPlaque`).
+
+**Les couleurs de la Vue 3D** (retour du propriétaire, 27 novembre 2026 : « rendu 3D éclairci en mode
+sombre »). La 3D a ses propres jetons, famille « Scènes » de la palette : `--chaussee-3d`,
+`--trottoir-3d`, `--bordure-3d` (Plan) et `--chaussee-reelle-3d`, `--trottoir-reel-3d`,
+`--bordure-reelle-3d` (Réelles), toujours assombris de 0,8 (`ATTENUATION_3D`). **Ils ne suivent pas
+le thème** : la scène a son soleil et son ciel, les mêmes en clair et en sombre (toits, murs et
+gazon ne changent pas). En lisant les jetons sombres du plan, faits pour la photo sous une
+interface sombre, la chaussée « Réelle » sortait presque noire et la bordure « Plan » noire. Les
+valeurs sont celles du plan clair, sauf les pierres claires (trottoirs, granit), un peu plus
+chaudes : le ciel de la scène (`scene.environment`) leur rend environ 3 % de bleu de plus que de
+rouge, et la pierre se lisait gris-bleu. Les mêmes dans chaque modèle de palette.
+
+| Jeton | Vue 3D, clair et sombre | Plan clair | Plan sombre |
+|---|---|---|---|
+| `--chaussee-3d` | `#F2C14E` | `#F2C14E` | `#B8862B` |
+| `--trottoir-3d` | `#E4DCCB` | `#E4DED2` | `#4A443B` |
+| `--bordure-3d` | `#6B4A12` | `#6B4A12` | `#0F0B06` |
+| `--chaussee-reelle-3d` | `#5A5E63` | `#5A5E63` | `#3E4246` |
+| `--trottoir-reel-3d` | `#C8C1AF` | `#C8C2B5` | `#8E897F` |
+| `--bordure-reelle-3d` | `#EDE8DC` | `#EDEAE3` | `#C9C4BA` |
+
+Le plan 2D ne change pas.
 
 **Les exports.** Aucun ne change : ni les quantités, ni les empreintes de `tests/fixtures/golden/`.
 

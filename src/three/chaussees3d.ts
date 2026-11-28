@@ -34,21 +34,25 @@ export const ATTENUATION_3D = 0.8;
 /** Le nombre de cotes du disque qui ferme un bout de troncon. */
 const COTES_BOUT = 12;
 
-/** Le jeton de chaque partie d'une rue, selon les couleurs choisies. */
-const JETONS_RUE: Record<CouleursRues, Record<'chaussee' | 'trottoir' | 'bordure', 'chaussee' | 'trottoir' | 'chaussee-bord' | 'chaussee-reelle' | 'trottoir-reel' | 'bordure-reelle'>> = {
-  plan: { chaussee: 'chaussee', trottoir: 'trottoir', bordure: 'chaussee-bord' },
-  reelles: { chaussee: 'chaussee-reelle', trottoir: 'trottoir-reel', bordure: 'bordure-reelle' },
+/**
+ * Le jeton de chaque partie d'une rue, selon les couleurs choisies : ceux de la Vue 3D (`--…-3d`), pas ceux du plan. La scene a son
+ * soleil et son ciel, les memes dans les deux themes : les teintes sombres du plan, faites pour la photo sous une interface sombre,
+ * y donnaient une chaussee presque noire (styles/jetons.ts).
+ */
+export const JETONS_RUE_3D: Readonly<Record<CouleursRues, Readonly<Record<'chaussee' | 'trottoir' | 'bordure', 'chaussee-3d' | 'trottoir-3d' | 'bordure-3d' | 'chaussee-reelle-3d' | 'trottoir-reel-3d' | 'bordure-reelle-3d'>>>> = {
+  plan: { chaussee: 'chaussee-3d', trottoir: 'trottoir-3d', bordure: 'bordure-3d' },
+  reelles: { chaussee: 'chaussee-reelle-3d', trottoir: 'trottoir-reel-3d', bordure: 'bordure-reelle-3d' },
 };
 
-/** La couleur d'une partie des rues : le jeton de la page (la palette de l'admin comprise), sinon celui de jetons.ts. */
+/** La couleur d'une partie des rues en 3D : le jeton de la page (la palette de l'admin comprise), sinon celui de jetons.ts. */
 export function couleurRue(partie: 'chaussee' | 'trottoir' | 'bordure', couleurs: CouleursRues = 'plan'): string {
-  const nom = JETONS_RUE[couleurs][partie];
+  const nom = JETONS_RUE_3D[couleurs][partie];
   const sombre = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
   const lue = typeof document !== 'undefined' ? getComputedStyle(document.documentElement).getPropertyValue('--' + nom).trim() : '';
   return lue || JETONS[sombre ? 'sombre' : 'clair'][nom];
 }
 
-/** La couleur des chaussees : le jeton `--chaussee` de la page (la palette de l'admin comprise). */
+/** La couleur des chaussees en 3D : le jeton `--chaussee-3d` de la page (la palette de l'admin comprise). */
 export function couleurChaussee(): string {
   return couleurRue('chaussee', 'plan');
 }

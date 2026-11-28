@@ -91,6 +91,11 @@ export const ortho: {
   tuiles: TuileOrtho[];
   /** Les tuiles du paysage (`large`), sous les fines, la ou le relief va au-dela des parcelles. */
   tuilesLarges: TuileOrtho[];
+  /**
+   * Une lecture en cours : « Recharger le fond IGN » est grise (app/ecouteurs/affichage.ts). Le menu ne le sait qu'au rendu suivant
+   * (la cle des zones se lit a chaque rendu du plan) : chaque ecriture est donc suivie d'un rendu, ou faite pendant un rendu, avant
+   * que le magasin ne le compte (`poserChargement`).
+   */
   chargement: boolean;
   /** Cle « couche/z/x/y » -> data URI. Une tuile ne se retelecharge pas d'un zoom a l'autre, ni d'un fond a l'autre. */
   cache: Map<string, string>;
@@ -376,6 +381,16 @@ async function tuilesSur(e: Emprise, versLonLat: (x: number, y: number) => { lon
   }
   return null;
 }
+/**
+ * Pose `ortho.chargement` et le dit au plan : un rendu, qui fait compter le magasin. Une lecture qui commence ou finit sans rendu
+ * laissait « Recharger le fond IGN » dans l'etat d'avant tant que rien d'autre ne redessinait le plan (dans le paquet livre, la cle
+ * de l'entree ne change pas) ; un rendu venu juste avant l'ecriture, dans la meme tache, faisait lever le garde-fou des cles.
+ */
+function poserChargement(ctx: ContexteOrtho, valeur: boolean): void {
+  ortho.chargement = valeur;
+  ctx.render();
+}
+
 /** La derniere emprise dont on a tente d'etendre la photo : une seule tentative par calque. */
 let extensionTentee = '';
 
@@ -395,8 +410,9 @@ function etendreSiBesoin(ctx: ContexteOrtho): void {
   const cle = [voulu.xMin, voulu.xMax, voulu.yMin, voulu.yMax, ...(paysage ? [paysage.xMin, paysage.xMax] : [])].map(v => v.toFixed(1)).join(',');
   if(cle === extensionTentee) return;
   extensionTentee = cle;
+  // Pendant le rendu, avant que le magasin ne le compte : la cle des zones lue ensuite voit la lecture en cours.
   ortho.chargement = true;
-  void chargerOrthophoto(ctx).catch(() => null).finally(() => { ortho.chargement = false; ctx.render(); });
+  void chargerOrthophoto(ctx).catch(() => null).finally(() => poserChargement(ctx, false));
 }
 
 // Un attribut reecrit a la meme valeur fait quand meme travailler le navigateur (style de l'image suivante) : a chaque rendu du
@@ -486,15 +502,16 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
  * rouvrir le projet. Rend le nombre de tuiles lues, ou leve si rien ne revient.
  */
 export async function rechargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatChargementOrtho> {
+  // Le rendu d'abord, tuiles encore la : le menu grise l'entree, la photo d'avant reste a l'ecran pendant la lecture.
+  poserChargement(ctx, true);
   ortho.tuiles = [];
   ortho.tuilesLarges = [];
   ortho.couverture = null;
   ortho.photo = [];
   ortho.cache.clear();
   extensionTentee = '';
-  ortho.chargement = true;
   try { return await chargerOrthophoto(ctx); }
-  finally { ortho.chargement = false; ctx.render(); }
+  finally { poserChargement(ctx, false); }
 }
 
 /**
@@ -507,20 +524,19 @@ export async function basculerOrthophoto(actif: boolean, ctx: ContexteOrtho, dis
   ortho.actif = actif;
   if(!actif){ ctx.render(); enregistrerConfigOrtho(ctx); return; }
   if(ortho.tuiles.length){ ctx.render(); enregistrerConfigOrtho(ctx); return; }
-  ortho.chargement = true;
+  poserChargement(ctx, true);
   try {
     const r = await chargerOrthophoto(ctx);
-    ctx.render();
+    // La lecture finie avant le rendu : celui-ci la dit au menu (la fin posee apres lui, le menu restait grise).
+    poserChargement(ctx, false);
     enregistrerConfigOrtho(ctx);
     if(!discret) showToast(NOMS_FOND[ortho.couche] + ' : ' + r.nb + ' tuile(s) au niveau ' + r.z +
       (r.exact ? '.' : ' — calage approximatif (plan sans import cadastre : le fond est posé sur le lieu déclaré de la parcelle).'));
   } catch(e){
     ortho.actif = false;
-    // Le rendu redit au menu que le fond est eteint.
-    ctx.render();
+    // Le rendu redit au menu que le fond est eteint, et qu'il ne se lit plus.
+    poserChargement(ctx, false);
     if(!discret) showToast(phraseReseau(e, ortho.couche === 'plan' ? 'Le service du Plan IGN' : 'Le service des photos aériennes de l’IGN', 'Le plan reste sans fond : réessayez dans un instant (menu Affichage, « Fond IGN »).') ?? NOMS_FOND[ortho.couche] + ' indisponible : ' + detailTechnique(e));
-  } finally {
-    ortho.chargement = false;
   }
 }
 

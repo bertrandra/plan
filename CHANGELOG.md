@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Rendu 3D des rues éclairci en thème sombre** (retour du propriétaire). La Vue 3D lisait les teintes sombres du plan, faites pour
+  la photo sous une interface sombre : avec « Réelles », la chaussée sortait presque noire, et la bordure « Plan » noire. La 3D a
+  maintenant ses propres jetons (`--chaussee-3d`, `--trottoir-3d`, `--bordure-3d`, `--chaussee-reelle-3d`, `--trottoir-reel-3d`,
+  `--bordure-reelle-3d`, famille « Scènes » de la palette et de ses modèles), **les mêmes dans les deux thèmes** : la scène a son
+  soleil et son ciel, comme ses toits, ses murs et son gazon, qui ne changent pas avec le thème. Les pierres claires (trottoirs,
+  granit) sont un peu plus chaudes que sur le plan : le ciel de la scène les bleuissait, et la pierre se lisait gris-bleu, en clair
+  aussi (`MD/spec-rues.md` §8). Le plan 2D ne change pas. Aucune quantité, aucun export ni aucune empreinte ne change.
 - **Se déplacer sur le plan 2D sans attraper d'objet** (demande du propriétaire : « pas facile de se déplacer car je sélectionne à
   chaque fois des objets »). Un glisser qui commence sur un objet non sélectionné déplace maintenant la vue, sans rien choisir ni
   déplacer ; un toucher ou un clic bref (sous 10 px au doigt, 5 px à la souris) choisit l'objet, comme avant ; l'objet choisi se
@@ -15,6 +22,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   vue, même choisis. À la souris, le bouton du milieu et la barre d'espace tenue (le plan ayant le focus, hors d'un champ) déplacent
   aussi la vue. Le rappel « Gestes sur le plan » de l'inspecteur le dit. La décision est une fonction pure testée
   (`interaction/choixGeste.ts`) ; la Vue 3D ne change pas ; aucune quantité ni aucun export ne bouge. Fumée : point 202 nouveau.
+
+### Corrigé
+
+- **« Recharger le fond IGN » pouvait rester grisé, menu Affichage ouvert, une fois le fond lu** (défaut antérieur aux trottoirs).
+  L'allumage du fond posait la fin de sa lecture après le rendu qui la disait : le menu ouvert gardait l'entrée grisée jusqu'au rendu
+  suivant, et le garde-fou des clés de version le signalait en développement (point 200 de la fumée, le plan reculé menu ouvert). Chaque début et chaque fin de lecture est
+  maintenant suivi d'un rendu (`render/ortho.ts`, `poserChargement`), comme toute donnée lue par les zones ; un rechargement grise
+  l'entrée avant d'oublier les tuiles, la photo d'avant restant à l'écran. Test : `tests/unit/render/orthoChargement.test.ts`.
+  Fumée : le point 200 recule de nouveau le plan (menu ouvert au bureau, puis « Recharger le fond IGN »).
 
 ## [5.44.0] — 2026-11-28
 

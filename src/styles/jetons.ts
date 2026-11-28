@@ -14,6 +14,7 @@ export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
   | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'chaussee' | 'chaussee-bord' | 'trottoir' | 'chaussee-reelle' | 'trottoir-reel' | 'bordure-reelle' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
   | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'ecart-plu' | 'insertion' | 'on-insertion' | 'insertion-bg' | 'toast-bg' | 'on-toast' | 'fond-3d' | 'trait-3d'
+  | 'chaussee-3d' | 'bordure-3d' | 'trottoir-3d' | 'chaussee-reelle-3d' | 'trottoir-reel-3d' | 'bordure-reelle-3d'
   | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte' | 'serie-1' | 'serie-2' | 'serie-3'
   | 'claude-angles' | 'claude-pointe' | 'claude-forme' | 'claude-appentis' | 'claude-corps' | 'claude-element' | 'claude-cache'
   | 'claude-parement' | 'claude-zone' | 'claude-ouverture';
@@ -69,6 +70,18 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     // Le trait renforce de la facade devant vous, de pres (audit, three/traitDePres.ts) : sombre dans
     // les deux themes, parce qu'il se pose sur la scene (des murs clairs au soleil), pas sur l'interface.
     'trait-3d': '#1E1812',
+    // Les rues dessinees en Vue 3D (three/chaussees3d.ts) : les memes dans les deux themes, parce qu'elles se posent sur la scene,
+    // eclairee par le meme soleil et le meme ciel quel que soit le theme (toits, murs, gazon ne changent pas), pas sur l'interface.
+    // Les teintes sombres du plan (`--chaussee`, `--trottoir`…, faites pour la photo sous une interface sombre) y donnaient une
+    // chaussee presque noire et une bordure noire. Celles du plan clair, sauf les pierres claires (trottoirs, granit) : un peu moins
+    // de bleu, que le ciel de la scene leur rend (environ 3 % de bleu de plus que de rouge mesures sur la demonstration), sans
+    // quoi la pierre se lisait gris-bleu.
+    'chaussee-3d': '#F2C14E',
+    'bordure-3d': '#6B4A12',
+    'trottoir-3d': '#E4DCCB',
+    'chaussee-reelle-3d': '#5A5E63',
+    'trottoir-reel-3d': '#C8C1AF',
+    'bordure-reelle-3d': '#EDE8DC',
     // La scene de prise de vue du releve de facade : une camera se regarde sur fond sombre, quel que
     // soit le theme - un cadre clair autour de l'image eblouit et fausse le jugement de l'exposition.
     'camera-bg': '#14100B',
@@ -134,6 +147,12 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'on-toast': '#1C1610',
     'fond-3d': '#1F2426',
     'trait-3d': '#120E0A',
+    'chaussee-3d': '#F2C14E',
+    'bordure-3d': '#6B4A12',
+    'trottoir-3d': '#E4DCCB',
+    'chaussee-reelle-3d': '#5A5E63',
+    'trottoir-reel-3d': '#C8C1AF',
+    'bordure-reelle-3d': '#EDE8DC',
     'camera-bg': '#14100B',
     'on-camera': '#FFFDF8',
     'camera-ok': '#8FD49B',
@@ -189,7 +208,7 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'rule': { famille: 'traits', role: 'Contour des commandes, filets de titre' },
   'hairline': { famille: 'traits', role: 'Filets entre les lignes' },
   'relief': { famille: 'traits', role: 'Courbes de niveau' },
-  'chaussee': { famille: 'traits', role: 'Chaussée des rues dessinées (plan et Vue 3D)' },
+  'chaussee': { famille: 'traits', role: 'Chaussée des rues dessinées sur le plan (couleurs « Plan »)' },
   'chaussee-bord': { famille: 'traits', role: 'Bord des chaussées et bordure des trottoirs sur le plan (couleurs « Plan »)' },
   'trottoir': { famille: 'traits', role: 'Trottoirs des rues dessinées (couleurs « Plan »)' },
   'chaussee-reelle': { famille: 'traits', role: 'Chaussée des rues dessinées, couleurs « Réelles » (enrobé)' },
@@ -211,6 +230,12 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'on-toast': { famille: 'notifications', role: 'Texte des notifications' },
   'fond-3d': { famille: 'scenes', role: 'Ciel de la Vue 3D' },
   'trait-3d': { famille: 'scenes', role: 'Trait de la façade vue de près (audit)' },
+  'chaussee-3d': { famille: 'scenes', role: 'Chaussée des rues en Vue 3D (couleurs « Plan »)' },
+  'bordure-3d': { famille: 'scenes', role: 'Bordure des trottoirs en Vue 3D (couleurs « Plan »)' },
+  'trottoir-3d': { famille: 'scenes', role: 'Trottoirs en Vue 3D (couleurs « Plan »)' },
+  'chaussee-reelle-3d': { famille: 'scenes', role: 'Chaussée des rues en Vue 3D, couleurs « Réelles » (enrobé)' },
+  'trottoir-reel-3d': { famille: 'scenes', role: 'Trottoirs en Vue 3D, couleurs « Réelles » (béton)' },
+  'bordure-reelle-3d': { famille: 'scenes', role: 'Bordure des trottoirs en Vue 3D, couleurs « Réelles » (granit)' },
   'camera-bg': { famille: 'scenes', role: 'Chambre noire du relevé' },
   'on-camera': { famille: 'scenes', role: 'Texte sur la chambre noire' },
   'camera-ok': { famille: 'scenes', role: 'Cadrage juste' },

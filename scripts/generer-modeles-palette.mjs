@@ -63,6 +63,8 @@ const CHAUSSEES = {
   clair: { 'chaussee': '#F2C14E', 'chaussee-bord': '#6B4A12', 'trottoir': '#E4DED2', 'chaussee-reelle': '#5A5E63', 'trottoir-reel': '#C8C2B5', 'bordure-reelle': '#EDEAE3' },
   sombre: { 'chaussee': '#B8862B', 'chaussee-bord': '#0F0B06', 'trottoir': '#4A443B', 'chaussee-reelle': '#3E4246', 'trottoir-reel': '#8E897F', 'bordure-reelle': '#C9C4BA' }
 };
+// Les rues en Vue 3D (three/chaussees3d.ts) : les memes dans les deux themes et dans chaque modele, elles se posent sur la scene.
+const RUES_3D = { 'chaussee-3d': '#F2C14E', 'bordure-3d': '#6B4A12', 'trottoir-3d': '#E4DCCB', 'chaussee-reelle-3d': '#5A5E63', 'trottoir-reel-3d': '#C8C1AF', 'bordure-reelle-3d': '#EDE8DC' };
 
 const LECTURES = {
   clair: { 'claude-angles': '#2A6FC9', 'claude-pointe': '#C2410C', 'claude-forme': '#8A4FB8', 'claude-appentis': '#7A6A00', 'claude-corps': '#0E7C86', 'claude-element': '#B5326B', 'claude-cache': '#4F7A28', 'claude-parement': '#9C5B1F', 'claude-zone': '#5B5FC7', 'claude-ouverture': '#C62828' },
@@ -138,7 +140,7 @@ function themes(m) {
   sombre['fond-3d'] = tsl(ciel.t, ciel.s * 0.4, 13);
   sombre['trait-3d'] = tsl(nS.t, nS.s * 0.5, 6);
 
-  return { clair: { ...clair, ...CHAUSSEES.clair, ...CAMERA, ...SERIES.clair, ...LECTURES.clair, ...(m.forcer?.clair ?? {}) }, sombre: { ...sombre, ...CHAUSSEES.sombre, ...CAMERA, ...SERIES.sombre, ...LECTURES.sombre, ...(m.forcer?.sombre ?? {}) } };
+  return { clair: { ...clair, ...CHAUSSEES.clair, ...RUES_3D, ...CAMERA, ...SERIES.clair, ...LECTURES.clair, ...(m.forcer?.clair ?? {}) }, sombre: { ...sombre, ...CHAUSSEES.sombre, ...RUES_3D, ...CAMERA, ...SERIES.sombre, ...LECTURES.sombre, ...(m.forcer?.sombre ?? {}) } };
 }
 
 // --- Les modeles ----------------------------------------------------------------------------------
@@ -164,7 +166,7 @@ const MODELES = [
 // L'ordre des jetons, celui de jetons.ts : les fichiers se comparent d'un coup d'oeil.
 const ORDRE = ['ink', 'ink-soft', 'paper', 'paper-deep', 'stage-bg', 'stage-trame', 'panel-bg', 'panel-2', 'segment-bg', 'input-bg',
   'border', 'rule', 'hairline', 'relief', 'chaussee', 'chaussee-bord', 'trottoir', 'chaussee-reelle', 'trottoir-reel', 'bordure-reelle', 'accent', 'on-accent', 'accent-light', 'on-accent-light', 'on-ink', 'ok', 'danger', 'danger-bg', 'alerte', 'ecart-plu',
-  'insertion', 'on-insertion', 'insertion-bg', 'toast-bg', 'on-toast', 'fond-3d', 'trait-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte', 'serie-1', 'serie-2', 'serie-3',
+  'insertion', 'on-insertion', 'insertion-bg', 'toast-bg', 'on-toast', 'fond-3d', 'trait-3d', 'chaussee-3d', 'bordure-3d', 'trottoir-3d', 'chaussee-reelle-3d', 'trottoir-reel-3d', 'bordure-reelle-3d', 'camera-bg', 'on-camera', 'camera-ok', 'camera-alerte', 'serie-1', 'serie-2', 'serie-3',
   'claude-angles', 'claude-pointe', 'claude-forme', 'claude-appentis', 'claude-corps', 'claude-element', 'claude-cache', 'claude-parement', 'claude-zone', 'claude-ouverture'];
 const ordonne = (o) => Object.fromEntries(ORDRE.map(k => [k, o[k]]));
 
