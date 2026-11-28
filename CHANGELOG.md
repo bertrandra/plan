@@ -5,6 +5,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.45.0] — 2026-11-28
+
+Version **mineure** au sens de `MD/RELEASE.md` : une manière nouvelle de se déplacer sur le plan 2D — un glisser qui commence sur
+un objet non sélectionné déplace la vue, un toucher choisit (#791) — et les rues de la Vue 3D éclaircies en thème sombre, avec
+leurs propres jetons de couleur, ainsi que « Recharger le fond IGN » qui ne reste plus grisé une fois le fond lu (#790). **Rien
+n'est retiré ni mis derrière un droit.** **Aucune quantité ni aucun export ne change** : avant le changement de numéro, le code de
+`main` (b1c110bc) régénère les témoins de la 5.44.0 au bit près ; les neuf témoins qui portent le numéro ne changent qu'à lui (la
+date de build reste le 30 octobre 2026 ; preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les
+quantités, `liste-achat.csv`, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques (point 24 de la fumée rejoué).
+Schéma inchangé (16), aucun champ nouveau. La version de lecture des toits ne change pas (13). `deploy/`, `banc/` et `regles/` ne
+changent pas depuis la 5.44.0 ; la requête témoin de l'assistant est inchangée. Les requêtes de la 5.44.0 ont été vérifiées contre
+l'API Claude sur `main` après la fusion de sa version (« Vérifier l'API Claude », run 46113412340, réussi) ; celles de la 5.45.0 sont
+à vérifier de même après la fusion.
+
 ### Modifié
 
 - **Rendu 3D des rues éclairci en thème sombre** (retour du propriétaire). La Vue 3D lisait les teintes sombres du plan, faites pour
