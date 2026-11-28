@@ -5084,7 +5084,7 @@ const POINTS = {
     // troncons se lisent a l'IGN (la meme requete que le nom des rues) et se dessinent sur le plan : des rubans a la largeur de leur
     // chaussee, bords puis pleins, au jeton --chaussee du theme, sous le nom des rues et les objets ; le projet porte
     // `voisinage3d.rues.tracer: true` et ses chaussees, et il est a enregistrer (sans etape d'annulation de plus que la lecture). En Vue 3D,
-    // une maille `rues-chaussees` dont chaque sommet est pose sur le sol (sa hauteur plus 6 cm), mate, hors export. Decochee, plus rien, ni
+    // une maille `rues-chaussees` dont chaque sommet est pose sur le sol (sa hauteur plus 6 cm), mate, au jeton --chaussee-3d, hors export. Decochee, plus rien, ni
     // sur le plan ni en 3D, et le projet n'a plus de `tracer`.
     const echecs = [];
     const tactile = f.nom !== 'large';
@@ -5197,8 +5197,9 @@ const POINTS = {
         ecart = Math.max(ecart, Math.abs(pos.getY(k) - (h + 0.06)));
         n++;
       }
-      const jeton = getComputedStyle(document.documentElement).getPropertyValue('--chaussee').trim().toLowerCase();
-      // La couleur du jeton, assombrie de 0,8 en 3D (three/chaussees3d.ts, ATTENUATION_3D) : a un centieme pres, canal par canal.
+      const jeton = getComputedStyle(document.documentElement).getPropertyValue('--chaussee-3d').trim().toLowerCase();
+      // La couleur du jeton de la Vue 3D (--chaussee-3d, le meme dans les deux themes), assombrie de 0,8 (three/chaussees3d.ts,
+      // ATTENUATION_3D) : a un centieme pres, canal par canal.
       const canaux = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
       const c = m.material.color, j = canaux(jeton);
       const fidele = [c.r, c.g, c.b].every((v, i) => Math.abs(v - j[i] * 0.8) < 0.01);
@@ -5234,8 +5235,10 @@ const POINTS = {
     // --chaussee-bord. Sous « Rues », dans le menu Affichage (feuille Projet au doigt), deux reglages : « Trottoirs / rue » (curseur,
     // 20 % par defaut, « Trottoirs 20 % · Chaussée 60 % ») et « Couleurs des rues » (Plan ou Réelles), cibles de 44 px au doigt. La
     // part portee a 30 % elargit les trottoirs ; « Réelles » passe le plan et la Vue 3D a l'enrobe, au beton et au granit. En Vue 3D,
-    // les trottoirs sont 15 cm au-dessus de la chaussee, avec leur bordure. Les reglages s'enregistrent sur la parcelle, seuls ceux
-    // qui different du defaut. FUMEE_CAPTURES_TROTTOIRS=dossier : les captures du plan, du menu et de la Vue 3D y sont posees.
+    // les trottoirs sont 15 cm au-dessus de la chaussee, avec leur bordure, aux jetons de la Vue 3D (`--…-3d`, les memes dans les deux
+    // themes). Le plan recule avant le menu, menu ouvert au bureau, et le fond se recharge : « Recharger le fond IGN » suit sa
+    // commande. Les reglages s'enregistrent sur la parcelle, seuls ceux qui different du defaut. FUMEE_CAPTURES_TROTTOIRS=dossier : les
+    // captures du plan, du menu et de la Vue 3D y sont posees.
     const echecs = [];
     const tactile = f.nom !== 'large';
     const dossier = process.env.FUMEE_CAPTURES_TROTTOIRS;
@@ -5286,9 +5289,34 @@ const POINTS = {
       null, { timeout: 60000, polling: 250 }).then(() => true).catch(() => false);
     if (!lues) echecs.push('chaussées non lues à l’IGN');
     const voisines = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.fonction === 'terrain' && o.key !== 'parcelle').length);
-    // Le plan reste a son cadrage : reculer recharge les tuiles du fond, et « Recharger le fond IGN » change d'etat pendant ce temps
-    // sans que le magasin le sache (`ortho.chargement`) ; le menu ouvert, le garde-fou des cles le signalerait. Les rues autour de la
-    // parcelle sont deja a l'ecran.
+    // Le plan recule pour montrer les rues autour de la parcelle : la molette au bureau, deux doigts qui se rapprochent au doigt. Le
+    // fond se lit encore (la photo de la demonstration, puis celle des voisines) : « Recharger le fond IGN » est grise le temps de la
+    // lecture, et le magasin doit le savoir. Au bureau, le menu Affichage reste ouvert pendant le recul et un rechargement du fond :
+    // ouvert, l'entree relit sa commande a chaque rendu, et le garde-fou des cles signale un etat change hors des rendus du plan (la
+    // fin d'une lecture posee apres son rendu, render/ortho.ts).
+    const echelleAvant = await page.evaluate(() => window.__plan.etat().scene.scale);
+    const scene = await page.locator('#stage').boundingBox();
+    const centre = { x: scene.x + scene.width / 2, y: scene.y + scene.height / 2 };
+    if (tactile) for (let k = 0; k < 2; k++) await doigts(page, [{ x: centre.x - 90, y: centre.y }, { x: centre.x + 90, y: centre.y }], [{ x: centre.x - 40, y: centre.y }, { x: centre.x + 40, y: centre.y }], 6);
+    else {
+      await page.evaluate(() => document.getElementById('menuAffichage')?.setAttribute('open', ''));
+      await page.mouse.move(centre.x, centre.y);
+      for (let k = 0; k < 4; k++) { await page.mouse.wheel(0, 240); await page.waitForTimeout(60); }
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+      const recharger = page.locator('#menuAffichage [data-commande="affichage.orthoRecharger"]');
+      if (await recharger.count() && await page.waitForFunction(() => !document.querySelector('#menuAffichage [data-commande="affichage.orthoRecharger"]')?.disabled,
+        null, { timeout: 20000, polling: 100 }).then(() => true).catch(() => false)) {
+        await recharger.click();
+        // L'entree referme le menu : il se rouvre, pour que l'entree suive sa commande pendant la lecture.
+        await page.evaluate(() => document.getElementById('menuAffichage')?.setAttribute('open', ''));
+        const rallume = await page.waitForFunction(() => !document.querySelector('#menuAffichage [data-commande="affichage.orthoRecharger"]')?.disabled,
+          null, { timeout: 30000, polling: 100 }).then(() => true).catch(() => false);
+        if (!rallume) echecs.push('« Recharger le fond IGN » reste grisé après le rechargement');
+      }
+      await page.evaluate(() => document.getElementById('menuAffichage')?.removeAttribute('open'));
+    }
+    const echelleReculee = await page.evaluate(() => window.__plan.etat().scene.scale);
+    if (!(echelleReculee < echelleAvant * 0.95)) echecs.push(`le plan n’a pas reculé (échelle ${echelleAvant.toFixed(2)} → ${echelleReculee.toFixed(2)})`);
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(500);
     const plan20 = await lirePlan();
@@ -5383,12 +5411,18 @@ const POINTS = {
       return { noms: Object.keys(m).sort(), dessus, sol, autres, chaussee: couleur(m['rues-chaussees']), trottoir: couleur(m['rues-trottoirs']), bordure: couleur(m['rues-bordures']),
         horsExport: Object.values(m).every((x) => x.userData.horsExport) };
     });
-    // La couleur d'un jeton assombrie de 0,8 en 3D (three/chaussees3d.ts, ATTENUATION_3D), a un centieme pres, canal par canal.
+    // La couleur d'un jeton de la Vue 3D (`--…-3d`, les memes dans les deux themes : la scene a son soleil) assombrie de 0,8
+    // (three/chaussees3d.ts, ATTENUATION_3D), a un centieme pres, canal par canal.
+    const j3d = { plan: [await jeton('chaussee-3d'), await jeton('trottoir-3d'), await jeton('bordure-3d')],
+      reelles: [await jeton('chaussee-reelle-3d'), await jeton('trottoir-reel-3d'), await jeton('bordure-reelle-3d')] };
+    // En sombre, la 3D ne prend pas les teintes sombres du plan (une chaussee presque noire, une bordure noire) : ses jetons ne suivent
+    // pas le theme (styles/jetons.ts, tests/unit/three/chaussees3d.test.ts).
+    if (theme === 'dark' && (j3d.reelles[0] === jcR || j3d.plan[2] === jBord)) echecs.push('la 3D lit les teintes sombres du plan : ' + JSON.stringify(j3d));
     const fidele = (lue, j) => !!lue && [1, 3, 5].every((i) => Math.abs(parseInt(lue.slice(i, i + 2), 16) / 255 - (parseInt(j.slice(i, i + 2), 16) / 255) * 0.8) < 0.01);
     const v3R = await lire3d();
     if (JSON.stringify(v3R.noms) !== JSON.stringify(['rues-bordures', 'rues-chaussees', 'rues-trottoirs']) || !v3R.horsExport) echecs.push('3D : ' + JSON.stringify(v3R));
     if (!(v3R.dessus > 0) || v3R.autres > 0) echecs.push('trottoirs 3D hors de 15 cm au-dessus de la chaussée : ' + JSON.stringify(v3R));
-    if (!fidele(v3R.chaussee, jcR) || !fidele(v3R.trottoir, jtR) || !fidele(v3R.bordure, jbR)) echecs.push('couleurs 3D « Réelles » : ' + JSON.stringify(v3R));
+    if (!fidele(v3R.chaussee, j3d.reelles[0]) || !fidele(v3R.trottoir, j3d.reelles[1]) || !fidele(v3R.bordure, j3d.reelles[2])) echecs.push('couleurs 3D « Réelles » : ' + JSON.stringify(v3R));
     if (dossier) {
       // Le long d'une rue droite pres de la parcelle, en retrait et un peu en hauteur : la chaussee, ses deux trottoirs et leurs bordures.
       await page.evaluate(() => {
@@ -5420,7 +5454,7 @@ const POINTS = {
     await fermerMenu();
     await page.waitForTimeout(1500);
     const v3P = await lire3d();
-    if (!fidele(v3P.chaussee, jChaussee) || !fidele(v3P.trottoir, jTrottoir) || !fidele(v3P.bordure, jBord)) echecs.push('couleurs 3D « Plan » : ' + JSON.stringify(v3P));
+    if (!fidele(v3P.chaussee, j3d.plan[0]) || !fidele(v3P.trottoir, j3d.plan[1]) || !fidele(v3P.bordure, j3d.plan[2])) echecs.push('couleurs 3D « Plan » : ' + JSON.stringify(v3P));
     if ((await reglages())?.rues?.couleurs !== undefined) echecs.push('« Plan » reste écrit : ' + JSON.stringify(await reglages()));
     await capturer('7-vue3d-plan');
     return {

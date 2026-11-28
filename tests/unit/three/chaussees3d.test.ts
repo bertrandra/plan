@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import * as THREE_NS from 'three';
 import {
-  ajouterChaussees3d, geometrieChaussees, geometrieTrottoirs, couleurChaussee, couleurRue, NOM_CHAUSSEES_3D, NOM_TROTTOIRS_3D, NOM_BORDURES_3D, DECALAGE_CHAUSSEE_M,
+  ajouterChaussees3d, geometrieChaussees, geometrieTrottoirs, couleurChaussee, couleurRue, JETONS_RUE_3D, NOM_CHAUSSEES_3D, NOM_TROTTOIRS_3D, NOM_BORDURES_3D, DECALAGE_CHAUSSEE_M,
   HAUTEUR_TROTTOIR_M, LARGEUR_BORDURE_M, ATTENUATION_3D,
 } from '../../../src/three/chaussees3d.js';
 import { ajouterNomsDesRues3d, hauteurPlaque, HAUTEUR_NOM_RUE_3D_M } from '../../../src/three/rues3d.js';
@@ -72,7 +72,29 @@ describe('ajouterChaussees3d', () => {
     expect(ajouterChaussees3d(scene, versLocal, [])).toBeNull();
   });
   it('prend la couleur du jeton --chaussee hors navigateur', () => {
-    expect(couleurChaussee()).toBe(JETONS.clair.chaussee);
+    expect(couleurChaussee()).toBe(JETONS.clair['chaussee-3d']);
+  });
+  it('lit les jetons de la Vue 3D, les memes en sombre : la scene a son soleil, pas le theme du plan', () => {
+    // Un navigateur en theme sombre, sans feuille de style (hors page) : les valeurs de jetons.ts.
+    vi.stubGlobal('window', { matchMedia: (q: string) => ({ matches: q.includes('dark'), media: q }) });
+    try {
+      for (const couleurs of ['plan', 'reelles'] as const) {
+        for (const partie of ['chaussee', 'trottoir', 'bordure'] as const) {
+          const nom = JETONS_RUE_3D[couleurs][partie];
+          expect(couleurRue(partie, couleurs)).toBe(JETONS.sombre[nom]);
+          expect(JETONS.sombre[nom]).toBe(JETONS.clair[nom]);
+        }
+      }
+      // La chaussee « Reelle » du plan sombre est presque noire ; celle de la 3D reste l'enrobe du plan clair.
+      expect(couleurRue('chaussee', 'reelles')).not.toBe(JETONS.sombre['chaussee-reelle']);
+      expect(couleurRue('bordure', 'plan')).not.toBe(JETONS.sombre['chaussee-bord']);
+    } finally { vi.unstubAllGlobals(); }
+  });
+  it('les pierres claires de la 3D sont un peu plus chaudes que celles du plan : le ciel de la scene les bleuit', () => {
+    const chaleur = (h: string) => parseInt(h.slice(1, 3), 16) - parseInt(h.slice(5, 7), 16);
+    expect(chaleur(JETONS.clair['trottoir-3d'])).toBeGreaterThan(chaleur(JETONS.clair.trottoir));
+    expect(chaleur(JETONS.clair['trottoir-reel-3d'])).toBeGreaterThan(chaleur(JETONS.clair['trottoir-reel']));
+    expect(chaleur(JETONS.clair['bordure-reelle-3d'])).toBeGreaterThan(chaleur(JETONS.clair['bordure-reelle']));
   });
 });
 
@@ -135,12 +157,12 @@ describe('les trottoirs en Vue 3D', () => {
     ajouterChaussees3d(scene, versLocal, profils, { couleurs: 'reelles' });
     expect(scene.children.map((m) => m.name)).toEqual([NOM_CHAUSSEES_3D, NOM_TROTTOIRS_3D, NOM_BORDURES_3D]);
     const couleur = (i: number) => ((scene.children[i] as THREE_NS.Mesh).material as THREE_NS.MeshStandardMaterial).color;
-    expect(couleur(0).equals(new THREE_NS.Color(JETONS.clair['chaussee-reelle']).multiplyScalar(ATTENUATION_3D))).toBe(true);
-    expect(couleur(1).equals(new THREE_NS.Color(JETONS.clair['trottoir-reel']).multiplyScalar(ATTENUATION_3D))).toBe(true);
-    expect(couleur(2).equals(new THREE_NS.Color(JETONS.clair['bordure-reelle']).multiplyScalar(ATTENUATION_3D))).toBe(true);
+    expect(couleur(0).equals(new THREE_NS.Color(JETONS.clair['chaussee-reelle-3d']).multiplyScalar(ATTENUATION_3D))).toBe(true);
+    expect(couleur(1).equals(new THREE_NS.Color(JETONS.clair['trottoir-reel-3d']).multiplyScalar(ATTENUATION_3D))).toBe(true);
+    expect(couleur(2).equals(new THREE_NS.Color(JETONS.clair['bordure-reelle-3d']).multiplyScalar(ATTENUATION_3D))).toBe(true);
     expect(scene.children.every((m) => m.userData[HORS_EXPORT] === true && m.userData[SANS_OMBRE] === true)).toBe(true);
-    expect(couleurRue('trottoir')).toBe(JETONS.clair.trottoir);
-    expect(couleurRue('bordure')).toBe(JETONS.clair['chaussee-bord']);
+    expect(couleurRue('trottoir')).toBe(JETONS.clair['trottoir-3d']);
+    expect(couleurRue('bordure')).toBe(JETONS.clair['bordure-3d']);
   });
   it('pose le nom au milieu de la chaussee, sa plaque dans sa largeur', () => {
     const doc = { createElement: () => ({ width: 0, height: 0, getContext: () => ({ measureText: (t: string) => ({ width: t.length * 10 }), strokeText() {}, fillText() {} }) }) } as unknown as Document;

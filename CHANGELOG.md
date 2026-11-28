@@ -25,6 +25,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   nouveaux (`--trottoir`, `--chaussee-reelle`, `--trottoir-reel`, `--bordure-reelle`), dans la palette de l'admin et ses modèles.
   Aucune quantité, aucun export ni aucune empreinte ne change. Fumée : point 197 adapté, point 200 nouveau.
 
+### Modifié
+
+- **Rendu 3D des rues éclairci en thème sombre** (retour du propriétaire). La Vue 3D lisait les teintes sombres du plan, faites pour
+  la photo sous une interface sombre : avec « Réelles », la chaussée sortait presque noire, et la bordure « Plan » noire. La 3D a
+  maintenant ses propres jetons (`--chaussee-3d`, `--trottoir-3d`, `--bordure-3d`, `--chaussee-reelle-3d`, `--trottoir-reel-3d`,
+  `--bordure-reelle-3d`, famille « Scènes » de la palette et de ses modèles), **les mêmes dans les deux thèmes** : la scène a son
+  soleil et son ciel, comme ses toits, ses murs et son gazon, qui ne changent pas avec le thème. Les pierres claires (trottoirs,
+  granit) sont un peu plus chaudes que sur le plan : le ciel de la scène les bleuissait, et la pierre se lisait gris-bleu, en clair
+  aussi (`MD/spec-rues.md` §8). Le plan 2D ne change pas. Aucune quantité, aucun export ni aucune empreinte ne change.
+
+### Corrigé
+
+- **« Recharger le fond IGN » pouvait rester grisé, menu Affichage ouvert, une fois le fond lu** (défaut antérieur aux trottoirs).
+  L'allumage du fond posait la fin de sa lecture après le rendu qui la disait : le menu ouvert gardait l'entrée grisée jusqu'au rendu
+  suivant, et le garde-fou des clés de version le signalait en développement (point 200 de la fumée, le plan reculé menu ouvert). Chaque début et chaque fin de lecture est
+  maintenant suivi d'un rendu (`render/ortho.ts`, `poserChargement`), comme toute donnée lue par les zones ; un rechargement grise
+  l'entrée avant d'oublier les tuiles, la photo d'avant restant à l'écran. Test : `tests/unit/render/orthoChargement.test.ts`.
+  Fumée : le point 200 recule de nouveau le plan (menu ouvert au bureau, puis « Recharger le fond IGN »).
+
 ## [5.43.1] — 2026-11-27
 
 Version **corrective** au sens de `MD/RELEASE.md` : elle corrige la 5.43.0 sans fonction nouvelle. Le propriétaire l'a vu à
