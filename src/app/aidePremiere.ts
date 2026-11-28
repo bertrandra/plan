@@ -8,6 +8,7 @@
 // Elles attendent que rien ne soit ouvert par-dessus le plan (un parcours, une question) : l'import par adresse, « Mettre a jour le
 // modele ? ». Jamais dans la vitrine, l'audit, un projet partage, l'admin des demos, ni en lecture seule (app/boot.ts ne les demarre pas).
 
+import { notifications } from '../shell/notifications.js';
 import { parcours } from './parcours.js';
 import { dialogues } from '../shell/dialogues.js';
 
@@ -58,7 +59,8 @@ export function demarrerAidePremiere(horloge: (f: () => void, ms: number) => unk
   if (dejaVue()) return;
   const essayer = (): boolean => {
     if (etape !== null || dejaVue()) return true;
-    if (parcours.courant() || dialogues.courant()) return false;
+    // Une seule couche a la fois (audit UX de la 5.45.0, polissages) : la bulle attend qu'aucun dialogue ni message ne soit ouvert.
+    if (parcours.courant() || dialogues.courant() || notifications.liste().some((n) => n.type === 'toast')) return false;
     retenir();
     etape = 0;
     publier();
@@ -69,6 +71,6 @@ export function demarrerAidePremiere(horloge: (f: () => void, ms: number) => unk
     // Quelque chose est ouvert : on attend qu'il se ferme, sans minuteur qui tourne.
     const fins: (() => void)[] = [];
     const surChangement = () => { if (essayer()) fins.forEach((f) => f()); };
-    fins.push(parcours.abonner(surChangement), dialogues.abonner(surChangement));
+    fins.push(parcours.abonner(surChangement), dialogues.abonner(surChangement), notifications.abonner(surChangement));
   }, DELAI_MS);
 }

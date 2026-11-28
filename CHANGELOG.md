@@ -54,6 +54,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   requête témoin de la vérification de l'API Claude (`tests/fixtures/assistant/requete-verification.json`) est régénérée : le
   catalogue envoyé à l'assistant y lit les côtés dans l'ordre.
 - Fumée : point 206 ; points 203 (la vue libre), 185 et 192 adaptés ; les mots du geste du doigt (téléphone) portent un nom et une infobulle.
+- **Dialogue Devis** (constat 10) : « Télécharger le devis » est le bouton plein du pied, « Fermer » en secondaire ; le client se
+  replie derrière « Client (facultatif) » ; les exemples se disent « ex. : 12 rue des Artisans… », en texte indicatif. Le PDF du devis
+  ne change pas.
+- **Étape 3 de l'import** (constat 13) : une ligne par parcelle (nom, surface), puis un choix « Ignorer / Décor / Mon terrain » — la
+  même sémantique que les cases « importer » et « propriété » — ; la distance et « En faire la principale » dessous, en petit ;
+  l'explication repliée derrière « ? » ; les noms des parcelles de l'aperçu passent par-dessus les bâtiments, avec un halo
+  (« AE 101 » était presque invisible sous la maison).
+- Polissages de texte : « 1 bâtiment, 0 haie ou zone de végétation » accordés au nombre ; « Toits LiDAR : 0 / 58 » devient « Toits
+  voisins lus : 0 sur 58 » (« Couleur des murs voisins » pour les photos) ; le menu Exporter range ses entrées par usage, ses
+  réglages (échelle du PDF, emprise des équipements) à part, et dit « Image PNG du plan » ; la bulle d'aide de la première
+  utilisation attend qu'aucun message ne soit ouvert.
+- Laissés tels quels : les noms sans accents de la démonstration (« Dalle beton », « Fenetre cuisine »…) entrent dans le témoin
+  `projet.json` ; la casse des noms sous « Plus de réglages » n'existe qu'au mode Toit, chantier séparé.
+- Fumée : point 207 ; point 201 adapté (« Décor » au lieu de la case « importer »).
 
 ## [5.45.0] — 2026-11-28
 

@@ -80,3 +80,13 @@ describe('tailleFichier', () => {
     expect(tailleFichier(2.5 * 1024 * 1024)).toBe('2,5 Mo');
   });
 });
+
+describe('un nombre et son nom accorde (audit UX de la 5.45.0, polissages)', () => {
+  it('ecrit « 1 bâtiment », « 0 haie », « 3 haies », et un pluriel donne', async () => {
+    const { nombreDe } = await import('../../../src/util/format.js');
+    expect(nombreDe(1, 'bâtiment')).toBe('1 bâtiment');
+    expect(nombreDe(0, 'haie')).toBe('0 haie');
+    expect(nombreDe(3, 'haie')).toBe('3 haies');
+    expect(nombreDe(2, 'haie ou zone', 'haies et zones')).toBe('2 haies et zones');
+  });
+});

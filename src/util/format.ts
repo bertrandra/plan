@@ -81,3 +81,11 @@ export function tailleFichier(octets: number): string {
   if (octets < 1024 * 1024) return Math.max(1, Math.round(octets / 1024)).toLocaleString('fr-FR') + ' Ko';
   return (octets / (1024 * 1024)).toFixed(1).replace('.', ',') + ' Mo';
 }
+
+/**
+ * Un nombre et son nom accorde : « 1 bâtiment », « 0 haie », « 3 haies » (audit UX de la 5.45.0, polissages : « 1 bâtiment(s) »).
+ * Le pluriel francais, `n` au-dela de 1 ; `pluriel` quand il ne prend pas simplement un « s ».
+ */
+export function nombreDe(n: number, singulier: string, pluriel = singulier + 's'): string {
+  return n.toLocaleString('fr-FR') + ' ' + (Math.abs(n) >= 2 ? pluriel : singulier);
+}
