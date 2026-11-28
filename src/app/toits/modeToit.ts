@@ -1,16 +1,17 @@
-// Le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md, etape 1) : retoucher le toit d'un batiment du projet dans une session.
+// La session d'edition du toit, cote application (MD/spec-mode-toit-3d.md) : elle tient le controleur du toit
+// (facade/modeToit/controleurToit.ts, la seule porte d'ecriture d'un toit) et l'adapte aux deux vues ou l'atelier du toit (Z10) s'ouvre.
+// Sur le plan, rien de plus : le plan redessine le batiment a chaque geste. Dans la Vue 3D, la camera du mode (facade, dessus, libre),
+// l'epure, les fantomes, les poignees et le toucher d'un mur. Une session ouverte sur le plan garde ses gestes quand on passe a la 3D
+// (la 3D s'y attache) et inversement.
 //
-// Une session garde sa propre pile d'annulation (facade/modeToit/sessionToit.ts) : les gestes ecrivent dans le batiment sur
-// place — la scene 3D le montre tout de suite — sans toucher a l'historique du projet. `valider` remet d'abord le depart, empile
-// UNE etape d'historique du projet, puis ecrit l'etat final : un seul Ctrl+Z defait toute la session. `abandonner` remet le depart.
-//
-// Hors session, rien ne change. Quitter la Vue 3D ou choisir un autre objet pendant une session modifiee pose d'abord la question
-// (Valider, Abandonner, Rester : `quitterPuis`) ; une session sans changement se ferme sans rien demander.
+// Le controleur ecrit le batiment en place ; `valider` remet d'abord le depart, empile UNE etape d'historique du projet, puis ecrit
+// l'etat final : un seul Ctrl+Z defait toute la session. `abandonner` remet le depart. Quitter vers une autre vue ou choisir un autre
+// objet pendant une session modifiee pose d'abord la question (Valider, Abandonner, Rester : `quitterPuis`).
 
 import { estBatiment, estChezUnVoisin } from '../../model/fonctions.js';
 import { enPoints } from '../../model/formes.js';
-import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, ecrireLeGeste, photographier, restaurer as restaurerSession, retablir, revenirAuDepart,
-  type HistoriqueToit } from '../../facade/modeToit/sessionToit.js';
+import { restaurer as restaurerSession } from '../../facade/modeToit/sessionToit.js';
+import { creerControleurToit, type ControleurToit, type Issue, type IntentionToit } from '../../facade/modeToit/controleurToit.js';
 import { facadeProche, facadesDuBatiment, facadeValideeDuMur, facadeVersLePoint, orientationDe, texteDeLaPhoto, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
 import { poseDeDessus, poseEnPerspective, type PointScene, type Reserve } from '../../three/poseFacade.js';
 import { moteur3d } from '../../three/demande3d.js';
@@ -22,9 +23,10 @@ import { pointDePose } from '../../model/memeMaison.js';
 import { abonnerSceneBatie, hotes3d, vue3d, reglerVue3d, rendre3d } from '../../three/etat3d.js';
 import { dialogues } from '../../shell/dialogues.js';
 import { lectureToits } from '../../core/lectureToits.js';
+import { corpsPorteur } from '../../facade/modeToit/gestes.js';
 import { showToast } from '../../shell/dialogs.js';
 import type * as THREE_NS from 'three';
-import { elementProche, lireElement, listerElements, memeCible, type CibleElement } from '../../facade/modeToit/elements.js';
+import { elementProche, listerElements, memeCible, type CibleElement } from '../../facade/modeToit/elements.js';
 import { murDeCadrage, murLePlusVisible, pointsDuCadreDeFacade } from '../../facade/modeToit/poignees.js';
 import type { Atelier } from '../atelier.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../model/types.js';
@@ -37,22 +39,21 @@ export type VueToit = 'libre' | 'facade' | 'dessus';
 
 export interface SessionToit {
   cle: string;
-  hist: HistoriqueToit;
+  /** Le controleur du toit : la pile, l'intention, l'element choisi, la facade regardee, et toute ecriture. */
+  ctl: ControleurToit;
+  /** La Vue 3D est attachee a la session (camera du mode, orbite bornee, fantomes) ; faux tant qu'elle est sur le plan. */
+  en3d: boolean;
   /** La facade courante, et la derniere choisie (la vue « Facade » y revient). */
   facade: FacadeVisee | null;
   derniere: FacadeVisee | null;
   vue: VueToit;
   /** Le corps isole dans la facade (rang dans `corpsToit`), ou null. */
   corpsIsole: number | null;
-  /** L'element choisi (celui que l'inspecteur regle), ou null. */
-  selection: CibleElement | null;
   /** Le doigt qui invite a toucher le batiment : vrai jusqu'au premier geste. */
   indice: boolean;
   /** La camera avant d'entrer dans une facade : on la retrouve en la quittant. */
   vueAvant: PoseVue | null;
   isole: boolean;
-  /** Le batiment montre le toit du projet (le depart), pas la session : un geste ramene la session. */
-  validee: boolean;
   /** La camera avant d'entrer dans le mode : la sortie la rend (la maison a ete cadree a l'entree). */
   cameraAvantMode?: PoseVue | null;
   /** Ce que la personne voyait avant chaque pas (`avant[i]`) et apres lui (`apres[i]`) : Ctrl+Z et Ctrl+Y le lui rendent. */
@@ -92,7 +93,12 @@ function poserCamera(p: PoseVue): void {
 }
 
 export function capturerVue(s: SessionToit): VueSession {
-  return { vue: s.vue, facade: murDe(s.facade), derniere: murDe(s.derniere), selection: s.selection, camera: poseCourante(), vueAvant: s.vueAvant };
+  return { vue: s.vue, facade: murDe(s.facade), derniere: murDe(s.derniere), selection: s.ctl.etat().selection, camera: poseCourante(), vueAvant: s.vueAvant };
+}
+
+/** La facade regardee (ou la derniere choisie) est dite au controleur : une piece de mur s'y pose, la portee la suit. */
+function direLaFacade(s: SessionToit): void {
+  s.ctl.regarder(murDe(s.facade ?? s.derniere));
 }
 
 /** Range la vue d'avant le pas `i` qui vient d'etre empile. */
@@ -108,13 +114,6 @@ let veille: ReturnType<typeof setInterval> | null = null;
 
 /** La session en cours, ou null : ce que les zones lisent pour se dessiner. */
 export const sessionToit = (): Readonly<SessionToit> | null => session;
-
-// La session ecrit le toit du batiment en place, a chaque geste : chaque ecriture se dit (core/controleurObjets.ts), sinon le plan
-// et ce qui le lit garderaient le toit d'avant.
-function restaurer(o: ObjetPlan, pas: Parameters<typeof restaurerSession>[1]): void {
-  restaurerSession(o, pas);
-  toucher(o);
-}
 
 /** Un batiment pose chez un voisin (`model/fonctions.ts::estChezUnVoisin`) : le mode Toit ne le retouche pas. */
 const chezUnVoisin = estChezUnVoisin;
@@ -161,9 +160,9 @@ export function raisonDOuvrir(o: ObjetPlan | undefined): string | null {
  * Le batiment `o` tel que le projet le tient pendant la session `s` : une copie, au depart de la session (ses champs du toit et son
  * elevation, `sessionToit.ts::photographier`). Le batiment du plan, lui, porte les gestes : la scene les montre.
  */
-function auDepart(o: ObjetPlan, s: Pick<SessionToit, 'hist'>): ObjetPlan {
+function auDepart(o: ObjetPlan, s: Pick<SessionToit, 'ctl'>): ObjetPlan {
   const copie = { ...o, ...(o.batiment ? { batiment: { ...o.batiment } } : {}) } as ObjetPlan;
-  restaurerSession(copie, s.hist.pas[0] ?? {});
+  restaurerSession(copie, s.ctl.depart());
   return copie;
 }
 
@@ -172,7 +171,7 @@ function auDepart(o: ObjetPlan, s: Pick<SessionToit, 'hist'>): ObjetPlan {
  * meme quand l'enregistrement seul de la lecture des toits en fond (app/toits/toitsFond.ts) ou Ctrl+S part pendant la session :
  * abandonnee, elle ne laisse aucune trace ; validee, elle marque le projet a enregistrer. `s` : la session en cours par defaut.
  */
-export function objetsHorsSession(objets: readonly ObjetPlan[], s: Pick<SessionToit, 'cle' | 'hist'> | null = session): ObjetPlan[] {
+export function objetsHorsSession(objets: readonly ObjetPlan[], s: Pick<SessionToit, 'cle' | 'ctl'> | null = session): ObjetPlan[] {
   if (!s) return objets as ObjetPlan[];
   return objets.map((o) => (o.key === s.cle ? auDepart(o, s) : o));
 }
@@ -180,6 +179,8 @@ export function objetsHorsSession(objets: readonly ObjetPlan[], s: Pick<SessionT
 /** Ce que la barre du mode montre : de quoi griser ses boutons et dire la facade courante. */
 export interface EtatToit {
   actif: boolean;
+  /** La session est montree dans la Vue 3D (poignees, facades, vues) ; sur le plan, l'atelier seul. */
+  en3d: boolean;
   peutAnnuler: boolean;
   peutRetablir: boolean;
   change: boolean;
@@ -207,39 +208,25 @@ export interface EtatToit {
   rangCorps: number | null;
 }
 
-/** Le corps qui porte une cible : une saillie renvoie a son corps porteur. */
-function corpsPorteur(corps: readonly CorpsToit[], rang: number): number {
-  const c = corps[rang];
-  return c?.saillie && corps[c.saillie.hote] ? c.saillie.hote : rang;
-}
-
-/** La ligne « Corps · Façade » (voir `EtatToit.designation`). */
-function designer(s: SessionToit, sel: CibleElement | null): { designation: string; rangCorps: number | null } {
+/** La ligne « Corps · Façade » (voir `EtatToit.designation`) : le corps est la portee des gestes, la seule regle (gestes.ts::porteeDuGeste). */
+function designer(s: SessionToit): { designation: string; rangCorps: number | null } {
   const o = objetsCourants ? objetsCourants().find((x) => x.key === s.cle) : undefined, corps = o?.batiment?.corpsToit ?? [];
-  const f = s.facade;
-  const rangCorps = sel ? corpsPorteur(corps, sel.rang) : f && f.rang !== null && corps.length > 1 ? f.rang : null;
+  const f = s.facade, p = s.ctl.etat().portee;
+  const rangCorps = corps.length > 1 || s.ctl.etat().selection ? p.rang : null;
   const nom = rangCorps === null ? null : listerElements(corps).find((e) => e.cible.type === 'corps' && e.cible.rang === rangCorps)?.libelle ?? null;
   const facade = f ? 'Façade ' + orientationDe(f).toLowerCase() + ' · ' + f.L.toFixed(2).replace('.', ',') + ' m' + photoDuMur(f) : null;
   if (!nom) return { designation: facade ?? 'Touchez un mur du bâtiment pour choisir sa façade.', rangCorps };
   return { designation: nom + ' · ' + (facade ? facade.charAt(0).toLowerCase() + facade.slice(1) : 'touchez un de ses murs pour choisir sa façade'), rangCorps };
 }
 
-/** La selection si l'element existe encore dans le batiment en session. */
-function selectionValide(): CibleElement | null {
-  const s = session;
-  if (!s?.selection || !objetsCourants) return null;
-  const o = objetsCourants().find((x) => x.key === s.cle);
-  return o?.batiment?.corpsToit && lireElement(o.batiment?.corpsToit, s.selection) ? s.selection : null;
-}
-
 export function etatToit(): EtatToit {
-  if (!session) return { actif: false, peutAnnuler: false, peutRetablir: false, change: false, isole: false, facade: null, vue: 'libre', aUneFacade: false, corpsIsole: false, peutIsolerCorps: false, selection: null, indice: false, validee: false, designation: '', rangCorps: null };
-  const f = session.facade ?? session.derniere, sel = selectionValide();
+  if (!session) return { actif: false, en3d: false, peutAnnuler: false, peutRetablir: false, change: false, isole: false, facade: null, vue: 'libre', aUneFacade: false, corpsIsole: false, peutIsolerCorps: false, selection: null, indice: false, validee: false, designation: '', rangCorps: null };
+  const f = session.facade ?? session.derniere, e = session.ctl.etat();
   return {
-    ...designer(session, sel),
-    actif: true, peutAnnuler: peutAnnuler(session.hist), peutRetablir: peutRetablir(session.hist), change: aChange(session.hist), isole: session.isole,
+    ...designer(session),
+    actif: true, en3d: session.en3d, peutAnnuler: e.peutDefaire, peutRetablir: e.peutRefaire, change: e.change, isole: session.isole,
     facade: session.facade ? 'Façade ' + orientationDe(session.facade).toLowerCase() + ' · ' + session.facade.L.toFixed(2).replace('.', ',') + ' m' + photoDuMur(session.facade) : null,
-    vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null, selection: sel, indice: session.indice, validee: session.validee
+    vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null, selection: e.selection, indice: session.indice, validee: e.voitLeProjet
   };
 }
 
@@ -272,6 +259,8 @@ export interface ContexteModeToit {
   rebatir: (cle: string) => void;
   /** Redessine les zones. */
   rafraichir: () => void;
+  /** La Vue 3D est la vue montree, sa scene prete : la session s'y attache (par defaut : une scene existe). */
+  enVue3d?: () => boolean;
 }
 
 /** Ce que le panneau du mode recouvre de la scene : une colonne a droite (grand ecran) ou un bandeau en bas ; zero sans panneau. */
@@ -370,7 +359,7 @@ function poserLOrbiteDuMode(o: ObjetPlan | undefined): void {
  */
 export function pointsDeLaVue(o: ObjetPlan, s: SessionToit): PointScene[] {
   const sc = vue3d.scene, corps = o.batiment?.corpsToit ?? [], f = s.facade;
-  const pts = sc && f && corps.length ? pointsDuCadreDeFacade(corps, f, s.selection) : [];
+  const pts = sc && f && corps.length ? pointsDuCadreDeFacade(corps, f, s.ctl.etat().selection) : [];
   if (!sc || !pts.length) return pointsDuBatiment(o);
   const base = altitudeDuBatiment(o);
   return pts.map((p) => ({ x: p.x - sc.cen.x, y: base + p.z, z: sc.cen.y - p.y }));
@@ -491,45 +480,28 @@ function majFantomesDe(objets: readonly ObjetPlan[]): void {
   majFantomes(sc, m.racinesDe3d(s.cle), autres, s.vue === 'libre' && !s.isole);
 }
 
-/** Le toit du projet est montre : la session reprend sa place (son dernier etat) avant tout geste. */
-function reprendre(o: ObjetPlan, s: SessionToit): void {
-  if (!s.validee) return;
-  restaurer(o, s.hist.pas[s.hist.i] ?? {});
-  s.validee = false;
-}
-
-/** Montre le toit du projet (le depart de la session) ou rend la session ; faux : rien n'a change, il n'y a rien a comparer. */
-function voirLeToitDuProjet(o: ObjetPlan, s: SessionToit): boolean {
-  if (s.validee) { reprendre(o, s); return true; }
-  if (!aChange(s.hist)) return false;
-  restaurer(o, s.hist.pas[0] ?? {});
-  s.validee = true;
-  return true;
-}
-
 /**
  * Ecrit la session dans le projet en une seule etape d'historique (le depart d'abord, puis l'etat final) ; vrai si elle a change
- * quelque chose. Chaque geste du mode fige le toit lui-meme (la personne l'a regle) ; un toit sans la marque a la fin, c'est que
- * la personne a rallume les « Règles » : il est rendu a la lecture automatique, ne se refige pas, et la tache de fond le relit
- * tout de suite plutot qu'a la prochaine ouverture du projet.
+ * quelque chose. Le controleur fige chaque geste ; un toit que la personne a rendu aux « Règles » ne se refige pas, et la tache de
+ * fond le relit tout de suite plutot qu'a la prochaine ouverture du projet (`relire`, dit par le controleur, jamais devine ici).
  */
-export function validerLaSession(a: Pick<Atelier, 'pushHistory' | 'markDirty'>, o: ObjetPlan, s: SessionToit): boolean {
-  reprendre(o, s);
-  const final = photographier(o), change = aChange(s.hist);
+export function validerLaSession(a: Pick<Atelier, 'pushHistory' | 'markDirty'>, o: ObjetPlan, s: Pick<SessionToit, 'ctl'>): boolean {
+  const { change, final, depart, relire } = s.ctl.valider();
   if (change) {
-    restaurer(o, s.hist.pas[0] ?? {});
+    restaurerSession(o, depart);
     a.pushHistory(o);
-    restaurer(o, final);
+    restaurerSession(o, final);
     a.markDirty(o);
-    if (!final.toitFige) lectureToits.demanderRelecture();
+    if (relire) lectureToits.demanderRelecture();
   }
+  toucher(o);
   return change;
 }
 
 /** Une facade d'un autre corps que celui des gestes : le corps choisi devient le sien (une seule designation, « Corps · Façade »). */
 function suivreLeCorpsDe(o: ObjetPlan | undefined, f: FacadeVisee): void {
-  const s = session, corps = o?.batiment?.corpsToit ?? [];
-  if (s?.selection && f.rang !== null && corpsPorteur(corps, s.selection.rang) !== f.rang) s.selection = { type: 'corps', rang: f.rang, i: 0 };
+  const s = session, corps = o?.batiment?.corpsToit ?? [], sel = s?.ctl.etat().selection;
+  if (s && sel && f.rang !== null && corpsPorteur(corps, sel.rang) !== f.rang) s.ctl.selectionner({ type: 'corps', rang: f.rang, i: 0 });
 }
 
 /**
@@ -539,8 +511,9 @@ function suivreLeCorpsDe(o: ObjetPlan | undefined, f: FacadeVisee): void {
  */
 function cadrageDuCorps(o: ObjetPlan | undefined, facadeVisible: (rang: number) => FacadeVisee | null): FacadeVisee | true | null {
   const s = session;
-  if (!s || !o || s.vue === 'dessus' || !(s.selection?.type === 'corps' || (!s.selection && s.vue === 'libre'))) return null;
-  const rang = s.selection?.rang ?? null, f = rang !== null && s.vue === 'facade' ? facadeVisible(rang) : null;
+  const sel = s?.ctl.etat().selection ?? null;
+  if (!s || !o || s.vue === 'dessus' || !(sel?.type === 'corps' || (!sel && s.vue === 'libre'))) return null;
+  const rang = sel?.rang ?? null, f = rang !== null && s.vue === 'facade' ? facadeVisible(rang) : null;
   if (f) return f;
   if (s.vue === 'libre') cadrerEnPerspective(rang === null ? pointsDuBatiment(o) : pointsDuCorps(o, rang));
   return true;
@@ -573,14 +546,15 @@ export function laCameraSuitLePas(ici: Pick<VueSession, 'vue' | 'facade' | 'sele
 function rendreLaVueDe(v: VueSession | undefined, murs: FacadeVisee[], reposerLaVue: () => void): void {
   const s = session;
   if (!s || !v) return;
-  const suit = laCameraSuitLePas({ vue: s.vue, facade: murDe(s.facade), selection: s.selection }, v);
+  const suit = laCameraSuitLePas({ vue: s.vue, facade: murDe(s.facade), selection: s.ctl.etat().selection }, v);
   const trouve = (m: MurDe | null) => (m ? murs.find((f) => f.rang === m.rang && f.mur === m.mur) ?? null : null);
-  s.selection = v.selection;
+  s.ctl.selectionner(v.selection);
   s.derniere = trouve(v.derniere) ?? s.derniere;
   s.vueAvant = v.vueAvant;
   const f = v.vue === 'facade' ? trouve(v.facade) : null;
   s.vue = v.vue === 'facade' && !f ? 'libre' : v.vue;
   s.facade = f;
+  direLaFacade(s);
   if (suit && v.camera) poserCamera(v.camera);
   derniereVue = '';
   reposerLaVue();
@@ -625,16 +599,15 @@ function creerPas(batiment: () => ObjetPlan | undefined, rebatir: () => void, ct
   return (geste: 'annuler' | 'retablir' | 'depart'): void => {
     const o = batiment(), s = session;
     if (!o || !s) return;
-    reprendre(o, s);
-    const i = s.hist.i, ici = capturerVue(s);
-    const fait = geste === 'annuler' ? annuler(s.hist, o) : geste === 'retablir' ? retablir(s.hist, o) : revenirAuDepart(s.hist, o);
+    const i = s.ctl.position(), ici = capturerVue(s);
+    const fait = (geste === 'annuler' ? s.ctl.defaire() : geste === 'retablir' ? s.ctl.refaire() : s.ctl.revenirAuDepart()).fait;
     if (!fait) return;
     toucher(o);
     rebatir();
     const m = (s.vuesDesPas ??= { avant: [], apres: [] });
     if (geste === 'annuler') { m.apres[i] = ici; rendreLaVue(m.avant[i]); }
-    else if (geste === 'retablir') rendreLaVue(m.apres[s.hist.i]);
-    else noterAvant(s, s.hist.i, ici);
+    else if (geste === 'retablir') rendreLaVue(m.apres[s.ctl.position()]);
+    else noterAvant(s, s.ctl.position(), ici);
     ctx.rafraichir();
   };
 }
@@ -655,85 +628,9 @@ function creerSurveillance(reposerLaVue: () => void, fantomes: () => void): () =
   };
 }
 
-export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
-  objetsCourants = () => a.etat.objects;
-  const batiment = (): ObjetPlan | undefined => (session ? a.etat.objects.find((o) => o.key === session?.cle) : undefined);
-  const reposerLaVue = creerReposeDeVue(batiment);
-  // Une scene neuve (un reglage de la Vue 3D la rebatit) n'a ni camera de facade, ni epure, ni les bornes de l'orbite : on les lui repose.
-  vueReposee = () => { poserLOrbiteDuMode(batiment()); reposerLaVue(); };
-  if (!abonne) abonne = !!abonnerSceneBatie(() => { if (session) vueReposee(); });
-  const rebatir = rebatirEnGardantLaCamera(ctx, batiment);
-
-  surveillerLaVue = creerSurveillance(reposerLaVue, () => { majFantomesDe(a.etat.objects); });
-
-  const fermer = (): void => {
-    if (!session) return;
-    const cle = session.cle, camera = session.cameraAvantMode;
-    reglerVue3d({ corpsIsole: null });
-    viderFantomes();
-    if (veille !== null) { clearInterval(veille); veille = null; }
-    session = null;
-    liberer(vue3d.scene);  // l'orbite libre de la Vue 3D, et l'image recentree : le panneau s'en va
-    retirerEntreeHistorique();
-    reposerLaVue();
-    a.render();
-    if (vue3d.scene) ctx.rebatir(cle);  // le batiment tel que la session le laisse ; le reste de la scene ne bouge pas
-    if (camera) { poserCamera(camera); if (vue3d.scene) rendre3d(vue3d.scene); }  // la camera d'avant le mode, comme on l'avait laissee
-    // Le focus etait dans le panneau, qui disparait (ou nulle part) : il revient au bouton qui ouvre le mode, pas au corps de la page.
-    const actif = typeof document === 'undefined' ? null : document.activeElement;
-    if (!actif || actif === document.body || actif.closest('.panneauToit, .navigateurToit, .dialogueBoite')) focusDemande = Date.now();
-    ctx.rafraichir();
-  };
-
-  const vues = creerVuesToit(ctx, batiment, rebatir, reposerLaVue);
-  const pas = creerPas(batiment, rebatir, ctx, vues.methodes.rendreLaVue);
-
-  const mode = {
-    /** Entre dans le mode sur le batiment selectionne. */
-    ouvrir(): boolean {
-      const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey);
-      if (session || !estRetouchable(o)) return false;
-      session = { cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, indice: true, vueAvant: null, isole: false, validee: false, cameraAvantMode: poseCourante() };
-      // Les batiments qui cachent celui qu'on retouche deviennent des contours pointilles, des que la camera bouge.
-      derniereVue = '';
-      poserLOrbiteDuMode(o);  // sous l'horizon, ni trop pres ni trop loin, autour du batiment (three/orbiteModeToit.ts)
-      veille = setInterval(surveillerLaVue, FANTOMES_MS);
-      poserEntreeHistorique();
-      ctx.rafraichir();
-      const s = session;  // le panneau pose, la maison se cadre dans ce qu'il laisse libre ; sa ligne invite a toucher un mur
-      setTimeout(() => { if (session === s && s.vue === 'libre') cadrerEnPerspective(pointsDuBatiment(o)); }, 60);
-      return true;
-    },
-
-    /** Une retouche du toit : `f` ecrit dans le batiment ; faux = rien n'a change. La scene suit, la session empile. */
-    ecrire(f: (o: ObjetPlan) => boolean | void): boolean {
-      const o = batiment(), s = session;
-      if (!o || !s) return false;
-      reprendre(o, s);
-      const avant = capturerVue(s);
-      if (f(o) === false) return false;
-      toucher(o);
-      // Un geste peut creer le premier corps (le toit simple devient un corps) : la facade choisie sur le contour se rattache a son mur.
-      rattacherLesFacades(s, o);
-      if (empiler(s.hist, o)) noterAvant(s, s.hist.i, avant);
-      rebatir();
-      ctx.rafraichir();
-      return true;
-    },
-
-    annuler: () => { pas('annuler'); },
-    retablir: () => { pas('retablir'); },
-    revenirAuDepart: () => { pas('depart'); },
-
-    /** Montre le toit du projet avant la session, ou revient a la session (le moindre geste y revient aussi). */
-    voirValide(): void {
-      const o = batiment(), s = session;
-      if (!o || !s) return;
-      if (!voirLeToitDuProjet(o, s)) { showToast('Rien n’a changé : c’est déjà le toit du projet.'); return; }
-      rebatir();
-      ctx.rafraichir();
-    },
-
+/** Ce que la personne choisit dans la session, sans rien ecrire : l'indice leve, l'element, le batiment entier, l'intention, l'isolement. */
+function creerChoix(ctx: ContexteModeToit, cadrer: () => void, reposerLaVue: () => void) {
+  return {
     /** Le premier geste de la personne : l'invitation a toucher le batiment disparait. */
     leverIndice(): void {
       if (!session?.indice) return;
@@ -741,12 +638,25 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       ctx.rafraichir();
     },
 
-    /** Choisit un element (ou aucun) : l'inspecteur regle ce qui est choisi. */
+    /** Choisit un element (ou aucun) : l'atelier regle ce qui est choisi, la 3D le montre de pres. */
     selectionner(cible: CibleElement | null): void {
-      if (!session || memeCible(session.selection, cible)) return;
-      session.selection = cible;
-      // Un element choisi (pastille, toucher, pose) se montre de pres ; lache, la facade revient entiere.
-      vues.methodes.cadrerSurLaSelection();
+      if (!session || memeCible(session.ctl.etat().selection, cible)) return;
+      session.ctl.selectionner(cible);
+      cadrer();
+    },
+
+    /** « Bâtiment entier » : le choix explicite de tout le toit (une forme le remplace, avec ce qui disparait dit avant). */
+    choisirBatimentEntier(): void {
+      if (!session) return;
+      session.ctl.choisirBatimentEntier();
+      cadrer();
+    },
+
+    /** Modifier ou ajouter : un etat de l'atelier (ni Ctrl+Z, ni « projet modifié »). */
+    choisirIntention(i: IntentionToit): void {
+      if (!session) return;
+      session.ctl.choisirIntention(i);
+      ctx.rafraichir();
     },
 
     /**
@@ -760,30 +670,149 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       reposerLaVue();
       ctx.rafraichir();
     },
+  };
+}
+
+/** L'attache de la Vue 3D a la session : ce qu'elle pose a l'arrivee de la 3D, et retire a son depart. */
+function creerAttache3d(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefined, reposerLaVue: () => void, enVue3d: () => boolean): { attacher3d: () => void; detacher3d: () => void } {
+  /**
+   * La Vue 3D s'attache a la session : orbite bornee autour du batiment, fantomes surveilles, maison cadree dans ce que l'atelier laisse
+   * libre. A l'ouverture dans la 3D, ou quand on y passe avec une session ouverte sur le plan (la scene prete).
+   */
+  const attacher3d = (): void => {
+    const s = session, o = batiment();
+    if (!s || !o || s.en3d || !enVue3d()) return;
+    s.en3d = true;
+    s.cameraAvantMode = poseCourante();
+    derniereVue = '';
+    poserLOrbiteDuMode(o);  // sous l'horizon, ni trop pres ni trop loin, autour du batiment (three/orbiteModeToit.ts)
+    veille = setInterval(surveillerLaVue, FANTOMES_MS);
+    ctx.rafraichir();
+    // L'atelier pose, la maison se cadre dans ce qu'il laisse libre ; sa ligne invite a toucher un mur.
+    setTimeout(() => { if (session === s && s.en3d && s.vue === 'libre') cadrerEnPerspective(pointsDuBatiment(o)); }, 60);
+  };
+
+  /** La Vue 3D se detache (on revient au plan, ou la session se ferme) : sa camera, son epure, ses fantomes et son orbite s'en vont. */
+  const detacher3d = (): void => {
+    const s = session;
+    if (!s?.en3d) return;
+    const camera = s.cameraAvantMode;
+    s.en3d = false;
+    s.vue = 'libre'; s.facade = null; s.vueAvant = null; s.corpsIsole = null; s.isole = false;
+    reglerVue3d({ corpsIsole: null });
+    viderFantomes();
+    if (veille !== null) { clearInterval(veille); veille = null; }
+    liberer(vue3d.scene);  // l'orbite libre de la Vue 3D, et l'image recentree : l'atelier s'en va de la scene
+    reposerLaVue();
+    if (vue3d.scene) ctx.rebatir(s.cle);
+    if (camera) { poserCamera(camera); if (vue3d.scene) rendre3d(vue3d.scene); }  // la camera d'avant le mode, comme on l'avait laissee
+  };
+  return { attacher3d, detacher3d };
+}
+
+export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
+  objetsCourants = () => a.etat.objects;
+  const batiment = (): ObjetPlan | undefined => (session ? a.etat.objects.find((o) => o.key === session?.cle) : undefined);
+  const enVue3d = ctx.enVue3d ?? (() => !!vue3d.scene);
+  const reposerLaVue = creerReposeDeVue(batiment);
+  const rebatir3d = rebatirEnGardantLaCamera(ctx, batiment);
+  /** Le batiment redessine : sur le plan toujours, dans la scene quand la 3D est attachee. */
+  const rebatir = (): void => { if (session?.en3d) rebatir3d(); a.render(); };
+
+  surveillerLaVue = creerSurveillance(reposerLaVue, () => { majFantomesDe(a.etat.objects); });
+
+  const { attacher3d, detacher3d } = creerAttache3d(ctx, batiment, reposerLaVue, enVue3d);
+
+  // Une scene neuve (un reglage de la Vue 3D la rebatit, ou la 3D qui s'ouvre sur une session du plan) : on lui repose la camera du mode.
+  vueReposee = () => { if (session && !session.en3d) attacher3d(); poserLOrbiteDuMode(batiment()); reposerLaVue(); };
+  if (!abonne) abonne = !!abonnerSceneBatie(() => { if (session) vueReposee(); });
+
+  const fermer = (): void => {
+    if (!session) return;
+    detacher3d();
+    session = null;
+    retirerEntreeHistorique();
+    a.render();
+    // Le focus etait dans l'atelier, qui disparait (ou nulle part) : il revient au bouton qui l'ouvre, pas au corps de la page.
+    const actif = typeof document === 'undefined' ? null : document.activeElement;
+    if (!actif || actif === document.body || actif.closest('.panneauToit, .navigateurToit, .dialogueBoite')) focusDemande = Date.now();
+    ctx.rafraichir();
+  };
+
+  const vues = creerVuesToit(ctx, batiment, rebatir, reposerLaVue);
+  const pas = creerPas(batiment, rebatir, ctx, vues.methodes.rendreLaVue);
+
+  const mode = {
+    /** Ouvre l'atelier du toit sur le batiment selectionne, dans l'intention dite ; la 3D s'y attache si elle est la. */
+    ouvrir(intention: IntentionToit = 'modifier'): boolean {
+      const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey);
+      if (session || !estRetouchable(o)) return false;
+      session = { cle: o.key, ctl: creerControleurToit(o, intention), en3d: false, facade: null, derniere: null, vue: 'libre', corpsIsole: null, indice: true, vueAvant: null, isole: false, cameraAvantMode: null };
+      poserEntreeHistorique();
+      ctx.rafraichir();
+      attacher3d();
+      return true;
+    },
+
+    /**
+     * Un geste : `f` demande au controleur (la seule porte d'ecriture) ; si le toit a change, le plan et la scene suivent, la vue de ce
+     * pas est rangee, et la 3D se place devant le mur ou se regle ce qui vient d'etre pose. Un refus se dit.
+     */
+    geste(f: (ctl: ControleurToit) => Issue): Issue {
+      const o = batiment(), s = session;
+      if (!o || !s) return { fait: false, raison: null };
+      const avant = capturerVue(s), i = s.ctl.position();
+      const issue = f(s.ctl);
+      if (issue.raison) showToast(issue.raison);
+      if (!issue.fait) { ctx.rafraichir(); return issue; }
+      toucher(o);
+      // Un geste peut creer le premier corps (le toit simple decoupe) : la facade choisie sur le contour se rattache a son mur.
+      rattacherLesFacades(s, o);
+      if (s.ctl.position() !== i) noterAvant(s, s.ctl.position(), avant);
+      rebatir();
+      if (issue.facade && s.en3d) vues.methodes.choisirFacade(issue.facade.rang, issue.facade.mur);
+      else if (s.ctl.etat().selection && !memeCible(avant.selection, s.ctl.etat().selection)) vues.methodes.cadrerSurLaSelection();
+      ctx.rafraichir();
+      return issue;
+    },
+
+    annuler: () => { pas('annuler'); },
+    retablir: () => { pas('retablir'); },
+    revenirAuDepart: () => { pas('depart'); },
+
+    /** Montre le toit du projet avant la session, ou revient a la session (le moindre geste y revient aussi). */
+    voirValide(): void {
+      const o = batiment(), s = session;
+      if (!o || !s) return;
+      if (!s.ctl.voirLeProjet()) { showToast('Rien n’a changé : c’est déjà le toit du projet.'); return; }
+      toucher(o);
+      rebatir();
+      ctx.rafraichir();
+    },
 
     /** Valide : une seule etape d'historique du projet pour toute la session. */
     valider(): boolean {
       const o = batiment(), s = session;
       if (!o || !s) return false;
-      const fige = validerLaSession(a, o, s);
+      const change = validerLaSession(a, o, s);
       fermer();
-      showToast(fige ? 'Toit validé.' : 'Aucun changement.');
+      showToast(change ? 'Toit validé.' : 'Aucun changement.');
       return true;
     },
 
-    /** Abandonne : le depart revient. Avec des changements, une question d'abord (sauf `sansDemander`). */
+    /** Quitte sans garder : le depart revient, au bit pres. Avec des changements, une question d'abord (sauf `sansDemander`). */
     abandonner(sansDemander = false): void {
       const s = session, o = batiment();
       if (!s) return;
-      const rendre = () => { if (o) restaurer(o, s.hist.pas[0] ?? {}); fermer(); };
-      if (sansDemander || !aChange(s.hist)) { rendre(); return; }
+      const rendre = () => { s.ctl.quitterSansGarder(); if (o) toucher(o); fermer(); };
+      if (sansDemander || !s.ctl.etat().change) { rendre(); return; }
       demanderAbandon(rendre);
     },
 
     /** Echap : l'element choisi, la facade, puis le mode ; en plein ecran, la derniere marche reste a la Vue 3D. Vrai si la touche a servi. */
     echap(pleinePage = false): boolean {
       if (!session) return false;
-      if (session.selection) { session.selection = null; vues.methodes.cadrerSurLaSelection(); return true; }
+      if (session.ctl.etat().selection) { session.ctl.selectionner(null); vues.methodes.cadrerSurLaSelection(); return true; }
       if (session.vue !== 'libre') { vues.quitterLaFacade(); return true; }
       if (!pleinePage) this.abandonner();
       return !pleinePage;
@@ -792,19 +821,63 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     /** Quitte le mode sans question : la Vue 3D se ferme, ou la selection change. */
     arreterSansDemander(raison: string): void {
       if (!session) return;
-      const change = aChange(session.hist);
+      const change = session.ctl.etat().change;
       this.abandonner(true);
       if (change) showToast(raison);
     },
 
+    /** La Vue 3D s'attache (on y passe avec une session ouverte) ou se detache (on revient au plan) : les gestes restent. */
+    attacher3d,
+    detacher3d,
+
     recadrer(): void { recadrerLeBatiment(batiment()); ctx.rafraichir(); },
     hote: () => hotes3d.vue3d,
+    ...creerChoix(ctx, vues.methodes.cadrerSurLaSelection, reposerLaVue),
+    ...creerGlisser(ctx, batiment, rebatir),
     ...vues.methodes
   };
   pilote = mode;
   return mode;
 }
 
+/** Les glisser des poignees : l'apercu ecrit par le controleur sans empiler, la fin empile une etape, Echap rend l'etat de la pile. */
+function creerGlisser(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefined, rebatir: () => void) {
+  return {
+    /** Un glisser en cours : les corps (et la hauteur a l'egout, si le corps principal l'a changee) remplacent ceux du batiment, la scene suit au plus tous les `GLISSER_MS` ; rien n'entre dans la pile avant `finGlisser`. */
+    apercu(corps: CorpsToit[], elevation?: number): void {
+      const o = batiment();
+      if (!o || !session) return;
+      session.vueDuGlisser ??= capturerVue(session);
+      session.ctl.apercu(corps, elevation);
+      toucher(o);
+      const t = Date.now();
+      if (t - dernierRebatir >= GLISSER_MS) { dernierRebatir = t; rebatir(); }
+    },
+
+    /** Le glisser s'acheve : le batiment est reconstruit tel quel et la session empile une etape (une seule, quel que soit le trajet). */
+    finGlisser(): boolean {
+      const o = batiment(), s = session;
+      if (!o || !s) return false;
+      const change = s.ctl.finGlisser();
+      if (change) noterAvant(s, s.ctl.position(), s.vueDuGlisser);
+      s.vueDuGlisser = null;
+      rebatir();
+      ctx.rafraichir();
+      return change;
+    },
+
+    /** Echap pendant un glisser : le batiment retrouve l'etat de la pile. */
+    annulerGlisser(): void {
+      const o = batiment(), s = session;
+      if (!o || !s) return;
+      s.vueDuGlisser = null;
+      s.ctl.annulerGlisser();
+      toucher(o);
+      rebatir();
+      ctx.rafraichir();
+    },
+  };
+}
 
 /** Tout ce qui regarde la camera du mode : la facade choisie, la vue libre, de dessus, le corps isole. */
 function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefined, rebatir: () => void, reposerLaVue: () => void) {
@@ -814,6 +887,7 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
     if (!s || s.vue === 'libre') return;
     s.facade = null;
     s.vue = 'libre';
+    direLaFacade(s);
     reposerLaVue();
     if (s.vueAvant && sc) poserCamera(s.vueAvant);
     s.vueAvant = null;
@@ -827,6 +901,7 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
     s.facade = f;
     s.derniere = f;
     s.vue = 'facade';
+    direLaFacade(s);
     // La camera de l'orbite ne bouge pas : la camera oblique l'emporte le temps de la facade, et la 3D libre retrouve la sienne.
     reposerLaVue();
     ctx.rafraichir();
@@ -847,7 +922,8 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
     const s = session, o = batiment();
     const corps = cadrageDuCorps(o, facadeVisibleDuCorps);
     if (corps) { if (typeof corps === 'object') entrerDansLaFacade(corps); else ctx.rafraichir(); return; }
-    const m = s?.selection && o && s.vue !== 'dessus' ? murDeCadrage(o.batiment?.corpsToit ?? [], s.selection, s.facade ?? s.derniere) : null;
+    const sel = s?.ctl.etat().selection ?? null;
+    const m = s?.en3d && sel && o && s.vue !== 'dessus' ? murDeCadrage(o.batiment?.corpsToit ?? [], sel, s.facade ?? s.derniere) : null;
     const f = m ? facades().find((x) => x.rang === m.rang && x.mur === m.mur) : undefined;
     if (f) { entrerDansLaFacade(f); return; }
     if (s?.vue === 'facade') reposerLaVue();
@@ -862,39 +938,6 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
     cadrerSurLaSelection,
     rendreLaVue,
 
-    /** Un glisser en cours : les corps (et la hauteur a l'egout, si le corps principal l'a changee) remplacent ceux du batiment, la scene suit au plus tous les `GLISSER_MS` ; rien n'entre dans la pile avant `finGlisser`. */
-    apercu(corps: CorpsToit[], elevation?: number): void {
-      const o = batiment();
-      if (!o || !session) return;
-      session.vueDuGlisser ??= capturerVue(session);
-      ecrireLeGeste(o, corps, elevation);
-      toucher(o);
-      const t = Date.now();
-      if (t - dernierRebatir >= GLISSER_MS) { dernierRebatir = t; rebatir(); }
-    },
-
-    /** Le glisser s'acheve : le batiment est reconstruit tel quel et la session empile une etape (une seule, quel que soit le trajet). */
-    finGlisser(): boolean {
-      const o = batiment(), s = session;
-      if (!o || !s) return false;
-      const change = empiler(s.hist, o);
-      if (change) noterAvant(s, s.hist.i, s.vueDuGlisser);
-      s.vueDuGlisser = null;
-      rebatir();
-      ctx.rafraichir();
-      return change;
-    },
-
-    /** Echap pendant un glisser : le batiment retrouve l'etat de la pile. */
-    annulerGlisser(): void {
-      const o = batiment(), s = session;
-      if (!o || !s) return;
-      s.vueDuGlisser = null;
-      restaurer(o, s.hist.pas[s.hist.i] ?? {});
-      rebatir();
-      ctx.rafraichir();
-    },
-
     /** Le toucher sur la scene : la facade du batiment la plus proche du point touche. Vrai si le toucher a choisi une facade. */
     toucher(ndc: { x: number; y: number }): boolean {
       const o = batiment();
@@ -903,7 +946,7 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
       if (!touche || touche.cle !== o.key || !touche.point) return false;
       // Un element tout pres du point touche se choisit ; sinon c'est un mur, donc une facade.
       const cible = o.batiment?.corpsToit ? elementProche(o.batiment?.corpsToit, touche.point) : null;
-      if (cible) { session.selection = cible; cadrerSurLaSelection(); return true; }
+      if (cible) { session.ctl.selectionner(cible); cadrerSurLaSelection(); return true; }
       const f = facadeProche(facadesDuBatiment(o.batiment?.corpsToit, enPoints(o).pts as PtBrut[]), touche.point);
       if (!f) return false;
       suivreLeCorps(f);
@@ -976,7 +1019,7 @@ function demanderAbandon(rendre: () => void): void {
 export function quitterLaSessionPuis(mode: Pick<ModeToit, 'valider' | 'abandonner'>, suite: () => void): void {
   const s = session;
   if (!s) { suite(); return; }
-  if (!aChange(s.hist)) { mode.abandonner(true); suite(); return; }
+  if (!s.ctl.etat().change) { mode.abandonner(true); suite(); return; }
   dialogues.ouvrir({
     type: 'choix', titre: 'Quitter la modification de la toiture ?', texte: 'Vos changements du toit ne sont pas encore dans le projet.',
     principal: { libelle: 'Valider', executer: () => { mode.valider(); suite(); } },

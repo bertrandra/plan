@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FORMES_SIMPLES, PAS_FAITAGE_M, PIECES_SIMPLES, directionTournee, faitageDuToitSimple, faitageParPas, faitageSimple, hauteurParPas, rangDesReglages, resumeDuToit, sensDuToitSimple, sensSimple, tournerSimple } from '../../../../src/facade/modeToit/simple.js';
 import { appliquerPiece, corpsDepuisExemple, piece } from '../../../../src/three/gestesToits.js';
-import { EXEMPLES_TOITS } from '../../../../src/three/catalogueToits.js';
+import { EXEMPLES_TOITS } from '../../../../src/facade/modeToit/exemplesToits.js';
 import { sensDuCorps } from '../../../../src/facade/modeToit/sens.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../src/model/types.js';
 

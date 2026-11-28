@@ -27,6 +27,7 @@ import { Vue3d } from './vue3d/Vue3d.js';
 import { Visionneuse } from './vue3d/Visionneuse.js';
 import type { ServiceVues3d } from './vue3d/communs.js';
 import { ReleveALaDemande } from './ReleveALaDemande.js';
+import { AtelierToitALaDemande } from './AtelierToitALaDemande.js';
 import type { ServiceReleve } from '../app/releve/releve.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -97,5 +98,7 @@ export function monterZones({ magasin, commandes, projet, explorateur, inspecteu
   createRoot(conteneur('zoneSelection')).render(<FeuilleSelection magasin={magasin} commandes={commandes} explorateur={explorateur} tiroir={tiroir} />);
   createRoot(conteneur('zoneFeuilles')).render(<Voile magasin={magasin} />);
   createRoot(conteneur('zoneReleve')).render(<ReleveALaDemande releve={releve} />);
+  // Z10, l'atelier du toit : sa racine est ici, son panneau se pose sur le canevas montre (le plan ou la scene de la Vue 3D).
+  createRoot(conteneur('zoneAtelierToit')).render(<AtelierToitALaDemande magasin={magasin} commandes={commandes} />);
   });
 }

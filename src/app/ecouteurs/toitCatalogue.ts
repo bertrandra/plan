@@ -1,20 +1,16 @@
-// Les commandes du mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : entrer, valider, abandonner, annuler dans la session, et ce que
-// le mode permet d'y faire — allumer ou couper les « Regles », poser un geste du catalogue, choisir le mur d'un element.
+// Les commandes de l'atelier du toit (zone Z10, MD/spec-mode-toit-3d.md) : des liaisons minces vers le controleur du toit
+// (facade/modeToit/controleurToit.ts), la seule porte d'ecriture d'un toit. Une commande lit `data-*` sur le bouton qui l'a declenchee,
+// demande au controleur par la session (app/toits/modeToit.ts::geste) et dit son etat d'apres lui : aucune regle de toit ici.
 //
-// Toute retouche passe par la session (app/toits/modeToit.ts) : elle ecrit dans le batiment, la scene 3D la montre, et le projet ne recoit
-// qu'une etape d'historique, a la validation.
-//
-// `toit.regles` : une bascule. Allumee, le toit se lit tout seul (LiDAR, faits, profils) ; coupee, le batiment est fige (`toitFige`) et
-// rien ne le reecrit. Rallumer reprend la lecture et perd ce que la personne avait regle : la session l'annule.
-// `toit.poser` : le geste du catalogue (three/gestesToits.ts), nomme par `data-piece` sur le bouton qui l'a declenche.
+// L'atelier s'ouvre sur le plan (bouton « Modifier le toit » de l'inspecteur) comme dans la Vue 3D (« Modifier le toit », « Ajouter au
+// toit » au bas de la scene) ; ce qui ne se fait qu'en 3D (choisir une facade, les vues, toucher un mur) n'y est offert qu'en 3D.
 
-import { phraseReseau, detailTechnique } from '../../util/erreurReseau.js';
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { batimentVise, batimentsRetouchables, estRetouchable, raisonDOuvrir, creerModeToit, etatToit, poserEntreeHistorique, quitterLaSessionPuis, retourDuNavigateur, sessionToit } from '../toits/modeToit.js';
-import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
-import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
-import { corpsAFusionner, fusionnerCorps, retourDAngle, scinderCorps } from '../../facade/modeToit/decroche.js';
-import { appliquerAuBatiment, appliquerChoix, cibleAjoutee, groupesDuBatiment, dupliquerElement, facadeDeLElement, memeCible, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
+import { murLePlusProche } from '../../facade/modeToit/saillies.js';
+import { memeCible, libellesDesElements, type TypeElement } from '../../facade/modeToit/elements.js';
+import { estIntentionToit, type GesteNomme, type IntentionToit } from '../../facade/modeToit/controleurToit.js';
+import { piece } from '../../facade/modeToit/pieces.js';
 import { armerSaillie, desarmerSaillie, saillieArmee } from '../../interaction/choixSaillie.js';
 import { ecouterLesTouchers } from './selection3d.js';
 import { affichage3d, hotes3d, vue3d } from '../../three/etat3d.js';
@@ -24,45 +20,21 @@ import { showToast } from '../../shell/dialogs.js';
 import type { Atelier } from '../atelier.js';
 import type { Magasin } from '../magasin.js';
 import type { RegistreCommandes } from '../commandes.js';
-import type { ChampsBatiment, ObjetPlan } from '../../model/types.js';
-import { champsBatiment } from '../../model/champsFonction.js';
+import type { ObjetPlan } from '../../model/types.js';
 import { brancherDecroche, decrocheArme, type GesteDecroche } from './decroche.js';
-import { libellesDesElements } from '../../facade/modeToit/elements.js';
-import { estIntentionToit, poserIntentionToit, type IntentionToit } from '../toits/intention.js';
-import { directionTournee, faitageDuToitSimple, faitageParPas, faitageSimple, hauteurParPas, rangDesReglages, sensDuToitSimple, sensSimple, tournerSimple } from '../../facade/modeToit/simple.js';
 
 export interface ContexteToitCatalogue {
   /** Redessine le batiment `cle` dans la Vue 3D ouverte (la scene entiere s'il le faut, autour de la terrasse courante). */
   rebatirBatiment: (cle: string) => void;
-  /** Redessine les zones : le panneau du mode lit l'etat de la session. */
+  /** Redessine les zones : l'atelier lit l'etat de la session. */
   rafraichir: () => void;
   magasin: Magasin;
 }
 
-/** Les « Regles » sont allumees quand le batiment n'est pas fige. */
-// Le catalogue des toits (three/gestesToits.ts) se charge a l'ouverture d'une session (AD-10) : les gestes qui le lisent ne
-// s'offrent que pendant une session, il est donc la quand ils s'executent.
-type Gestes = typeof import('../../three/gestesToits.js');
-let gestes: Gestes | null = null;
-let chargementGestes: Promise<Gestes> | null = null;
-/** Charge le catalogue des toits une fois ; un echec laisse la porte ouverte a un nouvel essai. */
-export function chargerGestesToits(): Promise<Gestes> {
-  chargementGestes ??= import('../../three/gestesToits.js').then((m) => (gestes = m), (e: unknown) => { chargementGestes = null; throw e; });
-  return chargementGestes;
-}
-
-/** Pourquoi la piece `id` n'a pas de sens sur la facade regardee de la session (null : elle en a). */
-function raisonDuCatalogue(o: ObjetPlan | undefined, id: string): string | null {
-  const s = sessionToit();
-  if (!o || !s) return null;
-  return gestes ? gestes.raisonIndisponible(o, id, s.facade ?? s.derniere, etatToit().selection?.rang ?? null) : 'Le catalogue du mode Toit se charge.';
-}
-
 /**
- * L'insertion en cours dans le mode Toit : une piece armee qui attend un toucher sur la scene pour se poser (le decroche au point, ou
- * l'element de facade a replacer sur un mur). Null : la session est en modification (poignees, reglages, pieces posees d'un coup).
- * L'indicateur d'etat, la vignette enfoncee, les poignees estompees et le curseur de pose la lisent (retour du proprietaire, 8 novembre
- * 2026 : « j'ai du mal a distinguer si je suis en modif ou insertion »).
+ * L'insertion en cours : une piece armee qui attend un toucher sur la scene pour se poser (le decroche au point, ou l'element de facade
+ * a replacer sur un mur). Null : rien n'attend. L'indicateur d'etat, la vignette enfoncee, les poignees estompees et le curseur de pose la
+ * lisent (retour du proprietaire, 8 novembre 2026).
  */
 export interface InsertionToit {
   /** Le mot de l'etat : « Insertion » pour une piece nouvelle, « Placement » pour un element deja pose qui change de mur. */
@@ -89,21 +61,20 @@ export function insertionToit(): InsertionToit | null {
   return { nature: 'Placement', piece: nom, consigne: 'touchez un mur du bâtiment pour y poser l’élément', commande: 'toit.murSur3d' };
 }
 
-export const reglesAllumees = (o: ObjetPlan | undefined): boolean => !!o && !o.batiment?.toitFige;
+type Mode = ReturnType<typeof creerModeToit>;
 
 interface DepsClavier {
   enSession: () => boolean;
   aUnChoix: () => boolean;
-  mode: ReturnType<typeof creerModeToit>;
+  mode: Mode;
   cmd: RegistreCommandes;
   rafraichir: () => void;
   decroche: GesteDecroche;
 }
 
 /**
- * Les touches du mode : Echap (arme, selection, vue, abandon), Suppr / Retour arriere (supprime l'element choisi), Ctrl+Z / Ctrl+Y (ceux de
- * la session). Une touche, un effet : celle que le mode prend ne va pas plus loin (ni au dialogue qu'elle vient d'ouvrir, ni au plein
- * ecran) ; un dialogue ouvert garde la sienne.
+ * Les touches de l'atelier : Echap (arme, selection, vue, abandon), Suppr / Retour arriere (retire l'element choisi), Ctrl+Z / Ctrl+Y
+ * (ceux de la session). Une touche, un effet : celle que l'atelier prend ne va pas plus loin ; un dialogue ouvert garde la sienne.
  */
 function touchesDuMode(e: KeyboardEvent, d: DepsClavier): void {
   if (!d.enSession() || dialogues.courant()) return;
@@ -117,7 +88,6 @@ function touchesDuMode(e: KeyboardEvent, d: DepsClavier): void {
     if (prise) { e.preventDefault(); e.stopPropagation(); }
     return;
   }
-  // Le corps principal reste : la commande le refuse sans rien ecrire.
   if ((e.key === 'Delete' || e.key === 'Backspace') && d.aUnChoix()) {
     e.preventDefault();
     e.stopPropagation();
@@ -133,267 +103,132 @@ function touchesDuMode(e: KeyboardEvent, d: DepsClavier): void {
 }
 
 type CommandeToit = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void, ecrit?: boolean, raisonInactive?: () => string | null) => void;
-type Declarer = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void) => void;
-type Choisi = () => { t: { type: TypeElement; rang: number; i: number }; corps: NonNullable<ChampsBatiment['corpsToit']> } | null;
-
-/** Le temps que la Vue 3D a pour s'ouvrir avant que « Modifier la toiture en 3D » renonce a ouvrir le mode. */
-const ATTENTE_VUE_3D_MS = 60000;
 
 /**
- * « Modifier la toiture en 3D », depuis l'inspecteur d'un batiment (audit de la navigation, 6 novembre 2026) : la Vue 3D s'ouvre, puis le mode
- * Toit sur le batiment choisi, des que la scene est la. Le mode ne vit que dans la Vue 3D (decision de la personne) : l'entree du plan y mene.
+ * Les gestes du controleur, chacun une commande : son etat est la raison du controleur (grise, avec elle), son effet une intention.
+ * `data-sens` (−1 / 1), `data-cote` (gauche / droite), `data-groupe` et `data-valeur` viennent du bouton.
  */
-function declarerEntreeEn3d(commande: (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void, ecrit?: boolean, raisonInactive?: () => string | null) => void,
-  cmd: RegistreCommandes, ctx: ContexteToitCatalogue, actif: () => boolean, raison: () => string | null): void {
-  commande('toit.modifierEn3d', 'Modifier la toiture en 3D', actif, () => {
-    const prete = () => ctx.magasin.store.getState().vue === 'vue3d' && affichage3d.vue3d === 'pret' && !!vue3d.scene && !!hotes3d.vue3d;
-    if (prete()) { cmd.executer('toit.modifier'); return; }
-    if (ctx.magasin.store.getState().vue !== 'vue3d') cmd.executer('vue.3d');
-    const fin = Date.now() + ATTENTE_VUE_3D_MS;
-    const attendre = () => {
-      if (prete()) { cmd.executer('toit.modifier'); return; }
-      if (Date.now() < fin && ctx.magasin.store.getState().vue === 'vue3d') setTimeout(attendre, 200);
-    };
-    setTimeout(attendre, 200);
-  }, true, raison);
-}
+function declarerGestes(commande: CommandeToit, mode: Mode): void {
+  const raison = (g: GesteNomme) => () => (sessionToit()?.ctl.raisonDuGeste(g) ?? null);
+  const permis = (g: GesteNomme) => () => !!sessionToit() && raison(g)() === null;
+  const geste = (id: string, libelle: string, g: GesteNomme, f: (s: HTMLElement | undefined) => void) => { commande(id, libelle, permis(g), f, true, raison(g)); };
+  const sens = (source?: HTMLElement): 1 | -1 => (source?.dataset.sens === '-1' ? -1 : 1);
 
-/** Les gestes sur un corps choisi : le tourner, le couper en deux, le reunir a son voisin (decision du 4 novembre 2026). */
-function declarerGestesDesCorps(commande: Declarer, choisi: Choisi, mode: ReturnType<typeof creerModeToit>): void {
-  // Les gestes sur un corps choisi : le tourner, le couper, le reunir, lui faire retourner l'angle.
-  commande('toit.tourner', 'Tourner le corps', () => choisi()?.t.type === 'corps', (source) => {
-    const c = choisi(), sens = source?.dataset.sens === '-1' ? -1 : 1;
-    if (c && c.t.type === 'corps') mode.ecrire((x) => { champsBatiment(x).corpsToit = tournerCorps(c.corps, c.t.rang, sens * PAS_ROTATION_DEG); champsBatiment(x).toitFige = true; });
+  geste('toit.faitage', 'Monter ou baisser le faîtage', 'faitage', (src) => { mode.geste((c) => c.reglerFaitage(sens(src))); });
+  geste('toit.sens', 'Tourner le faîtage', 'sens', () => { mode.geste((c) => c.tournerSens()); });
+  geste('toit.decouper', 'Découper ce toit en corps', 'decouper', () => { mode.geste((c) => c.decouper()); });
+  geste('toit.regler', 'Régler l’élément', 'regler', (src) => {
+    const d = src?.dataset;
+    if (d?.groupe && d.valeur !== undefined) { const groupe = d.groupe, valeur = d.valeur; mode.geste((c) => c.regler(groupe, valeur)); }
   });
-  // Couper un corps en deux, ou reunir deux corps alignes : la personne decoupe la maison comme elle est (decision du 4 novembre 2026).
-  commande('toit.scinder', 'Couper le corps en deux', () => { const c = choisi(); return c?.t.type === 'corps' && !!scinderCorps(c.corps, c.t.rang); }, () => {
-    const c = choisi(), l = c && c.t.type === 'corps' ? scinderCorps(c.corps, c.t.rang) : null;
-    if (!c || !l) return;
-    mode.ecrire((x) => { champsBatiment(x).corpsToit = l; champsBatiment(x).toitFige = true; });
-    mode.selectionner({ type: 'corps', rang: l.length - 1, i: 0 });
+  geste('toit.plus', 'Agrandir l’élément', 'redimensionner', () => { mode.geste((c) => c.redimensionner(1)); });
+  geste('toit.moins', 'Réduire l’élément', 'redimensionner', () => { mode.geste((c) => c.redimensionner(-1)); });
+  geste('toit.dupliquer', 'Dupliquer l’élément', 'dupliquer', () => { mode.geste((c) => c.dupliquer()); });
+  geste('toit.supprimer', 'Retirer l’élément', 'retirer', () => { mode.geste((c) => c.retirer()); });
+  geste('toit.tourner', 'Tourner le corps', 'tournerCorps', (src) => { mode.geste((c) => c.tournerCorps(sens(src))); });
+  geste('toit.scinder', 'Couper le corps en deux', 'scinder', () => { mode.geste((c) => c.scinder()); });
+  // Le retour d'un appentis a l'angle de la maison (data-cote : gauche ou droite, vu de face) : un corps de plus, donc un ajout.
+  commande('toit.retour', 'Retour d’angle', () => !!sessionToit() && (permis('retourGauche')() || permis('retourDroite')()), (src) => {
+    const cote = src?.dataset.cote === 'gauche' ? 'gauche' : 'droite';
+    mode.geste((c) => c.retourDAngle(cote));
+  }, true, () => raison('retourDroite')() && raison('retourGauche')());
+  geste('toit.fusionner', 'Réunir avec le corps voisin', 'fusionner', () => { mode.geste((c) => c.fusionner()); });
+  geste('toit.regles', 'Règles', 'regles', () => {
+    const issue = mode.geste((c) => c.basculerRegles());
+    if (issue.fait) showToast(sessionToit()?.ctl.etat().regles ? 'Règles allumées : le toit sera relu quand vous validerez.' : 'Règles coupées : le toit reste tel que vous le réglez.');
   });
-  // Le retour d'un appentis a l'angle de la maison : un second corps lie, en equerre (data-cote : gauche ou droite, vu de face).
-  commande('toit.retour', 'Retour d’angle', () => { const c = choisi(); return c?.t.type === 'corps' && (!!retourDAngle(c.corps, c.t.rang, 'gauche') || !!retourDAngle(c.corps, c.t.rang, 'droite')); }, (source) => {
-    const c = choisi(), cote = source?.dataset.cote === 'gauche' ? 'gauche' : 'droite';
-    const l = c && c.t.type === 'corps' ? retourDAngle(c.corps, c.t.rang, cote) : null;
-    if (!l) { showToast('Pas de retour possible de ce côté : un corps y est déjà lié, ou ce corps n’est pas un appentis.'); return; }
-    mode.ecrire((x) => { champsBatiment(x).corpsToit = l; champsBatiment(x).toitFige = true; });
-    mode.selectionner({ type: 'corps', rang: l.length - 1, i: 0 });
-  });
-  commande('toit.fusionner', 'Réunir avec le corps voisin', () => { const c = choisi(); return c?.t.type === 'corps' && corpsAFusionner(c.corps, c.t.rang) !== null; }, () => {
-    const c = choisi(), l = c && c.t.type === 'corps' ? fusionnerCorps(c.corps, c.t.rang) : null;
-    if (!c || !l) return;
-    const voisin = corpsAFusionner(c.corps, c.t.rang) as number;
-    mode.ecrire((x) => { champsBatiment(x).corpsToit = l; champsBatiment(x).toitFige = true; });
-    // Le voisin parti, le corps reuni descend d'un rang s'il etait apres lui.
-    mode.selectionner({ type: 'corps', rang: voisin < c.t.rang ? c.t.rang - 1 : c.t.rang, i: 0 });
+  // Une piece du catalogue (`data-piece`) : une forme modifie le toit, une autre piece s'ajoute ; le controleur dit ce qui l'empeche.
+  commande('toit.poser', 'Poser sur le toit', () => !!sessionToit(), (src) => {
+    const id = src?.dataset.piece;
+    if (!id || !piece(id)) return;
+    mode.geste((c) => (piece(id)?.famille === 'toit' ? c.choisirForme(id) : c.poserPiece(id)));
   });
 }
 
-/**
- * Les choix en image de l'inspecteur (`toit.regler`) : sur l'element choisi ; sans rien de choisi (« Bâtiment entier »), les reglages de
- * tout le toit, le sens du faitage de tous les corps d'un coup (reponses du proprietaire, 8 novembre 2026).
- */
-function declarerReglage(commande: Declarer, choisi: Choisi, corpsDuBatiment: () => NonNullable<ChampsBatiment['corpsToit']> | null, mode: ReturnType<typeof creerModeToit>): void {
-  commande('toit.regler', 'Régler l’élément', () => !!choisi() || groupesDuBatiment(corpsDuBatiment() ?? []).some((g) => !g.raison), (source) => {
-    const c = choisi(), tout = corpsDuBatiment(), d = source?.dataset;
-    if (!d?.groupe || d.valeur === undefined) return;
-    const groupe = d.groupe, valeur = d.valeur;
-    if (c) mode.ecrire((x) => { champsBatiment(x).corpsToit = appliquerChoix(c.corps, c.t, groupe, valeur); champsBatiment(x).toitFige = true; });
-    else if (tout) {
-      // Le toit qui ne tourne pas entier ne change pas : rien a ecrire, rien a empiler.
-      const neufs = appliquerAuBatiment(tout, groupe, valeur);
-      if (JSON.stringify(neufs) !== JSON.stringify(tout)) mode.ecrire((x) => { champsBatiment(x).corpsToit = neufs; champsBatiment(x).toitFige = true; });
-    }
-  });
-}
-
-/**
- * Les deux reglages du parcours simple qui n'avaient pas de bouton (maquette du 27 novembre 2026) : la hauteur du faitage par pas de dix
- * centimetres (`data-sens` : 1 monte, -1 descend ; c'est la poignee « Hauteur du faitage » tiree d'autant) et « Tourner » (le sens du
- * faitage du corps choisi, du seul corps, ou de tout le toit). Sur le corps choisi, sinon le corps principal. Un batiment qui n'a encore
- * que son toit simple (pas de corps) regle ce toit-la, comme les champs « Hauteur du toit » et « Direction du faîtage » de l'inspecteur.
- */
-function declarerReglagesSimples(commande: Declarer, batiment: () => ObjetPlan | undefined, mode: ReturnType<typeof creerModeToit>): void {
-  type Corps = NonNullable<ChampsBatiment['corpsToit']>;
-  const corpsDe = (o: ObjetPlan | undefined): Corps => o?.batiment?.corpsToit ?? [];
-  /** Ecrit les corps regles ; un bouton en butee n'ecrit rien (rien a empiler, rien a figer). */
-  const ecrireLesCorps = (f: (corps: Corps) => Corps) => {
-    mode.ecrire((x) => {
-      const neufs = f(corpsDe(x));
-      if (JSON.stringify(neufs) === JSON.stringify(corpsDe(x))) return false;
-      champsBatiment(x).corpsToit = neufs;
-      champsBatiment(x).toitFige = true;
-      return true;
-    });
-  };
-  /** Ecrit le toit simple, saisi comme depuis l'inspecteur : la lecture automatique ne le reprend pas. */
-  const ecrireLeToit = (f: (t: NonNullable<ChampsBatiment['toit']>) => boolean) => {
-    mode.ecrire((x) => {
-      const t = x.batiment?.toit;
-      if (!t || !f(t)) return false;
-      t.source = 'saisie';
-      delete t.estime;
-      champsBatiment(x).toitFige = true;
-      return true;
-    });
-  };
-  const faitage = () => { const o = batiment(), l = corpsDe(o); return !o ? null : l.length ? faitageSimple(l, rangDesReglages(l, etatToit().selection)) : faitageDuToitSimple(o); };
-  const sens = () => { const o = batiment(), l = corpsDe(o); return !o ? null : l.length ? sensSimple(l, etatToit().selection) : sensDuToitSimple(o); };
-  commande('toit.faitage', 'Monter ou baisser le faîtage', () => { const f = faitage(); return !!f && !f.raison; }, (source) => {
-    const pas = source?.dataset.sens === '-1' ? -1 : 1;
-    if (corpsDe(batiment()).length) ecrireLesCorps((l) => { const rang = rangDesReglages(l, etatToit().selection); return rang === null ? l : faitageParPas(l, rang, pas); });
-    else ecrireLeToit((t) => { const h = hauteurParPas(t, pas); if (h === t.hauteur) return false; t.hauteur = h; return true; });
-  });
-  commande('toit.sens', 'Tourner le faîtage', () => { const e = sens(); return !!e && !e.raison; }, () => {
-    if (corpsDe(batiment()).length) ecrireLesCorps((l) => tournerSimple(l, etatToit().selection));
-    else ecrireLeToit((t) => { t.angleFaitage = directionTournee(t); return true; });
-  });
-}
-
-/**
- * Les deux entrees du mode (« Modifier la maison », « Ajouter a la maison ») et le commutateur du panneau entre les deux intentions
- * (app/toits/intention.ts). Rend le batiment vise : celui que les entrees ouvrent.
- */
-function declarerEntrees(a: Atelier, cmd: RegistreCommandes, ctx: ContexteToitCatalogue, commande: CommandeToit, mode: ReturnType<typeof creerModeToit>): void {
+/** Les entrees de l'atelier (« Modifier le toit », « Ajouter au toit », un batiment nomme) et le commutateur des deux intentions. */
+function declarerEntrees(a: Atelier, cmd: RegistreCommandes, commande: CommandeToit, mode: Mode): void {
   // Le batiment vise : le choisi, sinon la seule maison du projet (app/toits/modeToit.ts::batimentVise).
   const selection = (): ObjetPlan | undefined => batimentVise(a.etat.objects, a.etat.selectedKey), enSession = () => !!sessionToit();
   // Ouvre la session sur le batiment vise, dans l'intention dite. Le batiment vise sans etre choisi le devient : la session lit la selection.
   const ouvrirEn = (intention: IntentionToit, cle?: string) => {
-    const ouvrir = () => {
-      const o = cle ? a.etat.objects.find((x) => x.key === cle) : selection();
-      if (enSession() || !estRetouchable(o)) return;
-      if (a.etat.selectedKey !== o.key) { a.etat.selectedKey = o.key; a.etat.highlight = { type: null, index: null }; }
-      poserIntentionToit(intention);
-      mode.ouvrir();
-    };
-    // Le catalogue d'abord : la session s'ouvre avec lui (deja charge, tout de suite).
-    if (gestes) { ouvrir(); return; }
-    chargerGestesToits().then(ouvrir, (e: unknown) => {
-      showToast(phraseReseau(e, 'Le serveur de Plan', 'Le mode Toit n’a pas pu se charger : vérifiez votre connexion, puis réessayez.') ?? 'Le mode Toit n’a pas pu se charger (' + detailTechnique(e) + ').');
-    });
+    const o = cle ? a.etat.objects.find((x) => x.key === cle) : selection();
+    if (enSession() || !estRetouchable(o)) return;
+    if (a.etat.selectedKey !== o.key) { a.etat.selectedKey = o.key; a.etat.highlight = { type: null, index: null }; }
+    mode.ouvrir(intention);
   };
-  // Le batiment d'un voisin : le bouton reste, grise, et dit pourquoi (une autre selection : il s'efface, rien a expliquer).
-  commande('toit.modifier', 'Modifier la maison',
+  // Sur le plan (l'inspecteur d'un batiment) comme dans la Vue 3D : l'atelier s'ouvre sur la vue montree.
+  commande('toit.modifier', 'Modifier le toit',
     () => !enSession() && estRetouchable(selection()), () => { ouvrirEn('modifier'); }, true, () => (enSession() ? null : raisonDOuvrir(selection())));
-  // Plusieurs batiments sur la parcelle, aucun choisi : l'entree les nomme, et un toucher sur un nom ouvre le mode sur lui (`data-cle`).
+  // Plusieurs batiments sur la parcelle, aucun choisi : l'entree les nomme, et un toucher sur un nom ouvre l'atelier sur lui (`data-cle`).
   commande('toit.modifierCe', 'Modifier ce bâtiment',
     () => !enSession() && batimentsRetouchables(a.etat.objects).length > 0, (source) => { if (source?.dataset.cle) ouvrirEn('modifier', source.dataset.cle); });
-  // La meme session, ouverte sur le catalogue des pieces a poser : « Ajouter » ne se confond jamais avec « Modifier ».
-  commande('toit.ajouter', 'Ajouter à la maison',
+  commande('toit.ajouter', 'Ajouter au toit',
     () => !enSession() && estRetouchable(selection()), () => { ouvrirEn('ajouter'); }, true, () => (enSession() ? null : raisonDOuvrir(selection())));
-  // Le commutateur du panneau : `data-intention` sur le bouton. Quitter « Ajouter » lache la piece armee (rien n'attend plus de toucher).
+  // Le commutateur de l'atelier : `data-intention` sur le bouton. Quitter « Ajouter » lache la piece armee (rien n'attend plus de toucher).
   commande('toit.intention', 'Modifier ou ajouter', enSession, (source) => {
     const i = source?.dataset.intention;
     if (!estIntentionToit(i)) return;
     if (i === 'modifier' && insertionToit()?.commande === 'toit.decrocher') cmd.executer('toit.quitterInsertion');
-    poserIntentionToit(i);
-    ctx.rafraichir();
+    mode.choisirIntention(i);
   }, false);
 }
 
-export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes): void {
-  const mode = creerModeToit(a, { rebatir: ctx.rebatirBatiment, rafraichir: ctx.rafraichir });
-  const batiment = (): ObjetPlan | undefined => { const s = sessionToit(); return s ? a.etat.objects.find((o) => o.key === s.cle) : undefined; };
+/** La session et ses vues : valider, quitter sans garder, defaire, et ce qui ne se fait qu'en 3D (facades, vues, isoler). */
+function declarerSession(commande: CommandeToit, mode: Mode, en3d: () => boolean): void {
   const enSession = () => !!sessionToit();
-  batimentDeLaSession = batiment;
-
-  // Les descriptions sont au glossaire (app/descriptions.ts).
-  const commande = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void, ecrit = true,
-    raisonInactive?: () => string | null) =>
-    cmd.declarer({ id, libelle, groupe: 'toit', ...(ecrit ? { permission: PERMISSION_ECRITURE } : {}), ...(raisonInactive ? { raisonInactive } : {}), actif, executer });
-
-  declarerEntrees(a, cmd, ctx, commande, mode);
-  // Depuis l'inspecteur du plan, l'entree ne parle que du batiment dont on lit les proprietes : le choisi, jamais un batiment devine.
-  const choisiSurLePlan = (): ObjetPlan | undefined => a.etat.objects.find((o) => o.key === a.etat.selectedKey);
-  declarerEntreeEn3d(commande, cmd, ctx, () => !enSession() && estRetouchable(choisiSurLePlan()), () => (enSession() ? null : raisonDOuvrir(choisiSurLePlan())));
-  commande('toit.valider', 'Valider le toit',
-    enSession, () => { mode.valider(); });
-  commande('toit.abandonner', 'Abandonner les changements',
-    enSession, () => { mode.abandonner(); });
-  commande('toit.annuler', 'Annuler (toit)', () => etatToit().peutAnnuler, () => { mode.annuler(); });
-  commande('toit.retablir', 'Rétablir (toit)', () => etatToit().peutRetablir, () => { mode.retablir(); });
+  commande('toit.valider', 'Valider le toit', enSession, () => { mode.valider(); });
+  commande('toit.abandonner', 'Quitter sans garder', enSession, () => { mode.abandonner(); });
+  commande('toit.annuler', 'Défaire le dernier geste', () => etatToit().peutAnnuler, () => { mode.annuler(); });
+  commande('toit.retablir', 'Refaire', () => etatToit().peutRetablir, () => { mode.retablir(); });
   commande('toit.depart', 'Revenir au départ', () => etatToit().change, () => { mode.revenirAuDepart(); });
-  commande('toit.isoler', 'Isoler le bâtiment', enSession, () => { mode.basculerIsolement(); }, false);
-
-  commande('toit.facade', 'Choisir une façade', enSession, (source) => {
+  commande('toit.voirValide', 'Voir le toit du projet', () => enSession() && (etatToit().change || etatToit().validee), () => { mode.voirValide(); }, false);
+  commande('toit.selection', 'Choisir un élément', enSession, (source) => {
+    const d = source?.dataset;
+    // « Bâtiment entier » (`data-portee="batiment"`) : le choix explicite de tout le toit ; le retoucher le lache.
+    if (d?.portee === 'batiment') { mode.choisirBatimentEntier(); return; }
+    const cible = d?.type ? { type: d.type as TypeElement, rang: Number(d.rang), i: Number(d.i) } : null;
+    // Retoucher l'element deja choisi le lache : on revient a la portee par defaut, au doigt comme a la souris.
+    mode.selectionner(cible && memeCible(etatToit().selection, cible) ? null : cible);
+  }, false);
+  // La Vue 3D seule : l'atelier ouvert sur le plan ne les montre pas.
+  const s3d = () => enSession() && en3d();
+  commande('toit.isoler', 'Isoler le bâtiment', s3d, () => { mode.basculerIsolement(); }, false);
+  commande('toit.facade', 'Choisir une façade', s3d, (source) => {
     // Le bouton du navigateur nomme le corps (`data-rang`, vide : le contour) et son mur (`data-mur`), ou seulement le corps (`data-corps`).
     const d = source?.dataset;
     if (d?.corps !== undefined) mode.choisirFacadeDuCorps(Number(d.corps));
     else if (d?.mur !== undefined) mode.choisirFacade(d.rang === '' || d.rang === undefined ? null : Number(d.rang), Number(d.mur));
   }, false);
-  commande('toit.vueLibre', 'Vue 3D', enSession, () => { mode.voir('libre'); }, false);
-  commande('toit.vueFacade', 'Vue de la façade', () => etatToit().aUneFacade, () => { mode.voir('facade'); }, false);
-  commande('toit.vueDessus', 'Vue de dessus', enSession, () => { mode.voir('dessus'); }, false);
+  commande('toit.vueLibre', 'Vue 3D', s3d, () => { mode.voir('libre'); }, false);
+  commande('toit.vueFacade', 'Vue de la façade', () => s3d() && etatToit().aUneFacade, () => { mode.voir('facade'); }, false);
+  commande('toit.vueDessus', 'Vue de dessus', s3d, () => { mode.voir('dessus'); }, false);
   // Si l'on s'est perdu (trop loin, trop pres, ailleurs) : la camera revient sur le batiment entier. En vue de facade, le cadre est deja le sien.
-  commande('toit.recadrer', 'Recadrer le bâtiment', () => enSession() && etatToit().vue !== 'facade', () => { mode.recadrer(); }, false);
-  commande('toit.voirValide', 'Voir le toit du projet', () => enSession() && (etatToit().change || etatToit().validee), () => { mode.voirValide(); }, false);
-  commande('toit.isolerCorps', 'Isoler ce corps', () => etatToit().peutIsolerCorps, () => { mode.basculerCorpsIsole(); }, false);
+  commande('toit.recadrer', 'Recadrer le bâtiment', () => s3d() && etatToit().vue !== 'facade', () => { mode.recadrer(); }, false);
+  commande('toit.isolerCorps', 'Isoler ce corps', () => s3d() && etatToit().peutIsolerCorps, () => { mode.basculerCorpsIsole(); }, false);
+}
 
-  /** L'element choisi dans la session, avec son batiment : ce que les commandes d'edition lisent. */
-  const choisi = () => { const t = etatToit().selection, o = batiment(); return t && o?.batiment?.corpsToit ? { t, o, corps: o.batiment?.corpsToit } : null; };
+export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes): void {
+  const en3dMontree = () => ctx.magasin.store.getState().vue === 'vue3d' && affichage3d.vue3d === 'pret' && !!vue3d.scene && !!hotes3d.vue3d;
+  const mode = creerModeToit(a, { rebatir: ctx.rebatirBatiment, rafraichir: ctx.rafraichir, enVue3d: en3dMontree });
+  const batiment = (): ObjetPlan | undefined => { const s = sessionToit(); return s ? a.etat.objects.find((o) => o.key === s.cle) : undefined; };
+  const enSession = () => !!sessionToit(), en3d = () => etatToit().en3d;
+  batimentDeLaSession = batiment;
 
-  commande('toit.selection', 'Choisir un élément', enSession, (source) => {
-    const d = source?.dataset, cible = d?.type ? { type: d.type as TypeElement, rang: Number(d.rang), i: Number(d.i) } : null;
-    // Retoucher l'element deja choisi le lache : on revient au batiment entier, au doigt comme a la souris (sans cible : de meme).
-    mode.selectionner(cible && memeCible(etatToit().selection, cible) ? null : cible);
-  }, false);
-  declarerReglage(commande, choisi, () => (etatToit().selection ? null : batiment()?.batiment?.corpsToit ?? null), mode);
-  commande('toit.dupliquer', 'Dupliquer l’élément', () => !!choisi(), () => {
-    const c = choisi();
-    if (!c) return;
-    const r = dupliquerElement(c.corps, c.t);
-    if (!r) { showToast('Pas de place à côté : déplacez ou réduisez d’abord.'); return; }
-    mode.ecrire((x) => { champsBatiment(x).corpsToit = r.corps; champsBatiment(x).toitFige = true; });
-    mode.selectionner(r.cible);
-  });
-  commande('toit.supprimer', 'Supprimer l’élément', () => !!choisi(), () => {
-    const c = choisi();
-    if (!c) return;
-    // Le corps principal ne se supprime pas : rien a ecrire, rien a empiler.
-    if (c.t.type === 'corps' && supprimerElement(c.corps, c.t).length === c.corps.length) return;
-    mode.ecrire((x) => { champsBatiment(x).corpsToit = supprimerElement(c.corps, c.t); champsBatiment(x).toitFige = true; });
-    mode.selectionner(null);
-  });
-  declarerGestesDesCorps(commande, choisi, mode);
-  declarerReglagesSimples(commande, batiment, mode);
-  commande('toit.plus', 'Agrandir l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { champsBatiment(x).corpsToit = redimensionnerElement(c.corps, c.t, 1); champsBatiment(x).toitFige = true; }); });
-  commande('toit.moins', 'Réduire l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { champsBatiment(x).corpsToit = redimensionnerElement(c.corps, c.t, -1); champsBatiment(x).toitFige = true; }); });
+  // Les descriptions sont au glossaire (app/descriptions.ts).
+  const commande: CommandeToit = (id, libelle, actif, executer, ecrit = true, raisonInactive) =>
+    cmd.declarer({ id, libelle, groupe: 'toit', ...(ecrit ? { permission: PERMISSION_ECRITURE } : {}), ...(raisonInactive ? { raisonInactive } : {}), actif, executer });
 
-  commande('toit.regles', 'Règles',
-    enSession, () => {
-      const g = gestes;
-      if (!g) return;
-      mode.ecrire((o) => { if (o.batiment?.toitFige) g.reprendreLectureAuto(o); else champsBatiment(o).toitFige = true; });
-      showToast(batiment()?.batiment?.toitFige ? 'Règles coupées : le toit reste tel que vous le réglez.' : 'Règles allumées : le toit sera relu quand vous validerez.');
-    });
+  declarerEntrees(a, cmd, commande, mode);
+  declarerSession(commande, mode, en3d);
+  declarerGestes(commande, mode);
 
-  commande('toit.poser', 'Poser sur le toit',
-    enSession, (source) => {
-      const id = source?.dataset.piece, o = batiment(), s = sessionToit(), g = gestes;
-      if (!id || !o || !g) return;
-      // Le geste n'agit que sur le corps choisi (celui de l'element choisi) ; sans choix, sur la facade regardee (ou la derniere choisie).
-      const facade = s?.facade ?? s?.derniere ?? null, rangChoisi = etatToit().selection?.rang ?? null;
-      const raison = g.raisonIndisponible(o, id, facade, rangChoisi);
-      if (raison) { showToast(raison); return; }
-      const avant = JSON.parse(JSON.stringify(o.batiment?.corpsToit ?? [])) as NonNullable<ChampsBatiment['corpsToit']>;
-      if (!mode.ecrire((x) => g.appliquerPiece(x, id, facade, rangChoisi))) return;
-      // L'element pose se choisit (l'inspecteur le regle) ; un pignon, un element de mur se reglent de face (maquette v8) : la vue passe devant leur facade.
-      const cible = cibleAjoutee(avant, batiment()?.batiment?.corpsToit ?? []), mur = cible ? facadeDeLElement(batiment()?.batiment?.corpsToit ?? [], cible) : null;
-      mode.selectionner(cible);
-      if (mur) mode.choisirFacade(mur.rang, mur.mur);
-      // Une piece nouvelle posee (pas une forme de toit, qui est deja une modification) : on regle ce qu'on vient d'ajouter.
-      poserIntentionToit('modifier');
-    });
+  // Le decroche au point (piece « Decroche ») : le prochain toucher sur l'egout ou le mur de la Vue 3D donne son point.
+  const decroche = brancherDecroche(cmd, mode, batiment, () => (sessionToit()?.ctl.raisonDePiece('facade:decroche') ?? null), ctx.rafraichir, en3d);
 
-  // Le decroche au point (piece « Decroche » du catalogue) : le prochain toucher sur l'egout ou le mur donne son point.
-  const decroche = brancherDecroche(cmd, mode, batiment, () => raisonDuCatalogue(batiment(), 'facade:decroche'), ctx.rafraichir);
-
-  // L'element de facade choisi dans le panneau du mode (bow-window, galerie, appentis) : le prochain toucher sur un mur de la scene l'y pose.
-  // Le bouton etait dans l'inspecteur du plan, qui n'est pas montre en Vue 3D : il ne servait jamais (audit de la navigation).
+  // L'element de facade choisi (bow-window, galerie, appentis) : le prochain toucher sur un mur de la scene l'y pose.
   commande('toit.murSur3d', 'Choisir le mur dans la 3D',
-    () => enSession() && etatToit().selection?.type === 'saillie', () => {
-      // Un second appui lache l'element arme (retour a la modification) ; la consigne est dite par l'indicateur d'etat du mode.
+    () => enSession() && en3d() && etatToit().selection?.type === 'saillie' && !sessionToit()?.ctl.raisonDuGeste('regler'), () => {
+      // Un second appui lache l'element arme (retour a la modification) ; la consigne est dite par l'indicateur d'etat.
       if (saillieArmee()) { desarmerSaillie(); ctx.rafraichir(); return; }
       const t = etatToit().selection, o = batiment();
       if (t?.type !== 'saillie' || !o?.batiment?.corpsToit?.[t.rang]?.saillie) return;
@@ -418,31 +253,30 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     const touche = moteur3d()?.objetSousLePointeur(ndc, (cle) => cle === cible.cle);
     if (!touche || touche.cle !== cible.cle || !touche.point) return false;
     const mur = murLePlusProche(hote, touche.point);
-    mode.ecrire((x) => { champsBatiment(x).corpsToit = replacerSaillie(x.batiment?.corpsToit ?? [], cible.rang, mur); champsBatiment(x).toitFige = true; });
+    mode.geste((c) => c.placerSurLeMur(cible.rang, mur));
     desarmerSaillie();
     return true;
   };
 
   brancherToucherDeLaScene(enSession, mode, decroche, placerSurLeMurTouche);
   const doc = typeof document === 'undefined' ? null : document;
-  doc?.addEventListener('keydown', (e) => { touchesDuMode(e, { enSession, aUnChoix: () => !!choisi(), mode, cmd, rafraichir: ctx.rafraichir, decroche }); }, true);
+  doc?.addEventListener('keydown', (e) => { touchesDuMode(e, { enSession, aUnChoix: () => !!etatToit().selection, mode, cmd, rafraichir: ctx.rafraichir, decroche }); }, true);
 
   brancherSortiesDeSession(a, ctx, cmd, mode, decroche);
 }
 
 /**
  * Le toucher sur la Vue 3D : le decroche arme prend son point, l'element arme se pose, sinon la facade se choisit. Un toucher est bref,
- * immobile, d'un seul doigt ou du bouton principal, sur le canevas (`ecouterLesTouchers`, le meme que la selection au toucher) : un clic
- * droit (le deplacement), un appui long, un pincement n'en sont pas (audit de la camera, 6 novembre 2026). Le panneau, le plan des facades,
- * les poignees et les boutons de la Vue 3D sont poses par-dessus, dans le meme hote : un toucher sur eux ne choisit rien.
+ * immobile, d'un seul doigt ou du bouton principal, sur le canevas (`ecouterLesTouchers`, le meme que la selection au toucher).
  */
-function brancherToucherDeLaScene(enSession: () => boolean, mode: ReturnType<typeof creerModeToit>, decroche: GesteDecroche,
+function brancherToucherDeLaScene(enSession: () => boolean, mode: Mode, decroche: GesteDecroche,
   placerSurLeMurTouche: (ndc: { x: number; y: number }) => boolean): void {
   const doc = typeof document === 'undefined' ? null : document;
-  doc?.addEventListener('pointerdown', (e) => { if (enSession() && hotes3d.vue3d?.contains(e.target as Node)) mode.leverIndice(); }, true);
+  const en3d = () => enSession() && etatToit().en3d;
+  doc?.addEventListener('pointerdown', (e) => { if (en3d() && hotes3d.vue3d?.contains(e.target as Node)) mode.leverIndice(); }, true);
   ecouterLesTouchers(doc, (e) => {
     const hote = hotes3d.vue3d;
-    if (!hote || !enSession()) return;
+    if (!hote || !en3d()) return;
     const r = hote.getBoundingClientRect();
     const ndc = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -(((e.clientY - r.top) / r.height) * 2 - 1) };
     if (decroche.arme()) decroche.placer(ndc);
@@ -452,12 +286,13 @@ function brancherToucherDeLaScene(enSession: () => boolean, mode: ReturnType<typ
 }
 
 /**
- * Ce qui ferait sortir d'une session : quitter la Vue 3D, choisir un autre objet, le retour du navigateur. Une session modifiee ne se
- * perd plus en silence (audit du 6 novembre 2026) : la personne choisit d'abord.
+ * Ce qui ferait sortir d'une session : la visionneuse, choisir un autre objet, le retour du navigateur. Une session modifiee ne se perd
+ * pas en silence : la personne choisit d'abord. Passer du plan a la Vue 3D (ou l'inverse) garde la session : la 3D s'y attache ou s'en
+ * detache.
  */
-function brancherSortiesDeSession(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes, mode: ReturnType<typeof creerModeToit>, decroche: GesteDecroche): void {
+function brancherSortiesDeSession(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes, mode: Mode, decroche: GesteDecroche): void {
   const enSession = () => !!sessionToit();
-  // Quitter la Vue 3D pendant une session : la commande attend la reponse (Valider, Abandonner, Rester), puis repart.
+  // Ouvrir la visionneuse pendant une session : la commande attend la reponse (Valider, Abandonner, Rester), puis repart.
   cmd.retenir((id, source) => {
     if (!enSession() || !COMMANDES_QUI_QUITTENT.has(id)) return false;
     quitterLaSessionPuis(mode, () => { cmd.executer(id, source); });
@@ -466,17 +301,24 @@ function brancherSortiesDeSession(a: Atelier, ctx: ContexteToitCatalogue, cmd: R
 
   // Choisir un autre objet pendant une session modifiee : la selection revient au batiment, et la question est posee ; la reponse
   // donnee, l'objet choisi le redevient. Sans changement, ou si le batiment n'est plus la (un autre projet ouvert), ou si la vue a
-  // change par un autre chemin qu'une commande, la session se ferme comme avant.
+  // quitte le plan et la 3D par un autre chemin qu'une commande, la session se ferme comme avant.
   let vueAvant = ctx.magasin.store.getState().vue, cleAvant = a.etat.selectedKey;
   const choisir = (cle: string | null) => { a.etat.selectedKey = cle; a.etat.highlight = { type: null, index: null }; a.render(); };
   ctx.magasin.store.subscribe((s) => {
     const vue = s.vue, cle = a.etat.selectedKey;
-    const change = vue !== vueAvant || cle !== cleAvant;
+    const changeVue = vue !== vueAvant, change = changeVue || cle !== cleAvant;
     vueAvant = vue; cleAvant = cle;
     const session = sessionToit();
-    if (!change || !session || (vue === 'vue3d' && cle === session.cle)) return;
+    if (!change || !session) return;
+    const atelier = vue === 'plan' || vue === 'vue3d';
+    if (atelier && cle === session.cle) {
+      // Du plan a la 3D ou l'inverse : les gestes restent, la 3D s'attache (quand sa scene est prete) ou se detache.
+      if (changeVue && vue === 'plan') queueMicrotask(() => { if (sessionToit() === session) { mode.detacher3d(); ctx.rafraichir(); } });
+      if (changeVue && vue === 'vue3d') queueMicrotask(() => { if (sessionToit() === session) mode.attacher3d(); });
+      return;
+    }
     const present = a.etat.objects.some((o) => o.key === session.cle);
-    if (vue === 'vue3d' && present && etatToit().change) {
+    if (atelier && present && session.ctl.etat().change) {
       // Hors de l'ecouteur du magasin : rendre la selection redessine, et donc le notifie.
       queueMicrotask(() => {
         if (sessionToit() !== session) return;
@@ -485,7 +327,7 @@ function brancherSortiesDeSession(a: Atelier, ctx: ContexteToitCatalogue, cmd: R
       });
       return;
     }
-    mode.arreterSansDemander('Mode Toit quitté : les changements ont été abandonnés.');
+    mode.arreterSansDemander('Atelier du toit quitté : les changements ont été abandonnés.');
   });
 
   // Le retour du navigateur (ou du telephone) vaut Echap pendant une session : l'entree posee a l'ouverture vient d'etre retiree,
@@ -500,5 +342,5 @@ function brancherSortiesDeSession(a: Atelier, ctx: ContexteToitCatalogue, cmd: R
   });
 }
 
-/** Les commandes qui quittent la Vue 3D : une session modifiee les retient le temps de sa question. */
-const COMMANDES_QUI_QUITTENT = new Set(['vue.plan', 'vue.visionneuse']);
+/** Les commandes qui quittent le plan et la 3D : une session modifiee les retient le temps de sa question. */
+const COMMANDES_QUI_QUITTENT = new Set(['vue.visionneuse']);

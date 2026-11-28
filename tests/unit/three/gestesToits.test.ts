@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { OPTIONS_PIECE, PIECES, piecesDe, appliquerPiece, raisonIndisponible, reprendreLectureAuto, corpsPrincipal, rangDuCorpsChoisi } from '../../../src/three/gestesToits.js';
-import { vueIsometrique, EXEMPLES_TOITS } from '../../../src/three/catalogueToits.js';
+import { vueIsometrique } from '../../../src/three/catalogueToits.js';
+import { EXEMPLES_TOITS } from '../../../src/facade/modeToit/exemplesToits.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 import { champsBatiment } from '../../../src/model/champsFonction.js';
 

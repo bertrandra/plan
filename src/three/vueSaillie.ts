@@ -3,7 +3,8 @@
 // Elles sont calculees par les memes fonctions que la 3D (`corpsDeSaillie`, `facettesBowWindow`) et projetees comme les
 // vignettes du catalogue (three/catalogueToits.ts) : ce module est donc de la couche three, pas de facade.
 
-import { EXEMPLES_TOITS, corpsDeLExemple, recadrerSurElement, vueIsometrique, type ExempleToit, type VueIso } from './catalogueToits.js';
+import { recadrerSurElement, vueIsometrique, type VueIso } from './catalogueToits.js';
+import { EXEMPLES_TOITS, corpsDeLExemple, type ExempleToit } from '../facade/modeToit/exemplesToits.js';
 import { facettesCheminee } from './cheminees3d.js';
 import { facettesElementsToit } from '../facade/toits/toitFormes.js';
 import { DEFAUTS_SAILLIE, corpsDeSaillie, facettesBowWindow, type Pt3 } from '../facade/modeToit/saillies.js';

@@ -7,7 +7,7 @@ import type { CeQueJeVois, SoucheVue } from '../../../model/ceQueJeVois.js';
 import type { Cheminee, CorpsToit, EdiculeTerrasse, ElementDeToit, Lucarne, PtBrut, TerrasseToit, TypeLucarne } from '../../../model/types.js';
 import { corpsDeSaillie, murDuCorps } from '../../modeToit/saillies.js';
 import { formeDuCorps } from './faits.js';
-import { cadreCorps, cm, depuisCadre, DEPASSEMENT_SOUCHE_M, estPlat, LARGEUR_LUCARNE_M, MONTEE_LUCARNE, MONTEE_PLATE_M, PROFONDEUR_LUCARNE_M, SOUCHE, versCadre, type Cadre } from './elementsDesMurs.js';
+import { cadreCorps, cm, depuisCadre, estPlat, faitageDeLucarne, largeurDeLucarne, MONTEE_LUCARNE, MONTEE_PLATE_M, PROFONDEUR_LUCARNE_M, SOUCHE, sommetDeSouche, versCadre, type Cadre } from './elementsDesMurs.js';
 
 /** Un tubage inox : la section d'une souche metallique (la souche maconnee, SOUCHE, est dans elementsDesMurs.ts). */
 const TUBAGE = { largeurM: 0.2, profondeurM: 0.2 };
@@ -45,7 +45,7 @@ export function souchesSurLeCorps(c: CorpsToit, souches: readonly SoucheVue[]): 
   const r = repereCorps(c);
   if (!r) return [];
   const n = souches.length;
-  const sommetM = Math.round((c.faitage + DEPASSEMENT_SOUCHE_M) * 100) / 100;
+  const sommetM = sommetDeSouche(c);
   // Un appentis a son faitage sur un mur : le milieu du pan est a mi-largeur.
   const tPan = c.posFaitage > 0.5 && c.posFaitage < r.W - 0.5 ? c.posFaitage / 2 : r.W / 2;
   const tFaitage = c.posFaitage > 0.5 && c.posFaitage < r.W - 0.5 ? c.posFaitage : r.W / 2;
@@ -117,9 +117,9 @@ export function lucarnesSurLeCorps(c: CorpsToit, n: number, types: readonly Type
     if (largeurPan < 0.5 || c.faitage - e < 0.3) return;
     idx.forEach((i, j) => {
       const type = types[i % Math.max(1, types.length)] ?? 'inconnue';
-      const w = LARGEUR_LUCARNE_M[type] ?? 1.2;
+      const w = largeurDeLucarne(type);
       const centre = ((j + 1) / (idx.length + 1)) * r.L;
-      out.push({ type, pan: p, debutM: Math.round((centre - w / 2) * 100) / 100, finM: Math.round((centre + w / 2) * 100) / 100, faitageM: Math.round((e + MONTEE_LUCARNE * (c.faitage - e)) * 100) / 100, profondeurM: PROFONDEUR_LUCARNE_M, source: 'observation' });
+      out.push({ type, pan: p, debutM: Math.round((centre - w / 2) * 100) / 100, finM: Math.round((centre + w / 2) * 100) / 100, faitageM: faitageDeLucarne(c, p), profondeurM: PROFONDEUR_LUCARNE_M, source: 'observation' });
     });
   });
   return out;

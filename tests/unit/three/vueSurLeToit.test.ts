@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { EXEMPLES_TOITS, recadrerSurElement, vueIsometrique, type VueIso } from '../../../src/three/catalogueToits.js';
+import { recadrerSurElement, vueIsometrique, type VueIso } from '../../../src/three/catalogueToits.js';
+import { EXEMPLES_TOITS } from '../../../src/facade/modeToit/exemplesToits.js';
 import { vueDeElementToit, vueSurLeToit } from '../../../src/three/vueSaillie.js';
 import { piecesDe } from '../../../src/three/gestesToits.js';
 

@@ -23,7 +23,7 @@ export type Emplacement =
   | 'palette' | 'rail' | 'feuilleOutils'
   | 'navigation' | 'barreHaute' | 'feuilleProjet'
   | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide' | 'menuAdmin'
-  | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur' | 'tiroir' | 'vue3d' | 'visionneuse'
+  | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur' | 'tiroir' | 'vue3d' | 'visionneuse' | 'atelierToit'
   | 'clavier' | 'premierPas' | 'parcours' | 'barreFacade' | 'sansObjet';
 
 type Ligne = Record<Classe, Emplacement[]>;
@@ -169,45 +169,46 @@ export const EXPOSITION: Record<string, Ligne> = {
   'facade.forcerClaude': partout('barreFacade'),
   // Un cas de calibration tire d'une facade de l'audit (lot F6) : dans la fiche de la facade de l'audit, pour l'administrateur, dans les trois classes.
   'facade.creerCas': partout('parcours'),
-  // Le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : le bouton « Modifier la toiture », puis la barre de session et le catalogue, sur la scene.
-  'toit.modifier': partout('vue3d'),
-  // « Ajouter a la maison » (l'entree, a cote de « Modifier la maison ») et le commutateur Modifier / Ajouter du panneau.
+  // L'atelier du toit (Z10, zones/AtelierToit.tsx ; MD/spec-ihm-zones.md) : on l'ouvre de l'inspecteur d'un batiment sur le plan, ou de
+  // l'entree en mots de la Vue 3D (« Modifier le toit », « Ajouter au toit », un batiment nomme).
+  'toit.modifier': partout('inspecteur', 'vue3d'),
   'toit.ajouter': partout('vue3d'),
   'toit.modifierCe': partout('vue3d'),
-  'toit.intention': partout('vue3d'),
-  'toit.valider': partout('vue3d'),
-  'toit.abandonner': partout('vue3d'),
-  'toit.annuler': partout('vue3d'),
-  'toit.retablir': partout('vue3d'),
-  'toit.depart': partout('vue3d'),
-  'toit.isoler': partout('vue3d'),
+  // Tout ce qui edite un toit vit dans Z10, et la seulement (un geste, un endroit) ; ce qui ne se fait qu'en 3D (vues, facades, isoler,
+  // toucher un mur) y est offert seulement quand l'atelier est sur la scene.
+  'toit.intention': partout('atelierToit'),
+  'toit.valider': partout('atelierToit'),
+  'toit.abandonner': partout('atelierToit'),
+  'toit.annuler': partout('atelierToit'),
+  'toit.retablir': partout('atelierToit'),
+  'toit.depart': partout('atelierToit'),
+  'toit.voirValide': partout('atelierToit'),
+  'toit.selection': partout('atelierToit'),
+  'toit.regler': partout('atelierToit'),
+  'toit.dupliquer': partout('atelierToit'),
+  'toit.supprimer': partout('atelierToit'),
+  'toit.tourner': partout('atelierToit'),
+  'toit.faitage': partout('atelierToit'),
+  'toit.sens': partout('atelierToit'),
+  'toit.decouper': partout('atelierToit'),
+  'toit.scinder': partout('atelierToit'),
+  'toit.fusionner': partout('atelierToit'),
+  'toit.retour': partout('atelierToit'),
+  'toit.plus': partout('atelierToit'),
+  'toit.moins': partout('atelierToit'),
+  'toit.regles': partout('atelierToit'),
+  'toit.poser': partout('atelierToit'),
+  'toit.decrocher': partout('atelierToit'),
+  'toit.murSur3d': partout('atelierToit'),
+  'toit.isoler': partout('atelierToit'),
+  'toit.vueLibre': partout('atelierToit'),
+  'toit.vueFacade': partout('atelierToit'),
+  'toit.vueDessus': partout('atelierToit'),
+  'toit.recadrer': partout('atelierToit'),
+  'toit.isolerCorps': partout('atelierToit'),
+  // Sur la scene de la Vue 3D, pendant une session : le plan des facades (choisir un mur) et l'indicateur d'insertion (« Annuler »).
   'toit.facade': partout('vue3d'),
-  'toit.vueLibre': partout('vue3d'),
-  'toit.vueFacade': partout('vue3d'),
-  'toit.vueDessus': partout('vue3d'),
-  'toit.recadrer': partout('vue3d'),
-  'toit.isolerCorps': partout('vue3d'),
-  'toit.voirValide': partout('vue3d'),
-  'toit.selection': partout('vue3d'),
-  'toit.regler': partout('vue3d'),
-  'toit.dupliquer': partout('vue3d'),
-  'toit.supprimer': partout('vue3d'),
-  'toit.tourner': partout('vue3d'),
-  // Le parcours simple du volet « Modifier le toit » : la hauteur du faitage par pas et « Tourner » (facade/modeToit/simple.ts).
-  'toit.faitage': partout('vue3d'),
-  'toit.sens': partout('vue3d'),
-  'toit.scinder': partout('vue3d'),
-  'toit.fusionner': partout('vue3d'),
-  'toit.retour': partout('vue3d'),
-  'toit.plus': partout('vue3d'),
-  'toit.moins': partout('vue3d'),
-  'toit.regles': partout('vue3d'),
-  'toit.poser': partout('vue3d'),
-  'toit.decrocher': partout('vue3d'),
-  'toit.murSur3d': partout('vue3d'),
-  // L'indicateur d'etat du mode Toit, sur la scene : « Annuler » quitte l'insertion en cours.
   'toit.quitterInsertion': partout('vue3d'),
-  'toit.modifierEn3d': partout('inspecteur'),
   // Le relief du terrain : la section « Relief » de la parcelle du projet (ui/champs/relief.ts).
   'relief.lire': partout('inspecteur'),
   // Le nom des rues : la case et le bouton du groupe « Voisinage » des reglages de la Vue 3D (ui/champs/voisinage3d.ts).

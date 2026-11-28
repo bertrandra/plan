@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { appliquerAuBatiment, appliquerChoix, groupesDe, groupesDuBatiment, valeurDuBatiment, valeurDuGroupe } from '../../../../src/facade/modeToit/elements.js';
 import { sensDuToit, tournerLeToit } from '../../../../src/facade/modeToit/sens.js';
 import { corpsDepuisExemple } from '../../../../src/three/gestesToits.js';
-import { EXEMPLES_TOITS } from '../../../../src/three/catalogueToits.js';
+import { EXEMPLES_TOITS } from '../../../../src/facade/modeToit/exemplesToits.js';
 import { formeDuCorpsToit } from '../../../../src/model/formeToit.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
 import { corpsDeSaillie, murDuCorps } from '../../../../src/facade/modeToit/saillies.js';

@@ -24,6 +24,17 @@ export const PROFONDEUR_LUCARNE_M = 1.2;
 /** La largeur d'une lucarne dont la photo ne dit pas le type. */
 const LARGEUR_LUCARNE_INCONNUE_M = 1.2;
 
+// Ces valeurs sont la source unique des elements poses sans mesure : l'audit (ci-dessous, et elementsVus.ts) et le controleur
+// d'edition du toit (facade/modeToit/gestes.ts, la piece posee au Mode Toit) les lisent ici, et nulle part ailleurs (revue
+// d'architecture du 28 novembre 2026, constat 9 : le Mode Toit posait une souche de 0,7 x 0,7 m quand l'audit en posait une de 0,6 x 0,5).
+
+/** La largeur d'une lucarne de ce type quand rien ne la mesure. */
+export const largeurDeLucarne = (type: TypeLucarne): number => LARGEUR_LUCARNE_M[type] ?? LARGEUR_LUCARNE_INCONNUE_M;
+/** La hauteur ou le faitage d'une lucarne rejoint le pan `pan` du corps, quand rien ne la mesure. */
+export const faitageDeLucarne = (c: CorpsToit, pan: 0 | 1): number => cm(c.egouts[pan] + MONTEE_LUCARNE * (c.faitage - c.egouts[pan]));
+/** Le haut du debouche d'une souche sur ce corps, quand rien ne le mesure. */
+export const sommetDeSouche = (c: CorpsToit): number => cm(c.faitage + DEPASSEMENT_SOUCHE_M);
+
 export const estPlat = (c: CorpsToit): boolean => c.faitage - Math.max(c.egouts[0], c.egouts[1]) < MONTEE_PLATE_M;
 export const cm = (v: number): number => Math.round(v * 100) / 100;
 
@@ -79,15 +90,15 @@ export function elementPoseSurLeMur(corps: readonly CorpsToit[], e: ElementDeMur
     const p = depuisCadre(r, s, t);
     if ((c.cheminees ?? []).some((ch) => Math.hypot(ch.x - p.x, ch.y - p.y) < MEME_ELEMENT_M)) return null;
     const position: Cheminee['position'] = !long ? 'pignon' : faitageInterieur ? 'faitage' : 'pan';
-    return { corps: m.corps, cote: m.cote, cheminee: { x: cm(p.x), y: cm(p.y), ...SOUCHE, sommetM: cm(c.faitage + DEPASSEMENT_SOUCHE_M), position, source: 'observation' }, lucarne: null };
+    return { corps: m.corps, cote: m.cote, cheminee: { x: cm(p.x), y: cm(p.y), ...SOUCHE, sommetM: sommetDeSouche(c), position, source: 'observation' }, lucarne: null };
   }
   if (!long || estPlat(c)) return null;
   const pan: 0 | 1 = m.cote === 0 ? 0 : 1;
   const largeurPan = pan === 0 ? c.posFaitage : r.W - c.posFaitage, eg = c.egouts[pan];
-  const w = LARGEUR_LUCARNE_INCONNUE_M;
+  const w = largeurDeLucarne('inconnue');
   if (largeurPan < 0.5 || c.faitage - eg < MONTEE_PLATE_M || r.L < w + 2 * MARGE_BOUT_M) return null;
   const centre = Math.min(Math.max(vu.s, w / 2 + MARGE_BOUT_M), r.L - w / 2 - MARGE_BOUT_M);
-  const lucarne: Lucarne = { type: 'inconnue', pan, debutM: cm(centre - w / 2), finM: cm(centre + w / 2), faitageM: cm(eg + MONTEE_LUCARNE * (c.faitage - eg)), profondeurM: PROFONDEUR_LUCARNE_M, source: 'observation' };
+  const lucarne: Lucarne = { type: 'inconnue', pan, debutM: cm(centre - w / 2), finM: cm(centre + w / 2), faitageM: faitageDeLucarne(c, pan), profondeurM: PROFONDEUR_LUCARNE_M, source: 'observation' };
   const p = centreLucarne(c, r, lucarne);
   if ((c.lucarnes ?? []).some((x) => { const q = centreLucarne(c, r, x); return Math.hypot(q.x - p.x, q.y - p.y) < MEME_ELEMENT_M; })) return null;
   return { corps: m.corps, cote: m.cote, cheminee: null, lucarne };

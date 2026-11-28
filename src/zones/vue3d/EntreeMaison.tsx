@@ -1,6 +1,6 @@
 // L'entree du mode Toit, posee sur la scene (MD/spec-mode-toit-3d.md, « Modifier ou ajouter ») : deux gestes dits en mots, jamais une
 // icone seule. « Modifier » ouvre la session sur ce qui existe ; « Ajouter » l'ouvre sur le catalogue des pieces a poser. Les deux
-// portent chacun sa couleur et son mot, les memes que dans le panneau du mode (app/toits/intention.ts).
+// portent chacun sa couleur et son mot, les memes que dans l'atelier du toit (facade/modeToit/controleurToit.ts::MOTS_INTENTION).
 //
 // Elle remplace le bouton « Modifier la toiture » de la colonne des commandes de camera (retour du proprietaire, 24 novembre 2026 :
 // « on ne sait pas ce qui modifie et ce qui cree ») : un geste n'existe qu'a un endroit (design-ui, §1).
@@ -8,7 +8,7 @@
 import { useEffect, useRef } from 'react';
 import { Icone } from '../icones.js';
 import { showToast } from '../../shell/dialogs.js';
-import { resumeDuToit } from '../../facade/modeToit/simple.js';
+import { resumeDuToit } from '../../facade/modeToit/gestes.js';
 import { batimentVise, batimentsRetouchables, estRetouchable, prendreFocusDeSortie } from '../../app/toits/modeToit.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { Magasin } from '../../app/magasin.js';
