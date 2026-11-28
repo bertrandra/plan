@@ -5,6 +5,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.44.0] — 2026-11-28
+
+Version **mineure** au sens de `MD/RELEASE.md` : deux fonctions nouvelles — des trottoirs dans l'option « Rues », avec la part
+trottoir/rue réglable et les couleurs Plan ou Réelles (#786), le zoom et le déplacement dans l'aperçu des parcelles de l'import
+par adresse (#787) — et une correction : la caméra de la Vue 3D ne passe plus sous le sol (#788). **Rien n'est retiré ni mis
+derrière un droit.** **Aucune quantité ni aucun export ne change** : avant le changement de numéro, le code de `main` (28644915)
+régénère les témoins de la 5.43.1 au bit près ; les neuf témoins qui portent le numéro ne changent qu'à lui (la date de build reste
+le 30 octobre 2026 ; preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`liste-achat.csv`, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques (point 24 de la fumée rejoué). Schéma
+inchangé (16) ; les deux réglages des rues sont des champs facultatifs, écrits seulement hors de leurs valeurs par défaut. La version
+de lecture des toits ne change pas (13). `deploy/`, `banc/` et `regles/` ne changent pas depuis la 5.43.1 ; la requête témoin de
+l'assistant est inchangée. Requêtes à vérifier contre l'API Claude sur `main` après la fusion de la version (« Vérifier l'API
+Claude »).
+
 ### Ajouté
 
 - **Des trottoirs entre les parcelles et la chaussée** dans l'option « Rues » (retour du propriétaire, 27 novembre 2026, maquette
