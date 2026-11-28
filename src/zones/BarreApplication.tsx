@@ -708,7 +708,8 @@ export function BarreApplication({ magasin, commandes, tiroir, inspecteur }: Pro
       {/* Plus de liste deroulante des projets : « Mes projets » les ouvre (lot 2), un geste n'existe qu'a un endroit. */}
       {p.apiDisponible && p.quota && <CompteurProjets quota={p.quota} />}
       {p.apiDisponible && (
-        <button data-commande="projet.enregistrer" type="button" id="saveProjectBtn" className="small" disabled={enregistrement || !etatEnregistrer.utilisable}
+        // Tout est enregistre : le bouton passe en secondaire, rien n'appelle a le toucher (audit UX de la 5.45.0, polissages).
+        <button data-commande="projet.enregistrer" type="button" id="saveProjectBtn" className={'small' + (p.statut === 'a-jour' ? ' secondary' : '')} disabled={enregistrement || !etatEnregistrer.utilisable}
           title={!etatEnregistrer.utilisable && 'message' in etatEnregistrer ? etatEnregistrer.message : undefined} onClick={executer('projet.enregistrer')}>
           {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
         </button>

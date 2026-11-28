@@ -12,7 +12,7 @@
 //
 // Tactile : onglets de 36 px, boutons de hauteur de 36 px.
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from 'zustand';
 import { HAUTEURS, type HauteurTiroir, type Tiroir as ServiceTiroir } from '../app/tiroir.js';
@@ -158,6 +158,24 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
   const onglets = tiroir.onglets();
   let groupePrecedent = onglets[0]?.groupe;
 
+  // Les onglets qui defilent disent qu'il y en a d'autres (audit UX de la 5.45.0, polissages) : un fondu du cote ou il en reste,
+  // pose d'apres le defilement (`data-suite` : gauche, droite, deux), que la feuille de style lit.
+  const refBarre = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const b = refBarre.current;
+    if (!b) return undefined;
+    const marquer = () => {
+      const g = b.scrollLeft > 2, d = b.scrollLeft + b.clientWidth < b.scrollWidth - 2;
+      const v = g && d ? 'deux' : g ? 'gauche' : d ? 'droite' : '';
+      if ((b.dataset.suite ?? '') !== v) { if (v) b.dataset.suite = v; else delete b.dataset.suite; }
+    };
+    marquer();
+    b.addEventListener('scroll', marquer, { passive: true });
+    const o = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(marquer) : null;
+    o?.observe(b);
+    return () => { b.removeEventListener('scroll', marquer); o?.disconnect(); };
+  });
+
   // Les tableaux des panneaux portent le nom de leurs colonnes : sur telephone, chaque ligne devient
   // une carte (ui/tableau.ts).
   useEffect(() => {
@@ -166,7 +184,7 @@ export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResu
   }, []);
 
   const barre = (
-    <div className="resultatsBarre" role="tablist" aria-label="Résultats">
+    <div className="resultatsBarre" role="tablist" aria-label="Résultats" ref={refBarre}>
       {onglets.map(o => {
         const separateur = o.groupe !== groupePrecedent;
         groupePrecedent = o.groupe;

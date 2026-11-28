@@ -73,6 +73,9 @@
     padding:6px 4px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-bg);
     box-shadow:var(--ombre);
   }
+  /* Au bureau, la palette ne depasse pas le plan (constat 2 de l'audit UX de la 5.45.0) : ses 1 005 px passaient sous la barre
+     d'estimation, « Cercle » et la suite hors de portee. Elle defile, sa barre fine visible. */
+  html[data-classe="large"] #zonePalette{ max-height:calc(var(--hauteur-plan, 780px) + 2px); margin:6px 0 16px; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; box-sizing:border-box; }
   .paletteGroupe{ display:flex; flex-direction:column; gap:2px; padding-bottom:8px; border-bottom:1px solid var(--rule); }
   .paletteGroupe:last-child{ border-bottom:none; padding-bottom:0; }
   .paletteOutils{ display:flex; flex-direction:column; gap:2px; }
@@ -1395,6 +1398,9 @@
     align-self:center; width:72px; height:24px; padding:0; margin:0; border:none; background:transparent;
     display:flex; align-items:center; justify-content:center; cursor:grab; touch-action:none;
   }
+  /* Au doigt, la poignee se saisit sur 44 px de haut (audit UX de la 5.45.0, polissages) ; les marges negatives gardent la feuille
+     a sa hauteur d'avant. */
+  html:not([data-classe="large"]) .poigneeFeuille{ height:44px; margin:-10px 0; }
   .poigneeFeuille span{ display:block; width:40px; height:5px; border-radius:3px; background:var(--rule); }
   .poigneeFeuille:hover{ opacity:1; }
   .enteteFeuilleLigne{ display:flex; align-items:center; gap:4px; min-height:44px; }
@@ -1426,7 +1432,7 @@
     border-radius:14px; box-shadow:var(--ombre-flottante);
   }
   html[data-classe="compact"] #modeBar .objbtn{
-    min-height:38px; padding:0 14px; border:none; border-radius:11px; background:transparent; color:var(--ink);
+    min-height:44px; padding:0 16px; border:none; border-radius:11px; background:transparent; color:var(--ink);
     font-family:var(--sans); font-size:13px; font-weight:500;
   }
   html[data-classe="compact"] #modeBar .objbtn.active{ background:var(--ink); color:var(--on-ink); font-weight:600; }
@@ -1663,6 +1669,23 @@
     background:var(--panel-bg); color:var(--ink); font-family:var(--sans); font-size:13px;
   }
   html[data-classe="moyen"] .ongletResultats.active{ background:var(--ink); color:var(--on-ink); border-color:var(--ink); }
+  /* La tablette au doigt (audit UX de la 5.45.0, constat 11) : 44 px partout. Les onglets et les hauteurs du tiroir (38 et 36 x 32),
+     le selecteur Plan / Vue 3D (36), le pli des panneaux (36 a 38), les prix saisis de la nomenclature (21) et la feuille Projet
+     (« Enregistrer » 22, ses cases 32) ne se touchaient qu'en visant. */
+  html[data-classe="moyen"]{ --hauteur-barre-tiroir:56px; }
+  html[data-classe="moyen"] .ongletResultats, html[data-classe="moyen"] .ongletResultats.debutGroupe{ min-height:44px; }
+  html[data-classe="moyen"] .hauteurTiroir{ min-width:44px; min-height:44px; }
+  html[data-classe="moyen"] #modeBar .objbtn{ min-height:44px; }
+  html[data-classe="moyen"] .explorateurPli, html[data-classe="moyen"] .inspecteurPli{ min-width:44px; min-height:44px; }
+  html[data-classe="moyen"] #zoneExplorateur.replie, html[data-classe="moyen"] #zoneInspecteur.replie{ min-width:44px; }
+  html[data-classe="moyen"] #zoneInspecteur .inspecteurTitre{ min-height:44px; display:flex; align-items:center; }
+  html[data-classe="moyen"] #tiroirPanneaux input[type="number"], html[data-classe="moyen"] #tiroirPanneaux input[type="text"]{ min-height:44px; box-sizing:border-box; font-size:15px; }
+  html[data-classe="moyen"] #projectBar #saveProjectBtn{ min-height:44px; font-size:15px; font-family:var(--sans); border-radius:var(--r-bouton); }
+  html[data-classe="moyen"] #projectBar :is(.projetsBouton, #projectSelect, .compteurProjets, button){ min-height:44px; }
+  html[data-classe="moyen"] #projectBar details.menu li label{ min-height:44px; display:flex; align-items:center; }
+  html[data-classe="moyen"] #projectBar details.menu li input:not([type="checkbox"]){ min-height:44px; box-sizing:border-box; }
+  /* Le bandeau « Chiffrage recalcule » de l'inspecteur ne se montre que tiroir replie : ouvert, le tiroir dit deja le chiffrage. */
+  html[data-classe="moyen"]:has(#zoneResultats:not([data-hauteur="replie"])) .bandeauChiffrage{ display:none; }
   html[data-classe="moyen"]:has(.resumeTiroir){ --hauteur-panneaux:calc(100dvh - var(--reserve-haut) - var(--reserve-bas) - 80px); }
   html[data-classe="moyen"] #zoneResultats[data-hauteur="mi"] #tiroirPanneaux{ height:42dvh; max-height:none; }
   html[data-classe="moyen"] #zoneResultats[data-hauteur="plein"] #tiroirPanneaux{ max-height:calc(100dvh - var(--reserve-haut) - var(--hauteur-barre-tiroir) - var(--hauteur-etat) - 16px); }
@@ -1792,11 +1815,15 @@
 
   /* ---- Telephone : la feuille Resultats (zones/Resultats.tsx) -------------------------------- */
   html[data-classe="compact"] #zoneResultatsBarre{ flex:none; }
+  /* L'indice de defilement des onglets : un fondu du cote ou d'autres onglets attendent. */
+  html[data-classe="compact"] .resultatsBarre[data-suite="droite"]{ -webkit-mask-image:linear-gradient(to right, black calc(100% - 36px), transparent); mask-image:linear-gradient(to right, black calc(100% - 36px), transparent); }
+  html[data-classe="compact"] .resultatsBarre[data-suite="gauche"]{ -webkit-mask-image:linear-gradient(to left, black calc(100% - 36px), transparent); mask-image:linear-gradient(to left, black calc(100% - 36px), transparent); }
+  html[data-classe="compact"] .resultatsBarre[data-suite="deux"]{ -webkit-mask-image:linear-gradient(to right, transparent, black 36px, black calc(100% - 36px), transparent); mask-image:linear-gradient(to right, transparent, black 36px, black calc(100% - 36px), transparent); }
   html[data-classe="compact"] .resultatsBarre{
     flex-wrap:nowrap; overflow-x:auto; gap:6px; padding:0 16px 10px; border-bottom:1px solid var(--hairline); scrollbar-width:none;
   }
   html[data-classe="compact"] .ongletResultats, html[data-classe="compact"] .ongletResultats.debutGroupe{
-    flex:none; margin:0; min-height:38px; padding:0 14px; border:1px solid var(--border); border-radius:999px;
+    flex:none; margin:0; min-height:44px; padding:0 14px; border:1px solid var(--border); border-radius:999px;
     background:var(--panel-bg); color:var(--ink); font-family:var(--sans); font-size:13px;
   }
   html[data-classe="compact"] .ongletResultats.active{ background:var(--ink); color:var(--on-ink); border-color:var(--ink); }
@@ -1908,6 +1935,8 @@
     font-size:15px !important; box-shadow:none !important;
   }
   html[data-classe="compact"] :is(.dialogueActualisation, .dialogueDeclaration, .dialogueDevis, .dialogueAssistant, .dialoguePartage){ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }
+  /* Les cases des etapes de l'import au doigt : la ligne entiere fait 44 px (polissages de l'audit UX de la 5.45.0). */
+  html:not([data-classe="large"]) .dialogueCadastre .caseParcours{ min-height:44px; display:flex; align-items:center; gap:10px; }
   html[data-classe="compact"] .dialogueImperatif button{ min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); }
   html[data-classe="compact"] .dialogueImperatif input[type=text], html[data-classe="compact"] .dialogueImperatif input[type=search],
   html[data-classe="compact"] .dialogueImperatif .promptInput{ min-height:48px; font-size:16px; }
@@ -2412,6 +2441,15 @@
   html:not([data-classe="large"]) #glbViewerCanvasHost .commandes3d{ top:calc(56px + 8px); }
   html:not([data-classe="large"]) .bouton3d{ width:44px; height:44px; border-radius:var(--r-bouton); box-shadow:var(--ombre-flottante); }
   html:not([data-classe="large"]) .separateur3d{ display:none; }
+  /* Au telephone, le geste d'un doigt en mots (constat 12 de l'audit UX de la 5.45.0) : une commande segmentee verticale, le choix
+     en place sur l'encre, comme le selecteur Plan / 3D. */
+  .gesteDuDoigt{ display:flex; flex-direction:column; gap:2px; padding:3px; border:1px solid var(--border); border-radius:var(--r-bouton);
+    background:var(--panel-bg); box-shadow:var(--ombre-flottante); }
+  .gesteChoix{ min-width:88px; min-height:44px; padding:0 10px; border:none; border-radius:var(--r-champ); background:transparent; color:var(--ink);
+    font-family:var(--sans); font-size:14px; font-weight:500; cursor:pointer; }
+  .gesteChoix.actif{ background:var(--ink); color:var(--on-ink); font-weight:600; }
+  .commandes3dDoigt{ align-items:flex-end; }
+  html[data-classe="compact"] #zoneReglages3d .boutonVue3d{ min-height:44px; }
   html:not([data-classe="large"]) .barreSoleil{
     position:absolute; left:10px; right:66px; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:3; margin:0; flex-wrap:nowrap; gap:10px;
     padding:8px 14px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); box-shadow:var(--ombre-flottante);

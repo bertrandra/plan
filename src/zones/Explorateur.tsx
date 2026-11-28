@@ -34,6 +34,7 @@ import type { EtatApp } from '../core/state.js';
 import { Icone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
+import { retenirOuverture } from '../app/preferenceExplorateur.js';
 
 export interface PropsExplorateur { magasin: Magasin; commandes: RegistreCommandes; explorateur: ServiceExplorateur }
 
@@ -287,7 +288,7 @@ export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateu
     <aside className="explorateurPanneau" aria-label="Explorateur">
       <div className="explorateurEntete">
         {ouvert && <span>Explorateur</span>}
-        <button type="button" data-controle="explorateur.replier" className="explorateurPli" title={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-label={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-expanded={ouvert} onClick={() => explorateur.basculerOuverture()}>
+        <button type="button" data-controle="explorateur.replier" className="explorateurPli" title={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-label={ouvert ? 'Replier l\'explorateur' : 'Déplier l\'explorateur'} aria-expanded={ouvert} onClick={() => { explorateur.basculerOuverture(); if (magasin.store.getState().classe === 'large') retenirOuverture(magasin.store.getState().explorateurOuvert); }}>
           {ouvert ? '‹' : '›'}
         </button>
       </div>

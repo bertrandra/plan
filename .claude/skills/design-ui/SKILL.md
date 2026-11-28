@@ -70,6 +70,11 @@ Depuis la `2.1.0` (`MD/spec-ihm-mobile.md`), chaque zone a une forme par classe,
   champ grisé sous le champ.
 - Cibles de 44 px sur `compact` et `moyen`, partout. Tout `position:fixed` d'une zone passe par les
   réserves `--reserve-haut` / `--reserve-bas` (encoche comprise) ; le plan mesure `#zoneCadre`.
+- **Au doigt, une colonne d'icônes sur une scène ne dépasse pas trois ou quatre commandes** ; un choix exclusif (le geste d'un doigt
+  en Vue 3D) est une commande segmentée **avec des mots** ; le reste va dans la feuille de réglages, en mots. Deux icônes qui se
+  ressemblent (trois flèches qui tournent) ne cohabitent pas.
+- **Au bureau, le plan prend toute la hauteur** jusqu'à la barre d'estimation ; une colonne plus haute que lui (la palette) défile ;
+  sous 1 200 px, l'explorateur s'ouvre replié, et le pli choisi par la personne est retenu.
 - Vérifier à 390, 820 et 1 440 px, en clair et en sombre : `scripts/captures.mjs` (36 captures) et
   `scripts/fumee.mjs` (la liste de fumée pilotée).
 - **Au doigt, l'inspecteur range ses sections en trois onglets** : « Réglages », « Objet »,

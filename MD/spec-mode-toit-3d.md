@@ -565,7 +565,7 @@ chemin (le toit simple se réglait autrement en 2D qu'en 3D).
   ne se fait qu'en 3D (vues, façades, isoler, toucher un mur, décroché) n'est offert qu'en 3D. Le pied dit « Quitter sans garder » ;
   « Défaire » est sous les yeux dès le premier geste.
 - Rien ne change dans le moteur, les exports, les quantités, les empreintes ni AE 101 (`identite.ts` identique). Tests :
-  `tests/unit/facade/modeToit/controleurToit.test.ts` (un cas par constat), `gestes.test.ts`, `simple.test.ts`. Fumée : point 205 et
+  `tests/unit/facade/modeToit/controleurToit.test.ts` (un cas par constat), `gestes.test.ts`, `simple.test.ts`. Fumée : point 206 et
   les points du mode adaptés (« Quitter sans garder », « Découper ce toit »).
 
 ### Hors périmètre
