@@ -53,7 +53,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   renumérote les noms par défaut, un nom saisi reste le sien. Le projet de démonstration et les exports gardent leurs noms. La
   requête témoin de la vérification de l'API Claude (`tests/fixtures/assistant/requete-verification.json`) est régénérée : le
   catalogue envoyé à l'assistant y lit les côtés dans l'ordre.
-- Fumée : point 206 ; point 203 adapté (la vue libre).
+- Fumée : point 206 ; points 203 (la vue libre), 185 et 192 adaptés ; les mots du geste du doigt (téléphone) portent un nom et une infobulle.
 
 ## [5.45.0] — 2026-11-28
 

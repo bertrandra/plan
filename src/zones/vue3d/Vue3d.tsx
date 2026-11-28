@@ -212,16 +212,16 @@ function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: Regist
 
 /** Ce que fait un doigt qui glisse, au telephone : une commande segmentee en mots, une commande du registre par choix. */
 function GesteDuDoigt({ commandes }: { commandes: RegistreCommandes }) {
-  const choix: [string, string, string, typeof affichage3d.mode][] = [
-    ['3d.modeOrbite', 'terrasse3dModeOrbit', 'Tourner', 'orbit'],
-    ['3d.modeDeplacement', 'terrasse3dModePan', 'Déplacer', 'pan'],
-    ['3d.modeZoom', 'terrasse3dModeZoom', 'Zoomer', 'zoom']
+  const choix: [string, string, string, typeof affichage3d.mode, string][] = [
+    ['3d.modeOrbite', 'terrasse3dModeOrbit', 'Tourner', 'orbit', 'Glisser pour tourner : glisser fait pivoter la vue (mode par défaut)'],
+    ['3d.modeDeplacement', 'terrasse3dModePan', 'Déplacer', 'pan', 'Glisser pour déplacer : glisser translate la vue'],
+    ['3d.modeZoom', 'terrasse3dModeZoom', 'Zoomer', 'zoom', 'Glisser pour zoomer : vers le haut rapproche, vers le bas éloigne']
   ];
   return (
     <div className="gesteDuDoigt" role="group" aria-label="Glisser un doigt pour">
-      {choix.map(([id, domId, mot, mode]) => (
+      {choix.map(([id, domId, mot, mode, titre]) => (
         <button key={id} id={domId} data-commande={id} type="button" className={'gesteChoix' + (affichage3d.mode === mode ? ' actif' : '')}
-          aria-pressed={affichage3d.mode === mode} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>{mot}</button>
+          aria-pressed={affichage3d.mode === mode} aria-label={'Glisser pour ' + mot.toLowerCase()} title={titre} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>{mot}</button>
       ))}
     </div>
   );
@@ -237,6 +237,7 @@ function CameraAuDoigt({ commandes }: { commandes: RegistreCommandes }) {
     if (!e.utilisable && e.raison === 'capacite') return null;
     return (
       <button key={id} id={domId} data-commande={id} type="button" className="objbtn small boutonVue3d" disabled={!e.utilisable}
+        aria-label={mot} title={!e.utilisable && 'message' in e ? e.message : mot}
         onClick={(ev) => { commandes.executer(id, ev.currentTarget); }}>
         <Icone nom={icone} taille={18} /><span className="libelleVue3d">{mot}</span>
       </button>

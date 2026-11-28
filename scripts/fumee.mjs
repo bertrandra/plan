@@ -4728,7 +4728,9 @@ const POINTS = {
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 });
     await page.waitForTimeout(500);
-    const icones = await page.evaluate(() => [...document.querySelectorAll('#terrasse3dZoomControls button')].map((b) => ({
+    // Au telephone, la colonne ne garde que quatre commandes (constat 12 de l'audit UX de la 5.45.0) : le zoom, les quarts de tour,
+    // l'image et le photomontage sont dans « Caméra et image » des reglages, comptes ici avec elle.
+    const icones = await page.evaluate(() => [...document.querySelectorAll('#terrasse3dZoomControls button, #zoneReglages3d button[id^="terrasse3d"][data-commande^="3d."]')].map((b) => ({
       id: b.id || b.getAttribute('data-commande') || '?', nom: (b.getAttribute('aria-label') || '').trim(), titre: (b.getAttribute('title') || '').trim()
     })));
     const muettes = icones.filter((i) => !i.nom || !i.titre);
@@ -5804,6 +5806,9 @@ const POINTS = {
     if (sortes.length < 12) echecs.push('seulement ' + sortes.length + ' sortes d’objets dans la démonstration');
 
     // ---- 3. Les etiquettes ne prennent plus le clic -------------------------------------------------
+    // Les mesures des cotes sont une preference d'affichage eteinte par defaut (constat 7 de l'audit UX de la 5.45.0) : on l'allume.
+    await page.evaluate(() => window.__plan.magasin && document.getElementById('chkMesuresSurLePlan')?.click());
+    await page.waitForTimeout(300);
     await page.evaluate(() => { window.__plan.selectionnerCle(null); window.__plan.executer('vue.ajuster'); });
     await replier();
     await page.waitForTimeout(700);
