@@ -682,7 +682,15 @@
   .suggestionsAdresse, .listeParcelles{ margin-top:8px; display:flex; flex-direction:column; gap:4px; }
   .suggestionsAdresse button, .listeParcelles button{ text-align:left; font-size:0.84rem; padding:6px 8px; }
   .listeParcelles{ gap:3px; max-height:22vh; overflow:auto; }
-  .apercuCadastre{ width:100%; height:min(46vh,340px); background:var(--input-bg); border:1px solid var(--border); border-radius:var(--r-champ); display:block; }
+  /* L'apercu s'agrandit et se deplace : ses gestes sont les siens (touch-action), le dialogue defile
+     ailleurs. Les boutons du zoom se posent dans son coin, en cibles de 44 px dans toutes les classes. */
+  .apercuCadastreCadre{ position:relative; }
+  .apercuCadastre{ width:100%; height:min(46vh,340px); background:var(--input-bg); border:1px solid var(--border); border-radius:var(--r-champ); display:block; touch-action:none; user-select:none; -webkit-user-select:none; }
+  .apercuCadastre.agrandi{ cursor:grab; }
+  .apercuCadastre:active{ cursor:grabbing; }
+  .apercuCadastre:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .zoomApercu{ position:absolute; top:6px; right:6px; display:flex; flex-direction:column; gap:6px; }
+  .zoomApercu button{ width:44px; height:44px; min-height:44px; padding:0; display:inline-flex; align-items:center; justify-content:center; border-radius:var(--r-bouton); box-shadow:var(--ombre); }
   .infoParcelle{ margin-top:10px; line-height:1.5; }
   .titreListe{ margin-top:12px; font-weight:600; }
   .caseParcours{ display:flex; align-items:center; gap:6px; margin-top:6px; font-size:0.82rem; cursor:pointer; }

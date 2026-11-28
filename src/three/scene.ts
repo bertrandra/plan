@@ -49,6 +49,7 @@ import type { ContexteScene3d, ContexteObjets } from './typesScene.js';
 import { oublierLaScene, retenirCloture, retenirLaScene, epurerSiBesoin, retenirHorsObjets, ajouterObjetsDuPlan } from './sceneVivante.js';
 import { ajouterContourTerrasse, ajouterOrtho, construireStructureTerrasse } from './sceneTerrasse.js';
 import { ajouterPiscinesSeules, ajouterCloture, appliquerOmbres, rafraichirArbres } from './sceneObjets.js';
+import { tenirAuDessusDuSol } from './solCamera.js';
 export type { ContexteScene3d } from './typesScene.js';
 export { PART_CIEL_JOINTS, PART_CIEL_SOUS_PLATELAGE, ombrerSousLePlatelage, OPACITE_LAMES_ISOLEMENT, OPACITE_LAMES_TRANSLUCIDES } from './sceneTerrasse.js';
 export { DECALAGE_CHEMIN_M } from './sceneObjets.js';
@@ -365,6 +366,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     ...(sol ? { hauteurSol: (p: PtBrut) => sol.hauteur(p) } : {})
   };
   vue3d.scene = sc;
+  // La camera ne passe jamais sous le sol, quel que soit le geste (three/solCamera.ts) : le relief sous elle, sinon le plan du sol.
+  tenirAuDessusDuSol(camera, controls, sol ? (x, z) => sol.hauteur({ x: cen.x + x, y: cen.y - z }) : () => 0);
   // Courbe de film, ciel, brume, occlusion (R1) ; la vitrine peint son propre ciel (soleilVitrine.ts).
   monterRendu(sc, parametresQualite(vue3d.qualite), rayonParcelle ?? extent, !vue3d.apresSoleil);
   // Le relief des textures dessinees (R3), a l'ecran, hors qualite Econome.

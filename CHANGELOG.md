@@ -24,6 +24,24 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   seules les valeurs autres que celles par défaut s'écrivent (`voisinage3d.rues.partTrottoirs`, `couleurs`). Quatre jetons
   nouveaux (`--trottoir`, `--chaussee-reelle`, `--trottoir-reel`, `--bordure-reelle`), dans la palette de l'admin et ses modèles.
   Aucune quantité, aucun export ni aucune empreinte ne change. Fumée : point 197 adapté, point 200 nouveau.
+- **Zoom et déplacement dans l'aperçu des parcelles de l'import par adresse** (demande du propriétaire : « je dois pouvoir zoomer
+  sur le plan pour sélectionner la ou les parcelles pendant les étapes »). Aux étapes 2 et 3 et dans le résumé de l'import direct :
+  molette centrée sur le pointeur et glisser à la souris, pincer et glisser au doigt, boutons « Agrandir », « Réduire » et « Tout
+  voir » de 44 px dans le coin de l'aperçu, touches `+` et `-` quand il a le focus. Le zoom s'arrête au cadrage complet et à la
+  largeur de la plus petite parcelle cliquable (5 m au moins). Un geste qui a bougé de plus de 6 px ne choisit ni ne bascule
+  aucune parcelle ; un toucher immobile choisit comme avant. Traits et étiquettes gardent leur taille à l'écran. Le zoom est
+  gardé d'une étape à l'autre et quand on change de parcelle, et repart de « tout voir » à une nouvelle adresse. Calcul du cadre
+  dans `geometry/cadreApercu.ts`, testé ; aucune quantité ni aucun export ne change.
+
+### Corrigé
+
+- **La caméra de la Vue 3D ne passe plus sous le sol** (retour de l'utilisateur : « en vue 3D je passe en dessous du sol. Aucun
+  intérêt »). Quel que soit le geste — tourner, déplacer, molette, pincement, flèches, hauteur des yeux, point de vue rappelé,
+  cadrage du mode Toit ou de l'audit — l'œil reste au moins à 0,30 m au-dessus du sol sous lui (le relief quand « Relief » est
+  actif, sinon le plan du sol), et la cible de l'orbite ne s'enfonce pas sous le sol. Arrêtée au ras du sol, la caméra garde sa
+  distance à la cible : elle ne se rapproche pas d'elle en insistant. Regarder vers le haut depuis le sol reste possible. Un ancien
+  point de vue enregistré sous le sol est remonté à l'ouverture, sans que le fichier change. La visionneuse du `.glb` suit la même
+  règle (`three/solCamera.ts`). Aucune quantité ni aucun export ne change.
 
 ### Modifié
 
