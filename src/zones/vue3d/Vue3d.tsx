@@ -15,6 +15,7 @@ import { useStore } from 'zustand';
 import { abonner3d, affichage3d, version3d, vue3d, poserHote3d } from '../../three/etat3d.js';
 import { QUALITES_3D, estQualite3d } from '../../three/qualite.js';
 import { controleMontre } from '../../app/modeExpert.js';
+import { enVitrine } from '../../app/acces.js';
 import { promenadeActive } from '../../three/presentation.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
@@ -158,6 +159,28 @@ function useCleVue3d(magasin: Magasin, commandes: RegistreCommandes, vues: Servi
 function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: RegistreCommandes; magasin: Magasin; pleinePage: boolean }) {
   const etatPlan = magasin.store.getState().etat;
   const libIsoler = libelleIsoler(etatPlan.isolement !== null ? etatPlan.objects.find(o => o.key === etatPlan.isolement) : objetAIsoler(etatPlan));
+  // Au telephone (audit UX de la 5.45.0, constat 12), onze icones sans mot ne se lisaient pas : la colonne ne garde que le geste du
+  // doigt, en mots, la hauteur des yeux et ce qui vise l'objet choisi ; le zoom, les quarts de tour, l'image et le photomontage
+  // passent dans « Réglages de la vue 3D » (`CameraAuDoigt`), le pincement et le glisser faisant deja zoomer et tourner. La vitrine
+  // n'a pas de reglages : elle garde sa colonne entiere.
+  const auDoigt = useStore(magasin.store, (s) => s.classe) === 'compact' && !enVitrine();
+  const isoler = commandes.etat('terrasse.isoler').utilisable && (
+    <Bouton3d commandes={commandes} id="terrasse.isoler" domId="terrasse3dIsoler" icone="isoler" libelle={libIsoler}
+      titre={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer rend la vue d\'avant'}
+      actif={magasin.store.getState().etat.isolement !== null} />
+  );
+  const yeux = <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur des yeux (1,60 m au-dessus du platelage) : ne change que l'altitude de la caméra, pas sa position au sol" />;
+  if (auDoigt) {
+    return (
+      <div id="terrasse3dZoomControls" className="commandes3d commandes3dDoigt">
+        <BoutonPhotographierFacade commandes={commandes} />
+        <div className="separateur3d"></div>
+        <GesteDuDoigt commandes={commandes} />
+        {yeux}
+        {isoler}
+      </div>
+    );
+  }
   return (
     <div id="terrasse3dZoomControls" className="commandes3d">
       <BoutonPhotographierFacade commandes={commandes} />
@@ -181,13 +204,54 @@ function CommandesCamera({ commandes, magasin, pleinePage }: { commandes: Regist
           titre="Photomontage : poser le projet sur une photo de votre jardin" />
       )}
       <div className="separateur3d"></div>
-      <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur des yeux (1,60 m au-dessus du platelage) : ne change que l'altitude de la caméra, pas sa position au sol" />
-      {commandes.etat('terrasse.isoler').utilisable && (
-        <Bouton3d commandes={commandes} id="terrasse.isoler" domId="terrasse3dIsoler" icone="isoler" libelle={libIsoler}
-          titre={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer rend la vue d\'avant'}
-          actif={magasin.store.getState().etat.isolement !== null} />
-      )}
+      {yeux}
+      {isoler}
     </div>
+  );
+}
+
+/** Ce que fait un doigt qui glisse, au telephone : une commande segmentee en mots, une commande du registre par choix. */
+function GesteDuDoigt({ commandes }: { commandes: RegistreCommandes }) {
+  const choix: [string, string, string, typeof affichage3d.mode][] = [
+    ['3d.modeOrbite', 'terrasse3dModeOrbit', 'Tourner', 'orbit'],
+    ['3d.modeDeplacement', 'terrasse3dModePan', 'Déplacer', 'pan'],
+    ['3d.modeZoom', 'terrasse3dModeZoom', 'Zoomer', 'zoom']
+  ];
+  return (
+    <div className="gesteDuDoigt" role="group" aria-label="Glisser un doigt pour">
+      {choix.map(([id, domId, mot, mode]) => (
+        <button key={id} id={domId} data-commande={id} type="button" className={'gesteChoix' + (affichage3d.mode === mode ? ' actif' : '')}
+          aria-pressed={affichage3d.mode === mode} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>{mot}</button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Au telephone, la camera dans « Réglages de la vue 3D » (constat 12) : les gestes que la colonne ne porte plus, chacun en mots,
+ * memes commandes et memes identifiants qu'au bureau.
+ */
+function CameraAuDoigt({ commandes }: { commandes: RegistreCommandes }) {
+  const bouton = (id: string, domId: string, icone: Parameters<typeof Icone>[0]['nom'], mot: string) => {
+    const e = commandes.etat(id);
+    if (!e.utilisable && e.raison === 'capacite') return null;
+    return (
+      <button key={id} id={domId} data-commande={id} type="button" className="objbtn small boutonVue3d" disabled={!e.utilisable}
+        onClick={(ev) => { commandes.executer(id, ev.currentTarget); }}>
+        <Icone nom={icone} taille={18} /><span className="libelleVue3d">{mot}</span>
+      </button>
+    );
+  };
+  return (
+    <fieldset className="groupe3d">
+      <legend>Caméra et image</legend>
+      {bouton('3d.zoomAvant', 'terrasse3dZoomIn', 'plus', 'Rapprocher')}
+      {bouton('3d.zoomArriere', 'terrasse3dZoomOut', 'moins', 'Éloigner')}
+      {bouton('3d.tournerGauche', 'terrasse3dTournerGauche', 'tourner', 'Quart de tour à gauche')}
+      {bouton('3d.tournerDroite', 'terrasse3dTournerDroite', 'tournerDroite', 'Quart de tour à droite')}
+      {bouton('3d.enregistrerPng', 'terrasse3dSavePng', 'image', 'Image PNG de la vue')}
+      {commandes.etat('3d.photomontage').utilisable && bouton('3d.photomontage', 'terrasse3dPhotomontage', 'photomontage', 'Photomontage sur une photo')}
+    </fieldset>
   );
 }
 
@@ -195,6 +259,7 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
   useEtat3d();
   useCleVue3d(magasin, commandes, vues);
   const visible = useStore(magasin.store, (s) => s.vue) === 'vue3d';
+  const classe = useStore(magasin.store, (s) => s.classe);
   // En photomontage, la scene prend le rapport de la photo, sous laquelle se range le panneau du mode : pas de plein ecran.
   const enPhotomontage = photomontage.actif && affichage3d.vue3d === 'pret';
   const pleinePage = affichage3d.pleinePage3d && !enPhotomontage;
@@ -236,6 +301,7 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
         <EnteteReglages vue="vue3d" titre="Réglages de la vue 3D" idLieu="vue3dLieu" lieu={vues.libelleLieu()} magasin={magasin} />
         <div className="corpsFeuille" id="corpsReglages3d">
           <div className="groupes3d">
+            {classe === 'compact' && !enVitrine() && !enPhotomontage && <CameraAuDoigt commandes={commandes} />}
             {terrasse && <fieldset className="groupe3d">
               <legend>Terrasse</legend>
               <Case id="terrasse3dFilaire" controle="vue3d.filaire" libelle="Filaire" coche={r.filaire()} onChange={r.basculerFilaire}

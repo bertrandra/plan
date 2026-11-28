@@ -65,6 +65,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
   // Sur tablette, l'explorateur et l'inspecteur flottent sur le plan : ouverts d'office, ils en
   // couvriraient les deux tiers. Ils s'ouvrent a la demande.
   cadrage.replierPourTablette();
+  cadrage.explorateurAuBureau();
   // Le tiroir a un onglet actif des l'ouverture : le balisage n'en montre aucun.
   tiroir.activer(etat.panelTab, false);
   p.render();

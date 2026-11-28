@@ -7,8 +7,9 @@ import { appliquerClasse } from '../classe.js';
 import { cadrerSur, empriseDe, plancherPourEmprise, ZOOM_MIN, ZOOM_MAX } from '../../interaction/navigation.js';
 import { empriseDuCalque } from '../../model/calque.js';
 import { aDesSommets, enPoints } from '../../model/formes.js';
-import { terrasseOuPremiere } from '../../model/fonctions.js';
+import { terrasseOuPremiere, estTerrasse } from '../../model/fonctions.js';
 import { maisonDe } from '../../model/placement.js';
+import { explorateurOuvertAuBureau } from '../preferenceExplorateur.js';
 import type { Surface } from './surface.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan, PtBrut, PtEcran } from '../../model/types.js';
@@ -19,6 +20,8 @@ export interface Cadrage {
   redimensionner(): void;
   /** Sur tablette, replie l'explorateur et l'inspecteur — sauf celui qu'on utilisait. */
   replierPourTablette(feuilleAvant?: Feuille | null): void;
+  /** Au bureau, a l'ouverture : l'explorateur suit la preference retenue, sinon se replie sous 1 200 px (constat 2). */
+  explorateurAuBureau(): void;
   /** Le cadrage d'ouverture sur la parcelle. */
   centrerSurParcelle(): void;
   /** Cadre un objet, sinon la parcelle, sinon tout le plan. */
@@ -83,7 +86,27 @@ export function mesurerScene(etat: EtatApp, magasin: Magasin): void {
   const mesuree = (id: string, defaut: number) => document.getElementById(id)?.getBoundingClientRect().width || defaut;
   const panneaux = window.innerWidth >= 1024 ? mesuree('zonePalette', LARGEUR_PALETTE) + mesuree('zoneExplorateur', explorateur) + mesuree('zoneInspecteur', inspecteur) : 0;
   etat.scene.W = Math.max(320, Math.floor(fenetre - MARGES_PAGE - panneaux));
-  etat.scene.H = Math.max(420, Math.min(Math.round(window.innerHeight * 0.62), 780));
+  etat.scene.H = hauteurDuPlanAuBureau(etat);
+}
+
+/** La barre d'etat du bureau (`--hauteur-etat-large`) et la barre d'estimation, quand le plan a une terrasse. */
+const HAUTEUR_ETAT_LARGE = 31;
+const HAUTEUR_BANDE_ESTIMATION = 72;
+/** Ce qui reste sous le plan : le bord de son cadre et un souffle avant la barre d'estimation. */
+const MARGE_SOUS_LE_PLAN = 14;
+
+/**
+ * Au bureau, le plan prend toute la hauteur jusqu'a la barre d'estimation (audit UX de la 5.45.0, constat 2) : figee a 62 % de la
+ * fenetre, elle laissait 558 px de plan en 1440 x 900 et un vide sous lui. Le haut de l'atelier est mesure (la barre de
+ * l'application passe sur deux lignes en etroit) ; la barre d'estimation l'est quand elle est montee, sinon on la compte des
+ * qu'une terrasse existe, elle viendra au premier rendu.
+ */
+function hauteurDuPlanAuBureau(etat: EtatApp): number {
+  const atelier = document.getElementById('zoneAtelier');
+  const haut = atelier ? atelier.getBoundingClientRect().top + window.scrollY : 60;
+  const bande = document.querySelector('.bandeEstimation')?.getBoundingClientRect().height
+    ?? (etat.objects.some(estTerrasse) ? HAUTEUR_BANDE_ESTIMATION : 0);
+  return Math.max(420, Math.round(window.innerHeight - haut - HAUTEUR_ETAT_LARGE - bande - MARGE_SOUS_LE_PLAN));
 }
 
 export function creerCadrage(etat: EtatApp, magasin: Magasin, s: Surface, d: DependancesCadrage): Cadrage {
@@ -157,6 +180,10 @@ export function creerCadrage(etat: EtatApp, magasin: Magasin, s: Surface, d: Dep
 
   return {
     replierPourTablette,
+    explorateurAuBureau() {
+      if (lire().classe !== 'large') return;
+      if (lire().explorateurOuvert !== explorateurOuvertAuBureau(window.innerWidth)) d.basculerExplorateur();
+    },
     ajusterPlancher,
     cadrerTerrains() {
       const emprise = empriseTerrains();
