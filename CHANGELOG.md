@@ -5,6 +5,39 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Rendu 3D des rues éclairci en thème sombre** (retour du propriétaire). La Vue 3D lisait les teintes sombres du plan, faites pour
+  la photo sous une interface sombre : avec « Réelles », la chaussée sortait presque noire, et la bordure « Plan » noire. La 3D a
+  maintenant ses propres jetons (`--chaussee-3d`, `--trottoir-3d`, `--bordure-3d`, `--chaussee-reelle-3d`, `--trottoir-reel-3d`,
+  `--bordure-reelle-3d`, famille « Scènes » de la palette et de ses modèles), **les mêmes dans les deux thèmes** : la scène a son
+  soleil et son ciel, comme ses toits, ses murs et son gazon, qui ne changent pas avec le thème. Les pierres claires (trottoirs,
+  granit) sont un peu plus chaudes que sur le plan : le ciel de la scène les bleuissait, et la pierre se lisait gris-bleu, en clair
+  aussi (`MD/spec-rues.md` §8). Le plan 2D ne change pas. Aucune quantité, aucun export ni aucune empreinte ne change.
+
+### Corrigé
+
+- **« Recharger le fond IGN » pouvait rester grisé, menu Affichage ouvert, une fois le fond lu** (défaut antérieur aux trottoirs).
+  L'allumage du fond posait la fin de sa lecture après le rendu qui la disait : le menu ouvert gardait l'entrée grisée jusqu'au rendu
+  suivant, et le garde-fou des clés de version le signalait en développement (point 200 de la fumée, le plan reculé menu ouvert). Chaque début et chaque fin de lecture est
+  maintenant suivi d'un rendu (`render/ortho.ts`, `poserChargement`), comme toute donnée lue par les zones ; un rechargement grise
+  l'entrée avant d'oublier les tuiles, la photo d'avant restant à l'écran. Test : `tests/unit/render/orthoChargement.test.ts`.
+  Fumée : le point 200 recule de nouveau le plan (menu ouvert au bureau, puis « Recharger le fond IGN »).
+
+## [5.44.0] — 2026-11-28
+
+Version **mineure** au sens de `MD/RELEASE.md` : deux fonctions nouvelles — des trottoirs dans l'option « Rues », avec la part
+trottoir/rue réglable et les couleurs Plan ou Réelles (#786), le zoom et le déplacement dans l'aperçu des parcelles de l'import
+par adresse (#787) — et une correction : la caméra de la Vue 3D ne passe plus sous le sol (#788). **Rien n'est retiré ni mis
+derrière un droit.** **Aucune quantité ni aucun export ne change** : avant le changement de numéro, le code de `main` (28644915)
+régénère les témoins de la 5.43.1 au bit près ; les neuf témoins qui portent le numéro ne changent qu'à lui (la date de build reste
+le 30 octobre 2026 ; preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités,
+`liste-achat.csv`, `moteur-piscine-pergola.json` et `glb-structure.json` sont identiques (point 24 de la fumée rejoué). Schéma
+inchangé (16) ; les deux réglages des rues sont des champs facultatifs, écrits seulement hors de leurs valeurs par défaut. La version
+de lecture des toits ne change pas (13). `deploy/`, `banc/` et `regles/` ne changent pas depuis la 5.43.1 ; la requête témoin de
+l'assistant est inchangée. Requêtes à vérifier contre l'API Claude sur `main` après la fusion de la version (« Vérifier l'API
+Claude »).
+
 ### Ajouté
 
 - **Des trottoirs entre les parcelles et la chaussée** dans l'option « Rues » (retour du propriétaire, 27 novembre 2026, maquette
@@ -42,25 +75,6 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   distance à la cible : elle ne se rapproche pas d'elle en insistant. Regarder vers le haut depuis le sol reste possible. Un ancien
   point de vue enregistré sous le sol est remonté à l'ouverture, sans que le fichier change. La visionneuse du `.glb` suit la même
   règle (`three/solCamera.ts`). Aucune quantité ni aucun export ne change.
-
-### Modifié
-
-- **Rendu 3D des rues éclairci en thème sombre** (retour du propriétaire). La Vue 3D lisait les teintes sombres du plan, faites pour
-  la photo sous une interface sombre : avec « Réelles », la chaussée sortait presque noire, et la bordure « Plan » noire. La 3D a
-  maintenant ses propres jetons (`--chaussee-3d`, `--trottoir-3d`, `--bordure-3d`, `--chaussee-reelle-3d`, `--trottoir-reel-3d`,
-  `--bordure-reelle-3d`, famille « Scènes » de la palette et de ses modèles), **les mêmes dans les deux thèmes** : la scène a son
-  soleil et son ciel, comme ses toits, ses murs et son gazon, qui ne changent pas avec le thème. Les pierres claires (trottoirs,
-  granit) sont un peu plus chaudes que sur le plan : le ciel de la scène les bleuissait, et la pierre se lisait gris-bleu, en clair
-  aussi (`MD/spec-rues.md` §8). Le plan 2D ne change pas. Aucune quantité, aucun export ni aucune empreinte ne change.
-
-### Corrigé
-
-- **« Recharger le fond IGN » pouvait rester grisé, menu Affichage ouvert, une fois le fond lu** (défaut antérieur aux trottoirs).
-  L'allumage du fond posait la fin de sa lecture après le rendu qui la disait : le menu ouvert gardait l'entrée grisée jusqu'au rendu
-  suivant, et le garde-fou des clés de version le signalait en développement (point 200 de la fumée, le plan reculé menu ouvert). Chaque début et chaque fin de lecture est
-  maintenant suivi d'un rendu (`render/ortho.ts`, `poserChargement`), comme toute donnée lue par les zones ; un rechargement grise
-  l'entrée avant d'oublier les tuiles, la photo d'avant restant à l'écran. Test : `tests/unit/render/orthoChargement.test.ts`.
-  Fumée : le point 200 recule de nouveau le plan (menu ouvert au bureau, puis « Recharger le fond IGN »).
 
 ## [5.43.1] — 2026-11-27
 
