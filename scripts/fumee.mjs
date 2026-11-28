@@ -7827,6 +7827,68 @@ const POINTS = {
     const ok = silhouette === 1 && surLAile && !!nomAile && indice.startsWith(nomAile + ' · ') && surLeChoisi && deplacer === 1 && rondes >= 1 && sans;
     return { ok, mesure: `silhouette du corps choisi : ${silhouette} trait(s) ; poignées ${surLAile ? 'sur lui' : 'AILLEURS'} (faîtage dit ${faitageDit || '—'}, le sien ${faitageAile}) ; indice « ${indice.slice(0, 70)} » ; cheminée ${surLeChoisi ? 'sur le corps choisi seul' : 'AILLEURS'} ; poignées de dessus : ${deplacer} de déplacement (carré), ${rondes} ronde(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
+  203: async (page, f) => {
+    // La camera de la Vue 3D ne passe plus sous le sol (retour de l'utilisateur, novembre 2026 : « en vue 3D je passe en dessous du
+    // sol. Aucun interet »). La demonstration, Vue 3D : une orbite poussee vers le bas sur toute la hauteur, un deplacement qui
+    // descend la vue, la molette (le pincement au doigt) vers le sol au bas de l'image, enfin une camera posee par script sous le
+    // sol (un ancien point de vue). L'oeil reste a 0,30 m au moins au-dessus du sol sous lui (le relief s'il y en a un), la cible
+    // sur le sol ou au-dessus ; l'orbite arretee au ras du sol garde sa distance a la cible.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('vue 3d', () => page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 }));
+    await etape('économe', () => vue3dEconome(page));
+    await image3dStable(page, 3000);
+    const lire = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d(), p = sc.camera.position, t = sc.controls.target;
+      const sol = (x, z) => (sc.hauteurSol ? sc.hauteurSol({ x: x + sc.cen.x, y: sc.cen.y - z }) : 0);
+      return { relief: !!sc.hauteurSol, auDessus: p.y - sol(p.x, p.z), cible: t.y - sol(t.x, t.z), dist: p.distanceTo(t) };
+    });
+    const r = await page.evaluate(() => { const b = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect(); return { x0: b.left, y0: b.top, x1: b.right, y1: b.bottom }; });
+    const c = { x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2 }, h = r.y1 - r.y0;
+    const tactile = f.nom !== 'large';
+    const glisser1 = async (de, dx, dy) => {
+      if (tactile) await doigts(page, [de], [{ x: de.x + dx, y: de.y + dy }], 8);
+      else await glisser(page, de, dx, dy, 10);
+      await page.waitForTimeout(300);
+    };
+    const mesures = [], echecs = [];
+    const verifier = (nom, m) => {
+      mesures.push(nom + ' ' + m.auDessus.toFixed(2) + ' m');
+      if (m.auDessus < 0.29) echecs.push(nom + ' : oeil a ' + m.auDessus.toFixed(2) + ' m du sol');
+      if (m.cible < -0.01) echecs.push(nom + ' : cible a ' + m.cible.toFixed(2) + ' m sous le sol');
+    };
+    const depart = await lire();
+    // 1. L'orbite poussee vers le bas, trois glisser de 60 % de la hauteur : la camera s'arrete au ras du sol, a la meme distance. Le
+    //    glisser part au-dessus de la barre « Modifier » du bas de la scene, qui prendrait le pointeur.
+    for (let k = 0; k < 3; k++) await glisser1({ x: c.x, y: r.y0 + h * 0.75 }, 0, -h * 0.6);
+    const bas = await lire();
+    verifier('orbite', bas);
+    if (bas.auDessus > 0.5) echecs.push('orbite : la camera ne descend pas au ras du sol (' + bas.auDessus.toFixed(2) + ' m)');
+    if (Math.abs(bas.dist - depart.dist) > depart.dist * 0.02) echecs.push('orbite : distance a la cible ' + depart.dist.toFixed(1) + ' -> ' + bas.dist.toFixed(1) + ' m');
+    // 2. Le deplacement : la vue tiree vers le haut, plusieurs fois, descend la camera et la cible.
+    await page.evaluate(() => window.__plan.executer('3d.modeDeplacement'));
+    for (let k = 0; k < 3; k++) await glisser1({ x: c.x, y: r.y0 + h * 0.8 }, 0, -h * 0.6);
+    verifier('déplacement', await lire());
+    await page.evaluate(() => window.__plan.executer('3d.modeOrbite'));
+    // 3. La molette vers le sol au bas de l'image (au doigt, le pincement vers la cible).
+    if (tactile) {
+      const pincer = (de, a) => doigts(page, [{ x: c.x - de, y: c.y }, { x: c.x + de, y: c.y }], [{ x: c.x - a, y: c.y }, { x: c.x + a, y: c.y }], 6);
+      for (let k = 0; k < 4; k++) await pincer(25, 110);
+    } else {
+      await page.mouse.move(c.x, r.y1 - 15);
+      for (let k = 0; k < 40; k++) { await page.mouse.wheel(0, -100); await page.waitForTimeout(10); }
+    }
+    await page.waitForTimeout(300);
+    verifier('zoom', await lire());
+    // 4. Une camera posee sous le sol (un ancien point de vue enregistre la) : remontee des la mise a jour de l'orbite.
+    await page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      sc.camera.position.set(sc.controls.target.x + 8, sc.controls.target.y - 5, sc.controls.target.z + 8);
+      sc.controls.update();
+    });
+    verifier('point de vue', await lire());
+    return { ok: echecs.length === 0, mesure: 'sol ' + (depart.relief ? 'en relief' : 'plat') + ' ; ' + mesures.join(' ; ') + (echecs.length ? ' ; ECHECS : ' + echecs.join(', ') : '') };
+  },
   199: async (page) => {
     // Relire un projet existant donne ce que donne un projet neuf (retour du proprietaire a Hardencourt, 27 novembre 2026 : « le L est
     // en 2 toits et 1 lucarne decouverte » sur son projet rouvert, « c'est bon sur un nouveau projet sur la meme adresse, actualiser
@@ -11888,7 +11950,9 @@ function pointsPour(nomClasse) {
   //       et les couleurs « Plan » / « Réelles », sous « Rues » dans le menu Affichage.
   // 201 : zoomer dans l'apercu de l'import par adresse : agrandir, pincer ou molette, glisser sans choisir, toucher qui choisit (etape 2)
   //       et qui coche (etape 3), le zoom garde d'une etape a l'autre, « Tout voir ».
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201];
+  // 203 : la camera de la Vue 3D ne passe plus sous le sol : orbite poussee vers le bas, deplacement, molette ou pincement, camera
+  //       posee sous le sol ; l'oeil reste a 0,30 m au-dessus du sol sous lui, la cible sur le sol ou au-dessus.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 203];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

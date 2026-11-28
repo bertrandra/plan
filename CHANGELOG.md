@@ -33,6 +33,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   gardé d'une étape à l'autre et quand on change de parcelle, et repart de « tout voir » à une nouvelle adresse. Calcul du cadre
   dans `geometry/cadreApercu.ts`, testé ; aucune quantité ni aucun export ne change.
 
+### Corrigé
+
+- **La caméra de la Vue 3D ne passe plus sous le sol** (retour de l'utilisateur : « en vue 3D je passe en dessous du sol. Aucun
+  intérêt »). Quel que soit le geste — tourner, déplacer, molette, pincement, flèches, hauteur des yeux, point de vue rappelé,
+  cadrage du mode Toit ou de l'audit — l'œil reste au moins à 0,30 m au-dessus du sol sous lui (le relief quand « Relief » est
+  actif, sinon le plan du sol), et la cible de l'orbite ne s'enfonce pas sous le sol. Arrêtée au ras du sol, la caméra garde sa
+  distance à la cible : elle ne se rapproche pas d'elle en insistant. Regarder vers le haut depuis le sol reste possible. Un ancien
+  point de vue enregistré sous le sol est remonté à l'ouverture, sans que le fichier change. La visionneuse du `.glb` suit la même
+  règle (`three/solCamera.ts`). Aucune quantité ni aucun export ne change.
+
 ## [5.43.1] — 2026-11-27
 
 Version **corrective** au sens de `MD/RELEASE.md` : elle corrige la 5.43.0 sans fonction nouvelle. Le propriétaire l'a vu à
