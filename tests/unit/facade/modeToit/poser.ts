@@ -27,11 +27,11 @@ export function poser(o: ObjetPlan, id: string, opts: Options = {}): boolean {
   const sansCorps = () => !(o.batiment?.corpsToit ?? []).some((k) => !k.saillie);
   const forme = piece(id)?.famille === 'toit';
   if (forme && sansCorps() && !opts.sansDecouper) {
-    // Une forme sur un toit simple : il prend cette forme, puis se decoupe en corps de cette forme.
+    // Une forme sur un toit simple le decoupe en corps de cette forme.
     const c = controleurPour(o, id, opts);
-    const r = c.choisirForme(id), d = sansCorps() ? c.decouper() : { fait: false };
+    const r = c.choisirForme(id);
     c.valider();
-    return r.fait || d.fait;
+    return r.fait;
   }
   if (!forme && !opts.sansDecouper && sansCorps()) {
     const d = creerControleurToit(o);

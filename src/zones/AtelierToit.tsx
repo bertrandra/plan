@@ -80,7 +80,7 @@ function GroupesReglage({ e, commandes }: { e: EtatEdition; commandes: RegistreC
   const c = commandes.etat('toit.regler'), refus = refusDe(c);
   if (!e.groupes.length) return null;
   return (
-    <div className="inspecteurToit" data-cible={e.batimentEntier ? 'batiment' : 'element'} role="group" aria-label={'Réglages · ' + e.portee.mots}>
+    <div className="inspecteurToit" data-cible={e.batimentEntier ? 'batiment' : undefined} role="group" aria-label={'Réglages · ' + e.portee.mots}>
       {e.groupes.map((g) => (
         <div key={g.groupe} className="groupeReglage">
           <span className="titreGroupe" aria-hidden="true">{titreDuGroupe(g)}</span>
@@ -270,7 +270,8 @@ function ModifierSimple({ e, commandes }: { e: EtatEdition; commandes: RegistreC
         </div>
         {/* Une forme qui remplace tout le toit dit d'avance ce qui disparait (revue du 28 novembre 2026, constat 2). */}
         {e.portee.entier && <p className="noteReglage avertissementToit" role="note">{'Une forme remplace tout le toit' + (e.forme.disparait.length ? ' : disparaîtront ' + e.forme.disparait.join(', ') + '.' : '.')}</p>}
-        {e.forme.decoupe && <Blocage raison="Ce toit est encore d’un seul tenant : pour poser une lucarne ou régler un corps, découpez-le." e={e} commandes={commandes} />}
+        {/* Un toit d'un seul tenant : toucher une forme, celle en place comprise, le decoupe en corps (audit UX du 28 novembre 2026). */}
+        {e.forme.decoupe && <p className="noteReglage" role="note">Ce toit est d’un seul tenant : touchez une forme, celle en place comprise, pour le découper en corps.</p>}
       </div>
       {f && (
         <div className="reglageSimple enLigne">

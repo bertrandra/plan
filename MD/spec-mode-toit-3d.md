@@ -40,6 +40,11 @@ Ce n'est **pas** un modèle métier : les règles de toit vivent déjà dans Pla
 
 ## 2. Ce qui existe déjà (livré, fusionné dans `main`, PR #374)
 
+> **Depuis le 28 novembre 2026** (« Un seul contrôleur, et l'atelier du toit », plus bas) : `three/gestesToits.ts`, `facade/modeToit/simple.ts`,
+> `app/toits/intention.ts` et `zones/vue3d/ModeToit.tsx` n'existent plus. Les gestes cités dans cette section sont dans le contrôleur
+> (`facade/modeToit/controleurToit.ts`) et ses décisions (`facade/modeToit/gestes.ts`, `pieces.ts`, `exemplesToits.ts`) ; le panneau est
+> l'atelier du toit, zone Z10 (`zones/AtelierToit.tsx`), et ce qui se pose sur la scène est `zones/vue3d/ToitEn3d.tsx`.
+
 ### 2.1 Modèle (`src/model/types.ts`)
 
 - `ObjetPlan.toitFige?: boolean` : « Règles coupées » pour ce bâtiment. Protégé de la relecture : `app/toits/toitsLidar.ts::toitAAjuster` (`if (o.toitFige) return false`),
@@ -528,6 +533,40 @@ Rien n'est retiré du mode : ce qui n'est pas dans le parcours simple est derri�
 - Rien ne change dans le moteur ni les exports (AE 101 : `identite.ts` identique). Tests : `tests/unit/facade/modeToit/simple.test.ts`,
   `tests/unit/app/ecouteurs/entreesModeToit.test.ts`, `tests/unit/styles/panneauToit.test.ts`. Fumée : point 198 (le parcours simple,
   replié) ; les points du mode ouvrent « Plus de réglages » par `panneauToitDeplie(page)`.
+
+### Un seul contrôleur, et l'atelier du toit (Z10)  *(28 novembre 2026, décision du propriétaire)*
+« Crée son propre contrôleur, je veux que ce soit parfait, pas de legacy. Un ou plusieurs contrôleurs, un pour la 3D et un pour la 2D ? »
+**Un seul**, indépendant de la vue : la revue d'architecture du même jour a montré que les écarts naissaient des règles réécrites par
+chemin (le toit simple se réglait autrement en 2D qu'en 3D).
+- **Le contrôleur** (`facade/modeToit/controleurToit.ts`, couche métier : ni React, ni three, ni DOM) : une instance par session, la seule
+  porte d'écriture d'un toit à la main. Il tient la pile (`sessionToit.ts`, `CHAMPS_DU_TOIT` : la liste unique de ce qu'un geste peut
+  toucher, `toitMesure` et `toitLidarLu` compris), l'intention, la cible, la façade regardée. Chaque geste est une transaction : il reprend
+  l'état de la session (jamais le toit du projet montré par « Voir le toit du projet »), calcule dans un brouillon, écrit, fige (`toitFige`,
+  sauf « Règles ») et empile une fois. Les décisions sont des fonctions pures de `gestes.ts` ; l'architecture est décrite dans
+  `MD/architecture.md` §5.2.7.
+- **La portée, une seule règle** (`gestes.ts::porteeDuGeste`) : l'élément ou le corps choisi (un élément renvoie à son corps), sinon le corps
+  de la façade regardée, sinon le corps principal ; tout le toit seulement sous « Bâtiment entier », un choix explicite (pastille
+  `data-portee="batiment"`). L'atelier l'écrit (« Sur : Corps principal »).
+- **Une forme** va au corps visé et garde ce qui y est posé (option A de la revue) ; sous « Bâtiment entier », elle remplace tout le toit,
+  et l'atelier dit avant ce qui disparaîtra (`ceQuiDisparait`). **Un toit d'un seul tenant** (sans corps) : la hauteur et le sens règlent
+  ce toit-là (0,4 à 20 m au-dessus de l'égout, un quart de tour) ; une forme, celle en place comprise, le découpe en corps de cette
+  forme, un par rectangle du bâtiment (`rectanglesDuBatiment` : la maison en L de la démonstration en a deux). Côté « Ajouter », les
+  pièces sont grisées avec leur raison et « Découper ce toit » (`toit.decouper`, des deux côtés) lève l'impasse (audit UX du
+  28 novembre 2026).
+- **Modifier / Ajouter** est tenu par le contrôleur : en « Modifier », poser, dupliquer, un retour d'angle et un décroché sont refusés
+  (« passez à Ajouter ») ; en « Ajouter », forme, faîtage, sens, réglages et poignées le sont. Une pièce s'ajoute à la fin d'une liste,
+  rien d'existant ne bouge. « Dupliquer » et le retour d'angle sont sous « Plus de réglages » du côté « Ajouter ».
+- **Bornes** : celles d'un élément de façade sont `saillies.ts::BORNES_SAILLIE` (largeur 0,6 m au moins, le mur moins 20 cm au plus ;
+  saillie 0,3 à 6 m, 1,5 m pour un bow-window sous le premier étage), pour « Agrandir », les poignées et la pose. **Valeurs par défaut**
+  d'une souche et d'une lucarne : celles de l'audit (`facade/regles/toits/elementsDesMurs.ts`).
+- **L'atelier du toit, zone Z10** (`zones/AtelierToit.tsx`, `MD/spec-ihm-zones.md` §4.9) : le seul endroit où l'on édite un toit, sur le
+  plan comme dans la Vue 3D. L'inspecteur du plan résume le toit et l'ouvre (« Modifier le toit ») ; ses champs de toit sont retirés. Une
+  session ouverte sur le plan garde ses gestes en passant à la 3D (la 3D s'y attache : `modeToit.ts::attacher3d`) et inversement ; ce qui
+  ne se fait qu'en 3D (vues, façades, isoler, toucher un mur, décroché) n'est offert qu'en 3D. Le pied dit « Quitter sans garder » ;
+  « Défaire » est sous les yeux dès le premier geste.
+- Rien ne change dans le moteur, les exports, les quantités, les empreintes ni AE 101 (`identite.ts` identique). Tests :
+  `tests/unit/facade/modeToit/controleurToit.test.ts` (un cas par constat), `gestes.test.ts`, `simple.test.ts`. Fumée : point 204 et
+  les points du mode adaptés (« Quitter sans garder », « Découper ce toit »).
 
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.

@@ -11,7 +11,7 @@ import { decomposerEnRectangles, rectanglesDuContour } from '../../model/volumes
 import { champsBatiment } from '../../model/champsFonction.js';
 import { EXEMPLES_TOITS, LARGEUR_M, LONGUEUR_M, corpsDeLExemple, type ExempleToit } from './exemplesToits.js';
 import { piece } from './pieces.js';
-import { angleDuPlusLongCote, formesAuChoix, LIBELLES_FORME_TOIT } from '../toits/toit.js';
+import { angleDuPlusLongCote, LIBELLES_FORME_TOIT } from '../toits/toit.js';
 import { boiteOrientee, point, repere, type Repere } from '../toits/toitCorps.js';
 import { formeDuCorps } from '../regles/toits/faits.js';
 import { faitageDeLucarne, largeurDeLucarne, PROFONDEUR_LUCARNE_M, SOUCHE, sommetDeSouche } from '../regles/toits/elementsDesMurs.js';
@@ -235,22 +235,6 @@ export function formeEnPlace(o: ObjetPlan, portee: Portee): string | null {
   return t ? pieceDeLaForme(t.forme) : null;
 }
 
-/** Une forme que le toit simple sait dessiner (les formes simples de l'inspecteur d'avant : plat, un pan, deux pans, croupes…). */
-function formeDuToitSimple(id: string): FormeToit | null {
-  const nom = id.replace(/^forme:/, '');
-  return estFormeToit(nom) && formesAuChoix(undefined).includes(nom) ? nom : null;
-}
-
-/**
- * Ce que fait la forme `id` sur un batiment qui n'a que son toit simple : `changer` sa forme (une forme simple autre que celle en place),
- * ou `decouper` le toit en corps de cette forme (la forme deja en place, ou une forme que le toit simple ne dessine pas). C'est le geste
- * qui sort de l'impasse d'une maison en L dont le toit n'est pas en corps (audit UX du 28 novembre 2026).
- */
-export function effetDeLaForme(o: ObjetPlan, id: string): 'changer' | 'decouper' {
-  const simple = formeDuToitSimple(id), enPlace = o.batiment?.toit ? pieceDeLaForme(o.batiment.toit.forme) : null;
-  return simple && id !== enPlace ? 'changer' : 'decouper';
-}
-
 /** Le bouton qui decoupe le toit simple en corps de sa forme : son verbe (« Découper ce toit en quatre pans »), ou null s'il a des corps. */
 export function decoupe(o: ObjetPlan): { piece: string; libelle: string } | null {
   if (corpsDe(o).some((c) => !c.saillie) || !contourDe(o)) return null;
@@ -298,20 +282,16 @@ export function ceQuiDisparait(corps: readonly CorpsToit[]): string[] {
 /**
  * Pose la forme `id` sur la portee : le corps vise seul change, a son emprise et a ses hauteurs, en gardant ce qui y est pose (option A
  * de la revue du 28 novembre 2026) ; tout le toit, seulement quand la personne a choisi « Bâtiment entier » ; sans corps, le toit simple
- * change de forme, ou se decoupe en corps (`effetDeLaForme`). Vrai si le brouillon a change.
+ * se decoupe en corps de cette forme. Vrai si le brouillon a change.
  */
 export function poserForme(o: ObjetPlan, id: string, portee: Portee): boolean {
   const forme = formeAPoser(id);
   if (!forme) return false;
   const corps = corpsDe(o);
-  if (!rangsDeCorps(corps).length) {
-    if (effetDeLaForme(o, id) === 'decouper') return decouperEnCorps(o, id);
-    const t = toitOuDefaut(o), f = formeDuToitSimple(id) as FormeToit;
-    t.forme = f;
-    if (f !== 'croupes') delete t.pente;
-    saisir(t);
-    return true;
-  }
+  // Un toit d'un seul tenant : la forme choisie le decoupe en corps de cette forme, la forme en place comprise (c'est le geste qui sort de
+  // l'impasse d'une maison en L dont le toit n'est pas en corps, audit UX du 28 novembre 2026). Une seule regle, l'atelier ouvert sur le
+  // plan ou dans la Vue 3D (revue du 28 novembre, constat 8).
+  if (!rangsDeCorps(corps).length) return decouperEnCorps(o, id);
   if (portee.entier) {
     // Tout le toit, sur les rectangles du batiment : ce qui y etait est remplace (l'atelier l'a dit avant, `ceQuiDisparait`).
     const rects = rectanglesDuBatiment(o), c0 = corpsPrincipal(o);

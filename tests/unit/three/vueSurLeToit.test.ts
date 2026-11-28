@@ -7,7 +7,7 @@ import { piecesDe } from '../../../src/facade/modeToit/pieces.js';
 // Les vignettes de l'onglet « Sur le toit » du mode Toit (2 novembre 2026, « les icônes des objets sur le toit sont trop petits, il faut
 // zoomer dessus : fenêtre de toit, solaire, jacobine… tous ») : la maison entiere ne laissait a l'element que quelques pixels de la tuile.
 
-/** La tuile du catalogue : 56 px de cote pour l'image (zones/vue3d/ModeToit.tsx, `.toitPiece .glyphe`). */
+/** La tuile du catalogue : 56 px de cote pour l'image (zones/AtelierToit.tsx, `.toitPiece .glyphe`). */
 const TUILE_PX = 56;
 /** Ce que l'element doit couvrir de la tuile, dans sa plus grande dimension : de quoi se reconnaitre. */
 const PART_MIN = 0.3;

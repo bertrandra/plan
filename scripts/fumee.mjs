@@ -51,15 +51,28 @@ async function panneauToitDeplie(page, delai = 60000) {
  * Pose une des six pieces du parcours simple (lucarne, fenetre de toit, cheminee, auvent, appentis, galerie) : on la choisit, puis le
  * bouton du pied la pose. Les autres pieces se posent d'un toucher sur leur vignette, sous « Plus de reglages ».
  */
+/**
+ * Un toit encore d'un seul tenant ne recoit pas de piece (« Ajouter » ne touche rien d'existant) : l'atelier le dit, avec le bouton
+ * « Découper ce toit ». Comme la personne, on le touche d'abord quand il est la.
+ */
+async function decouperSiBesoin(page) {
+  const d = page.locator('.panneauToit [data-commande="toit.decouper"]:not([disabled])').first();
+  if (!(await d.count())) return;
+  await d.click({ timeout: 10000 });
+  await page.waitForFunction(() => !document.querySelector('.panneauToit [data-commande="toit.decouper"]'), null, { timeout: 10000 });
+}
+
 async function poserPieceSimple(page, id) {
   const b = page.locator('.panneauToit [data-commande="toit.intention"][data-intention="ajouter"]').first();
   if ((await b.getAttribute('aria-pressed')) !== 'true') await b.dispatchEvent('click');
+  await decouperSiBesoin(page);
   await page.locator('.panneauToit [data-choix-piece="' + id + '"]').click({ timeout: 30000 });
   await page.locator('.piedToit [data-commande="toit.poser"][data-piece="' + id + '"]').click({ timeout: 30000 });
 }
 
 /** Pose la piece `id` depuis le volet « Ajouter » deja montre : par le parcours simple si elle en est, sinon par sa vignette du catalogue. */
 async function poserPiece(page, id, delai = 20000) {
+  await decouperSiBesoin(page);
   if (await page.locator('.panneauToit [data-choix-piece="' + id + '"]').count()) await poserPieceSimple(page, id);
   else await page.locator('.panneauToit .toitCatalogue [data-piece="' + id + '"], .panneauToit .formesSimples [data-piece="' + id + '"]').dispatchEvent('click', {}, { timeout: delai });
 }
@@ -74,6 +87,8 @@ async function voletToit(page, onglet) {
   const t = page.locator('.toitOnglet', { hasText: new RegExp('^' + nom + '$') });
   await t.waitFor({ state: 'attached', timeout: 10000 });
   await t.dispatchEvent('click');
+  // Un toit d'un seul tenant : les pieces sont grisees avec leur raison, et « Découper ce toit » leve l'impasse (audit UX du 28 novembre).
+  await decouperSiBesoin(page);
 }
 
 const require = createRequire(import.meta.url);
@@ -7712,8 +7727,9 @@ const POINTS = {
     if (ecranModifier.promesse !== 'Vous changez ce qui existe. Rien n’est créé.') echecs.push('promesse « ' + ecranModifier.promesse + ' »');
     if (JSON.stringify(ecranModifier.formes) !== JSON.stringify([['Plat', 'false'], ['Un pan', 'false'], ['Deux pans', 'true'], ['Quatre pans', 'false']])) echecs.push('formes : ' + JSON.stringify(ecranModifier.formes));
     if (ecranModifier.faitage !== '7,0 m' || ecranModifier.sens !== 'Dans la longueur') echecs.push(`faîtage « ${ecranModifier.faitage} », sens « ${ecranModifier.sens} »`);
-    if (JSON.stringify(ecranModifier.pied) !== JSON.stringify(['Annuler', 'Valider'])) echecs.push('pied : ' + JSON.stringify(ecranModifier.pied));
-    // Deux titres, quatre formes, − et +, Tourner, Annuler, Valider : onze boutons ; « Plus de réglages » est un résumé, pas un bouton.
+    if (JSON.stringify(ecranModifier.pied) !== JSON.stringify(['Quitter sans garder', 'Valider'])) echecs.push('pied : ' + JSON.stringify(ecranModifier.pied));
+    // Deux titres, quatre formes, − et +, Tourner, Quitter sans garder, Valider : onze boutons ; « Défaire » n'apparait qu'apres un geste ;
+    // « Plus de réglages » est un résumé, pas un bouton.
     if (ecranModifier.boutons !== 11 || ecranModifier.caches !== 0) echecs.push(`${ecranModifier.boutons} boutons sous les yeux (11 attendus), ${ecranModifier.caches} visibles sous « Plus de réglages » replié`);
     const cibles = await hauteurs('.panneauToit .boutonIntention, .panneauToit .formesSimples .toitPiece, .panneauToit .boutonPas, .panneauToit .boutonTourner, .panneauToit .boutonPied, .panneauToit .plusToit > summary');
     if (cibles.some((h) => h < 48)) echecs.push('une cible du volet Modifier fait moins de 48 px : ' + cibles.join(', '));
@@ -7763,7 +7779,7 @@ const POINTS = {
     });
     if (ecranAjouter.promesse !== 'Vous posez une pièce. Rien d’existant n’est touché.') echecs.push('promesse « ' + ecranAjouter.promesse + ' »');
     if (JSON.stringify(ecranAjouter.pieces) !== JSON.stringify(['Lucarne', 'Fenêtre de toit', 'Cheminée', 'Auvent', 'Appentis', 'Galerie'])) echecs.push('pièces : ' + JSON.stringify(ecranAjouter.pieces));
-    if (ecranAjouter.choisie !== 'Lucarne' || JSON.stringify(ecranAjouter.pied) !== JSON.stringify(['Annuler', 'Poser la lucarne'])) echecs.push(`pièce choisie « ${ecranAjouter.choisie} », pied ${JSON.stringify(ecranAjouter.pied)}`);
+    if (ecranAjouter.choisie !== 'Lucarne' || JSON.stringify(ecranAjouter.pied) !== JSON.stringify(['Quitter sans garder', 'Poser la lucarne'])) echecs.push(`pièce choisie « ${ecranAjouter.choisie} », pied ${JSON.stringify(ecranAjouter.pied)}`);
     const ciblesAjout = await hauteurs('.panneauToit .piecesSimples .toitPiece, .panneauToit .boutonPied');
     if (ciblesAjout.some((h) => h < 48)) echecs.push('une cible du volet Ajouter fait moins de 48 px : ' + ciblesAjout.join(', '));
     // Le libelle du bouton suit la piece choisie, sans rien poser.
@@ -7808,6 +7824,110 @@ const POINTS = {
     const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
     if (!sans) echecs.push('la page déborde en largeur');
     return { ok: echecs.length === 0, mesure: echecs.length ? echecs.join(' ; ') : `carte « ${carte?.etat} », boutons de ${carte?.boutons.map((b) => b.h).join(' et ')} px ; Modifier : ${ecranModifier.boutons} boutons, cibles ≥ ${Math.min(...cibles)} px, quatre pans, faîtage ${f0} → ${monte.corps?.[0]?.faitage} m, « ${sens} », validé en une étape ; Ajouter : six pièces, cibles ≥ ${Math.min(...ciblesAjout)} px, « Poser la lucarne », largeur ${(luc.finM - luc.debutM).toFixed(2)} → ${(large.finM - large.debutM).toFixed(2)} m ; Annuler rend le toit ; ${tactile ? 'au doigt' : 'à la souris'}, « Plus de réglages » replié de bout en bout` };
+  },
+  204: async (page, f) => {
+    // L'atelier du toit (Z10) et son controleur unique (28 novembre 2026) : la maison de la demonstration, telle quelle (un toit d'un seul
+    // tenant, a quatre pans, sur un contour en L), avec une mesure LiDAR et une version de lecture. Sur le plan, l'inspecteur ouvre
+    // l'atelier ; la forme en place se dit, les pieces sont grisees avec leur raison, « Découper ce toit » leve l'impasse, « Défaire » est
+    // sous les yeux ; la 3D s'attache a la session ; toucher la forme en place decoupe ; une galerie posee, une forme sans choix la garde,
+    // « Bâtiment entier » dit ce qui disparaitra ; « Voir le toit du projet » puis un pas du faitage ne perd rien ; « Règles » puis
+    // « Quitter sans garder » rendent le batiment au bit pres, mesure et version de lecture comprises.
+    const echecs = [];
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const b = (o.batiment ??= {});
+      delete b.corpsToit; delete b.toitFige; delete b.modeToit;
+      b.toitLidarLu = 9;
+      b.toitMesure = { pas: 0.5, x0: 0, y0: 0, nx: 2, ny: 1, z: [7, null], egout: 6, faite: 7, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.selectionnerCle('maison');
+    });
+    const batiment = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.find((x) => x.key === 'maison').batiment));
+    const corps = () => page.evaluate(() => window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit ?? []);
+    const depart = await batiment();
+    const panneau = '.panneauToit';
+    const pieces = () => page.evaluate(() => [...document.querySelectorAll('.panneauToit .piecesSimples .toitPiece')].map((b) => ({ d: b.disabled, t: b.getAttribute('title') || '' })));
+
+    // ---- Sur le plan : l'inspecteur ouvre l'atelier ----------------------------------------------------
+    await inspecteur(page);
+    await ouvrirSection(page, 'toit');
+    const resume = await page.locator('#zoneInspecteur [data-cle="toitResume"]').first().textContent({ timeout: 15000 }).catch(() => '');
+    if (!/Toit à quatre pans/.test(resume ?? '')) echecs.push('résumé de l’inspecteur « ' + resume + ' »');
+    await etape('Modifier le toit', () => page.locator('#zoneInspecteur [data-cle="toitModifier"] button').first().click({ timeout: 15000 }));
+    if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille(null));
+    await etape('Z10 sur le plan', () => page.locator('#stage .panneauToit[data-vue="plan"][data-zone="Z10"]').waitFor({ timeout: 30000 }));
+    if ((await page.locator('#stage [data-commande="toit.vueDessus"]').count()) !== 0) echecs.push('sur le plan, l’atelier offre une vue 3D');
+    // L'impasse : la forme en place est dite ; cote « Ajouter », les six pieces sont grisees avec leur raison et le verbe la leve.
+    if ((await page.locator(panneau + ' .formesSimples [data-piece="forme:croupes"]').getAttribute('aria-pressed')) !== 'true') echecs.push('« Quatre pans » n’est pas dite en place');
+    await page.locator(panneau + ' [data-commande="toit.intention"][data-intention="ajouter"]').click({ timeout: 15000 });
+    const grisees = await pieces();
+    if (grisees.length !== 6 || !grisees.every((x) => x.d && /découpé en corps/.test(x.t))) echecs.push('pièces avant découpe : ' + JSON.stringify(grisees.map((x) => x.d)));
+    const verbe = await page.locator(panneau + ' .blocageToit [data-commande="toit.decouper"]').textContent({ timeout: 10000 }).catch(() => null);
+    if (!/^Découper ce toit/.test(verbe ?? '')) echecs.push('pas de bouton « Découper ce toit » (« ' + verbe + ' »)');
+    if ((await page.locator(panneau + ' .defaireToit').count()) !== 0) echecs.push('« Défaire » montré avant tout geste');
+    await page.locator(panneau + ' .blocageToit [data-commande="toit.decouper"]').click({ timeout: 10000 });
+    await page.waitForFunction(() => (window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.length ?? 0) > 0, null, { timeout: 15000 }).catch(() => {});
+    const decoupes = (await corps()).length;
+    if (decoupes < 1) echecs.push('« Découper ce toit » n’a pas découpé');
+    if ((await pieces()).some((x) => x.d)) echecs.push('des pièces restent grisées après la découpe');
+    // « Défaire » sous les yeux des le premier geste ; le pied quitte sans rien garder.
+    await etape('Défaire', () => page.locator(panneau + ' .defaireToit').click({ timeout: 10000 }));
+    await page.waitForTimeout(300);
+    if ((await corps()).length !== 0) echecs.push('« Défaire » n’a pas défait la découpe');
+    const pied = await page.locator(panneau + ' .piedToit [data-commande="toit.abandonner"]').textContent();
+    if (pied !== 'Quitter sans garder') echecs.push('pied « ' + pied + ' »');
+
+    // ---- La 3D s'attache a la session ---------------------------------------------------------------
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('Z10 dans la Vue 3D', () => page.locator('#terrasse3dCanvasHost .panneauToit[data-vue="vue3d"]').waitFor({ timeout: 60000 }));
+    await image3dStable(page, 2000);
+    await page.locator(panneau + ' [data-commande="toit.intention"][data-intention="modifier"]').click({ timeout: 15000 });
+    // Toucher la forme en place la decoupe en corps de cette forme.
+    await page.locator(panneau + ' .formesSimples [data-piece="forme:croupes"]').click({ timeout: 15000 });
+    await page.waitForTimeout(400);
+    const n0 = (await corps()).length;
+    if (n0 < 1) echecs.push('toucher la forme en place n’a pas découpé le toit');
+    // Une galerie posee ; puis rien de choisi, « Deux pans » : elle reste, le nombre de corps aussi (option A).
+    await etape('galerie', () => poserPieceSimple(page, 'facade:galerie'));
+    await page.waitForTimeout(400);
+    const avecGalerie = await corps();
+    const galeries = (l) => l.filter((k) => k.saillie?.genre === 'galerie').length;
+    if (galeries(avecGalerie) !== 1) echecs.push('la galerie n’est pas posée');
+    await page.evaluate(() => window.__plan.executer('toit.selection'));
+    await page.waitForTimeout(200);
+    const portee = await page.locator(panneau + ' .porteeToit').textContent({ timeout: 10000 }).catch(() => '');
+    await page.locator(panneau + ' .formesSimples [data-piece="forme:deux-pans"]').click({ timeout: 15000 });
+    await page.waitForTimeout(400);
+    const apresForme = await corps();
+    if (galeries(apresForme) !== 1 || apresForme.length !== avecGalerie.length) echecs.push(`une forme sans choix a changé ${avecGalerie.length} → ${apresForme.length} corps`);
+    if (!/^Sur : /.test(portee ?? '')) echecs.push('la portée n’est pas dite (« ' + portee + ' »)');
+    // « Bâtiment entier » : ce qui disparaitra est dit avant le geste.
+    await page.locator(panneau + ' .puceToit[data-portee="batiment"]').click({ timeout: 10000 });
+    const averti = await page.locator(panneau + ' .avertissementToit').textContent({ timeout: 10000 }).catch(() => '');
+    if (!/disparaîtront .*galerie/.test(averti ?? '')) echecs.push('« Bâtiment entier » ne dit pas ce qui disparaît (« ' + averti + ' »)');
+    await page.locator(panneau + ' .puceToit[data-portee="batiment"]').click({ timeout: 10000 });
+    // « Voir le toit du projet », puis un pas du faitage : la session est reprise, rien n'est perdu.
+    await panneauToitDeplie(page, 10000);
+    await page.locator(panneau + ' [data-commande="toit.voirValide"]').click({ timeout: 10000 });
+    await page.waitForTimeout(300);
+    const vu = await corps();
+    await page.locator(panneau + ' [data-commande="toit.faitage"][data-sens="1"]').click({ timeout: 10000 });
+    await page.waitForTimeout(300);
+    const repris = await corps();
+    if (vu.length !== 0 || repris.length !== apresForme.length || galeries(repris) !== 1) echecs.push(`voir le projet puis « + » : ${vu.length} corps montrés, ${repris.length} après (attendu ${apresForme.length}, la galerie gardée)`);
+    // « Règles » rallumees retirent mesure et version de lecture ; « Quitter sans garder » rend tout, au bit pres.
+    await page.locator(panneau + ' [data-commande="toit.regles"]').click({ timeout: 10000 });
+    await page.waitForTimeout(300);
+    const relu = await page.evaluate(() => { const b = window.__plan.etat().objects.find((x) => x.key === 'maison').batiment; return !b?.toitMesure && !b?.toitLidarLu && !b?.toitFige; });
+    if (!relu) echecs.push('« Règles » n’ont pas rendu le toit à la lecture');
+    await page.locator(panneau + ' .piedToit [data-commande="toit.abandonner"]').click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Abandonner', exact: true }).click({ timeout: 15000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    if ((await batiment()) !== depart) echecs.push('« Quitter sans garder » n’a pas rendu le bâtiment au bit près');
+    const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
+    if (!sans) echecs.push('la page déborde en largeur');
+    return { ok: echecs.length === 0, mesure: echecs.length ? echecs.join(' ; ') : `Z10 ouverte sur le plan puis attachée à la 3D ; impasse dite (six pièces grisées, « ${verbe} »), ${decoupes} corps découpés, « Défaire » sous les yeux ; ${n0} corps par la forme en place ; une forme sans choix garde la galerie (« ${portee} ») ; « Bâtiment entier » : « ${averti} » ; voir le projet puis « + » sans perte ; Règles puis Quitter sans garder : bâtiment au bit près` };
   },
   98: async (page, f) => {
     // Mode Toit : le geste n'agit que sur le corps choisi. Une aile posee contre la maison, puis choisie (pastille) : sa silhouette se
@@ -10211,12 +10331,17 @@ const POINTS = {
     await page.waitForTimeout(400);
     await page.evaluate(() => window.__plan.selectionnerCle('maison'));
     await inspecteur(page);
-    // « Modifier la toiture en 3D » est dans la section « Toit », separee de « Façades » (decision B2 de l'audit de l'inspecteur).
+    // « Modifier le toit » est dans la section « Toit », separee de « Façades » (decision B2 de l'audit de l'inspecteur) : il ouvre l'atelier
+    // du toit (Z10) sur le plan ; passer a la Vue 3D garde la session, et la 3D s'y attache.
     await ouvrirSection(page, 'toit');
-    await etape('Modifier la toiture en 3D', () => page.locator('#zoneInspecteur [data-cle="toit3d"] button').first().click({ timeout: 15000 }));
+    await etape('Modifier le toit', () => page.locator('#zoneInspecteur [data-cle="toitModifier"] button').first().click({ timeout: 15000 }));
     if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille(null));
+    await etape('l’atelier ouvert sur le plan', () => page.locator('#stage .panneauToit[data-vue="plan"]').waitFor({ timeout: 30000 }));
+    const surLePlan = (await page.evaluate(() => window.__plan.magasin().vue)) === 'plan';
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await etape('la Vue 3D s’attache à la session', () => page.locator('#terrasse3dCanvasHost .panneauToit[data-vue="vue3d"]').waitFor({ timeout: 60000 }));
     await etape('le mode ouvert depuis le plan', () => panneauToitDeplie(page, 60000));
-    const depuisLePlan = (await page.evaluate(() => window.__plan.magasin().vue)) === 'vue3d';
+    const depuisLePlan = surLePlan && (await page.evaluate(() => window.__plan.magasin().vue)) === 'vue3d';
     // Deux pignons et un bow-window.
     const poser = async (onglet, piece) => etape('pièce ' + piece, async () => {
       await voletToit(page, new RegExp('^' + onglet + '$'));
@@ -10277,7 +10402,7 @@ const POINTS = {
     await page.waitForTimeout(600);
     const focus = await page.evaluate(() => document.activeElement?.id === 'terrasse3dModifierToit');
     const ok = grise && depuisLePlan && nomsUniques && titres.length >= 2 && murSur3d === 1 && icones && clavier && raisons && focus;
-    return { ok, mesure: `sans bâtiment : bouton ${grise ? 'grisé avec sa raison' : 'EFFACÉ OU MUET'} ; depuis le plan : ${depuisLePlan ? 'Vue 3D et mode ouverts' : 'ÉCHEC'} ; pastilles ${nomsUniques ? 'toutes différentes' : 'EN DOUBLE'} (${noms.join(', ')}) ; titres des groupes ${titres.join(', ') || 'AUCUN'} ; « Choisir le mur dans la 3D » ${murSur3d ? 'dans le panneau' : 'ABSENT'} ; icônes ${icones ? 'distinctes' : 'EN DOUBLE'} ; mur au clavier ${clavier ? '« ' + nomMur + ' »' : 'ÉCHEC'} ; raisons au doigt ${raisons ? 'écrites' : 'MANQUANTES'} ; focus après Valider ${focus ? 'sur « Modifier la toiture »' : 'PERDU'}` };
+    return { ok, mesure: `sans bâtiment : bouton ${grise ? 'grisé avec sa raison' : 'EFFACÉ OU MUET'} ; depuis le plan : ${depuisLePlan ? 'atelier ouvert sur le plan, puis la Vue 3D attachée' : 'ÉCHEC'} ; pastilles ${nomsUniques ? 'toutes différentes' : 'EN DOUBLE'} (${noms.join(', ')}) ; titres des groupes ${titres.join(', ') || 'AUCUN'} ; « Choisir le mur dans la 3D » ${murSur3d ? 'dans le panneau' : 'ABSENT'} ; icônes ${icones ? 'distinctes' : 'EN DOUBLE'} ; mur au clavier ${clavier ? '« ' + nomMur + ' »' : 'ÉCHEC'} ; raisons au doigt ${raisons ? 'écrites' : 'MANQUANTES'} ; focus après Valider ${focus ? 'sur « Modifier la toiture »' : 'PERDU'}` };
   },
   137: async (page, f) => {
     // Le corps choisi au mode Toit (audit de la navigation, 6 novembre 2026, lot B), sur AE 101 et ses cinq corps : a l'entree, la camera

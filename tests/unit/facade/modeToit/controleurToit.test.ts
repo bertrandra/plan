@@ -283,14 +283,14 @@ describe('le toit simple : une seule regle, en 2D comme en 3D (constat 8)', () =
       expect(plan.batiment?.toitFige).toBe(true);
     });
   }
-  it('une forme simple autre que celle en place change le toit simple ; il reste d un seul tenant', () => {
+  it('sans corps, la hauteur et le sens reglent le toit simple ; une forme le decoupe en corps de cette forme', () => {
     const o = simple(), c = creerControleurToit(o);
-    c.choisirForme('forme:plat');
-    expect(o.batiment?.toit?.forme).toBe('plat');
-    expect(o.batiment?.corpsToit).toBeUndefined();
-    c.choisirForme('forme:appentis');
     c.reglerFaitage(-1);
     expect(o.batiment?.toit?.hauteur).toBe(2.9);
+    expect(o.batiment?.corpsToit).toBeUndefined();
+    c.choisirForme('forme:plat');
+    expect(o.batiment?.corpsToit).toHaveLength(1);
+    expect(o.batiment?.toit?.forme).toBe('plat');
   });
 });
 

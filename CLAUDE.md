@@ -132,6 +132,9 @@ d'y toucher.
 
 ## Décisions déjà prises
 
+- **Un seul contrôleur d'édition du toit, 2D et 3D en sont des adaptateurs ; aucune règle de toit hors de lui**
+  (`facade/modeToit/controleurToit.ts`, décisions dans `gestes.ts`). Il s'édite dans l'atelier du toit, la zone Z10
+  (`zones/AtelierToit.tsx`), sur le plan comme dans la Vue 3D ; l'inspecteur le résume et l'ouvre.
 - **Le banc d’apprentissage des façades (`banc/`, `?banc`) est une application à part** (demande du propriétaire, 11 novembre 2026) :
   son code n’importe rien de `src/` (`banc/tests/independance.test.ts`) ; ce qu’il tient de Plan est copié, figé, dans `banc/src/plan/`.
   Son serveur (`banc/public/api.php`), son mot de passe (`banc-config.php`) et ses données (`data/apprentissage/`) sont les siens. Plan

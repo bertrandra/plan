@@ -28,6 +28,7 @@ opérationnel, plus les conventions visuelles tirées de `src/styles/app.css`.
 | Z7 Barre d'état | `zones/BarreEtat.tsx` | Serveur, enregistrement, échelle, pointeur, sélection, version | Un clic (sauf l'indicateur d'enregistrement) |
 | Z8 Dialogues | `zones/Dialogues.tsx`, `shell/dialogues.ts` | Parcours en plusieurs étapes, confirmations ; fermables par Échap | Un message informatif |
 | Z9 Notifications | `zones/Notifications.tsx`, `shell/notifications.ts` | Toasts empilés, bandeau d'erreur fermable | Une question à l'utilisateur |
+| Z10 Atelier du toit | `zones/AtelierToit.tsx` (racine `#zoneAtelierToit`, panneau posé sur le canevas montré) | Le seul endroit où l'on édite un toit, sur le plan et en 3D : Modifier / Ajouter, « Plus de réglages », Défaire, Valider, Quitter sans garder ; il lit le contrôleur du toit et émet ses commandes `toit.*` | Une règle de toit (elle est dans `facade/modeToit/controleurToit.ts`), un champ de toit dans Z5 |
 
 Règles :
 
@@ -188,7 +189,7 @@ couleur hexadécimale ne traîne hors des blocs de jetons**.
   ligne (titre, valeur, − et + ou un bouton à verbe), et range le reste derrière une entrée repliée « Plus de réglages »
   (`<details>` piloté, replié à chaque ouverture). Rien n'est retiré, rien n'est dit deux fois : ce que le parcours simple offre
   n'est pas redit dessous. Les actions qui ferment (Annuler, Valider, « Poser la lucarne ») sont au pied, hors du défilement, à
-  48 px. Modèle : `zones/vue3d/ModeToit.tsx`, `facade/modeToit/simple.ts`.
+  48 px. Modèle : `zones/AtelierToit.tsx` (Z10), `facade/modeToit/controleurToit.ts`.
 - Boutons : `button` plein (`--ink`) pour l'action principale, `.secondary` pour le reste,
   `.small` pour les actions de ligne, `.danger` pour l'irréversible — toujours derrière une
   confirmation Z8.
