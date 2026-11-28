@@ -1,0 +1,1 @@
+import{d as s}from"./plan-ee4433b1030df729.js";const n="5.45.0",r=16,e="v1",a="2026-10-30",c=null;function i(){return n+" · "+a}function u(t=new Date){return"Plan interactif "+n+" — "+s(t)}export{n as A,c as B,r as S,a,e as b,u as s,i as v};
