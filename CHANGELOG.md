@@ -86,6 +86,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **L'impasse du toit d'un seul tenant** (audit UX du 28 novembre 2026, la maison en L de la démonstration) : toucher une forme, celle
   en place comprise, découpe le toit en corps, un par rectangle du bâtiment ; côté « Ajouter », les pièces sont grisées avec leur
   raison et le bouton « Découper ce toit » lève l'impasse.
+- Au téléphone, le bouton « Déplier le plan des façades » de la Vue 3D montre de nouveau son icône (un carré vide : la règle qui cachait
+  le plan replié cachait aussi l'icône du bouton ; signalé par l'audit UX).
 - La marque `toitFige` n'est plus posée à la main en vingt-quatre endroits (constat 5) : toute écriture du contrôleur fige, sauf
   « Règles » ; la validation ne relit le toit que si la personne a rallumé les « Règles ».
 
