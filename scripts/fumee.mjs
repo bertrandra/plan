@@ -1210,10 +1210,21 @@ const POINTS = {
     const c = pc && pc.cadastre;
     // Le projet que l'import vient de creer ne demande pas « Mettre à jour le modèle ? » (point 151).
     const question = await page.getByText('Mettre à jour le modèle ?', { exact: true }).waitFor({ timeout: 3000 }).then(() => true, () => false);
+    // L'arrivee (constat 4 de l'audit UX de la 5.45.0) : rien de choisi ; le batiment principal s'appelle « Maison » (l'usage de la
+    // BD TOPO reste dans ses donnees) ; le plan s'ouvre cadre sur la maison (et la terrasse de depart), pas sur toute la parcelle.
+    const arrivee = await page.evaluate(() => {
+      const e = window.__plan.etat();
+      const m = e.objects.find((o) => o.name === 'Maison' && o.fonction === 'batiment');
+      const el = m && document.querySelector('#stage svg [data-role="obj"][data-key="' + m.key + '"]');
+      const s = document.getElementById('stage').getBoundingClientRect(), b = el?.getBoundingClientRect();
+      return { sel: e.selectedKey, maison: !!m, usage: m?.bdtopo?.usage1 ?? null, part: b ? Math.round(100 * (b.width * b.height) / (s.width * s.height)) : 0 };
+    });
+    const arriveeOk = arrivee.sel === null && arrivee.maison && arrivee.part >= 4;
     return {
-      ok: !!c && etat.objects.length !== avant && !question,
+      ok: !!c && etat.objects.length !== avant && !question && arriveeOk,
       mesure: `« ${ADRESSE} » → ${c ? c.section + ' ' + c.numero + ' (' + c.idu + '), ' + c.contenanceM2 + ' m²' : 'AUCUNE parcelle cadastrée'}, `
         + `${etat.objects.length} objets dont ${batiments} bâtiment(s)${question ? ' ; « Mettre à jour le modèle ? » POSÉE au nouveau projet' : ''}`
+        + ` ; arrivée : sélection ${arrivee.sel ?? 'aucune'}, « Maison » ${arrivee.maison ? 'nommée (usage ' + arrivee.usage + ' gardé)' : 'ABSENTE'}, ${arrivee.part} % du plan`
     };
   },
   13: async (page, contexte) => {
@@ -1627,7 +1638,8 @@ const POINTS = {
     await champ.fill('123.45'); await champ.press('Enter'); await champ.dispatchEvent('change'); await page.waitForTimeout(150);
     const t = await page.evaluate(() => document.getElementById('terrasseBomTotals').textContent);
     const carte = await page.evaluate(() => getComputedStyle(document.querySelector('#terrasseBomTable tr:nth-child(2)')).display);
-    return { ok: /R[ée]el saisi/.test(t), mesure: `prix réel saisi dans une carte (${carte}) : « ${t} »` };
+    // Le total retenu dit d'ou il vient (constat 5 de l'audit UX de la 5.45.0) : « 1 prix saisi » des la saisie.
+    return { ok: /1 prix saisi/.test(t), mesure: `prix réel saisi dans une carte (${carte}) : « ${t} »` };
   },
   35: async (page) => {
     await page.evaluate(() => window.__plan.executer('mesure.nouvelle')); await page.waitForTimeout(150);
@@ -3147,16 +3159,17 @@ const POINTS = {
     }
     const cellules = () => page.evaluate(() => [...(document.getElementById('terrasseBomTotals')?.children ?? [])].map((c) => c.textContent.replace(/\s+/g, ' ').trim()));
     const t0 = await cellules();
-    if (t0[0] !== 'Total HT') echecs.push('ligne « Total HT » absente : ' + JSON.stringify(t0));
-    const fourchette = t0.length ? t0[2] + ' – ' + t0[3] : '';
-    if (barre !== null && barre.replace(/\s+/g, ' ') !== fourchette) echecs.push(`fourchette de la barre « ${barre} » ≠ total de la table « ${fourchette} »`);
-    // Un prix reel saisi sur une ligne non calculee s'ajoute au total reel.
+    // Depuis le constat 5 de l'audit UX de la 5.45.0 : un seul nombre, le total retenu (prix saisi, sinon calcule, sinon milieu de
+    // la fourchette), la fourchette en second ; la barre dit le meme total retenu que la table.
+    if (t0[0] !== 'Total retenu HT') echecs.push('ligne « Total retenu HT » absente : ' + JSON.stringify(t0));
+    const montant = (t) => (t.match(/^[\d\s]+ €/) || [''])[0].replace(/\s+/g, ' ').trim();
+    if (barre !== null && barre.replace(/\s+/g, ' ') !== montant(t0[4] || '')) echecs.push(`total de la barre « ${barre} » ≠ total retenu de la table « ${t0[4]} »`);
+    // Un prix saisi sur une ligne non calculee remplace le milieu de sa fourchette, et la table le dit.
     const champ = page.locator('#terrasseBomTable input[type="number"]').first();
     await champ.scrollIntoViewIfNeeded();
     await champ.fill('100'); await champ.press('Enter'); await champ.dispatchEvent('change'); await page.waitForTimeout(300);
     const t1 = await cellules();
-    const reel = (t) => parseFloat((t[4] || '').replace(/[^0-9,]/g, '').replace(',', '.'));
-    if (!(Math.abs(reel(t1) - reel(t0) - 100) < 0.01)) echecs.push(`réel saisi « ${t0[4]} » → « ${t1[4]} » (attendu + 100 €)`);
+    if (!/1 prix saisi/.test(t1[4] || '') || montant(t1[4] || '') === montant(t0[4] || '')) echecs.push(`total retenu « ${t0[4]} » → « ${t1[4]} » (attendu : « 1 prix saisi », un autre total)`);
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + `barre « ${barre} », ligne « ${t1.join(' | ')} »` };
   },
   163: async (page, f) => {
@@ -4519,8 +4532,10 @@ const POINTS = {
       const deborde = await p.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialoguePartage')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
       const petit = await p.evaluate(() => Math.min(...[...document.querySelectorAll('.dialoguePartage button')].map((b) => b.getBoundingClientRect().height)));
       // Retirer, puis Annuler : rien ne part.
+      // Se raviser se fait dans le dialogue (« Annuler le retrait » sur la ligne) : les toasts passent sous les dialogues (constat 1
+      // de l'audit UX de la 5.45.0).
       await boite.locator('[data-controle="partage.retirer"]').click();
-      await p.locator('.toastAction [data-controle="notification.action"]').click({ timeout: 5000 });
+      await boite.locator('[data-controle="partage.garder"]').click({ timeout: 5000 });
       await p.waitForTimeout(7000);
       const apresAnnuler = sim.journal.filter((j) => j.requete.startsWith('DELETE ')).length;
       const etatApresAnnuler = (await boite.locator('.lienEtat').first().textContent()) ?? '';
@@ -5699,7 +5714,7 @@ const POINTS = {
   },
   192: async (page, f) => {
     // La selection et les chemins perdus (demandes du proprietaire, 22 novembre 2026).
-    // 1. Entrer en Vue 3D sans avoir rien choisi : la terrasse, posee d'office a l'ouverture, n'y est plus selectionnee ; le retour au
+    // 1. Entrer en Vue 3D sans avoir rien choisi : rien n'est choisi a l'ouverture (constat 3 de l'audit UX de la 5.45.0), rien ne l'est en 3D ; le retour au
     //    plan n'invente rien ; les reglages de la terrasse courante restent proposes. Un objet choisi par la personne, lui, est garde.
     // 2. Un vrai clic (un toucher au doigt) sur chaque sorte d'objet du plan donne le meme inspecteur que sa ligne de l'explorateur.
     // 3. Les etiquettes des cotes, la fleche du nord et l'echelle ne prennent plus le clic : sous une etiquette, l'objet se choisit.
@@ -5713,7 +5728,8 @@ const POINTS = {
 
     // ---- 1. La Vue 3D sans selection ------------------------------------------------------------
     const ouverture = await lire();
-    if (ouverture.sel !== 'terrasse') echecs.push('ouverture : sélection ' + ouverture.sel + ' (attendu : la terrasse, posée d’office)');
+    // Depuis le constat 3 de l'audit UX de la 5.45.0, rien n'est choisi a l'ouverture : la Vue 3D n'a rien a lacher.
+    if (ouverture.sel !== null) echecs.push('ouverture : sélection ' + ouverture.sel + ' (attendu : rien de choisi)');
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 60000 });
     await vue3dEconome(page);

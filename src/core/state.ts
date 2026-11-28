@@ -12,7 +12,6 @@
 // Cet objet grandit au fil de la migration : chaque variable libre qui rejoint `EtatApp` est une
 // dependance qui cesse d'etre invisible. Ce qui n'y est pas encore vit toujours dans `boot()`.
 
-import { au } from '../util/tableaux.js';
 import { creerScene, type EtatScene } from '../geometry/vue.js';
 import { PileAnnulation } from './history.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
@@ -106,19 +105,14 @@ export function creerEtat(
   normaliser: (objs: ObjetBrut[]) => ObjetPlan[]
 ): EtatApp {
   const objects = normaliser(seed.objects || []);
-  // La terrasse est l'objet qu'on vient regarder en arrivant, quand il y en a une.
-  const accueil = objects.some((o) => o.key === 'terrasse')
-    ? 'terrasse'
-    : objects.length
-      ? au(objects, 0).key
-      : null;
   return {
     objects,
     measures: (seed.measures || []).map((m) => ({ ...m })),
 
-    // Posee d'office, pas choisie : la Vue 3D ne la reprend pas (core/selectionAccueil.ts).
-    selectedKey: accueil,
-    selectionAccueil: accueil,
+    // Un projet s'ouvre sans rien de choisi (audit UX de la 5.45.0, constat 3) : une selection posee d'office ouvrait
+    // l'inspecteur sur un objet que la personne n'avait pas designe, et au doigt un toucher suivant la prenait pour un choix.
+    selectedKey: null,
+    selectionAccueil: null,
     highlight: { type: null, index: null },
     // Les cotes plutot qu'un onglet de terrasse : ceux-la recalculent le chiffrage et l'ecrivent
     // dans le projet des qu'ils s'ouvrent, ce que l'ancien mode Terrasse ne faisait qu'a la demande.

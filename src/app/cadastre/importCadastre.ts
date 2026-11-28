@@ -31,6 +31,7 @@ import { couleursMursDepuisPhotos } from '../../render/couleurMurPhoto.js';
 import { FUSION_TOL_M } from '../../geo/constantesCadastre.js';
 import { lireRelief, demandeReliefDuPlan } from '../../geo/relief.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
+import { maisonDe } from '../../model/placement.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { droitsCourants } from '../acces.js';
 import {
@@ -40,7 +41,7 @@ import {
   rayonDeLecture, RAYON_ETENDU_DEFAUT_M,
   RAYONS_RECHERCHE_M, COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
 } from '../../geo/apiIgn.js';
-import { retenirProjetNeuf } from '../../io/modeleGarde.js';
+import { retenirProjetNeuf, retenirArriveeImport } from '../../io/modeleGarde.js';
 import type { Candidate, ElementIgn, FeatureGeoJSON, VoisinageRayon } from '../../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { AdresseRecherchee, ImportCadastral } from '../../geo/cadastreObjets.js';
@@ -356,7 +357,9 @@ function lectures(n: Noyau): Lectures {
       // Au-dela de 3 %, on montre les deux : la contenance cadastrale est arrondie et calculee
       // autrement, l'ecart est normal — mais le cacher ferait douter de la geometrie importee.
       const ecart = Math.abs(calc - c.contenance) / c.contenance;
-      return ecart > 0.03 ? (c.contenance + ' m² (cadastre) / ' + calc + ' m² (calcul)') : (c.contenance + ' m²');
+      // Sous 3 %, la contenance seule, mais dite « cadastre » : le plan tracera la sienne, qui en differe un peu, et la fiche de la
+      // parcelle montrera les deux (audit UX de la 5.45.0, constat 9).
+      return ecart > 0.03 ? (c.contenance + ' m² (cadastre) / ' + calc + ' m² (calcul)') : (c.contenance + ' m² (cadastre)');
     },
     // Surface fusionnee reelle, pas la somme des contenances. Une fusion impossible doit se voir AVANT
     // la creation du projet, pas apres.
@@ -744,6 +747,16 @@ async function reliefImporte(objets: ObjetPlan[], e: EtatImportCadastre, occuper
   }
 }
 
+/**
+ * Le batiment principal de la parcelle s'appelle « Maison » (audit UX de la 5.45.0, constat 4) : « Residentiel (2 niv.) » est le
+ * nom technique de la BD TOPO, que la personne ne reconnait pas. Pose ici, comme la terrasse de depart, et non dans
+ * `objetsDepuisCadastre`, qui rend ce que dit le cadastre (son empreinte le garde) ; l'usage et les etages restent dans `bdtopo`.
+ */
+export function nommerLaMaison(objets: ObjetPlan[]): void {
+  const m = maisonDe(objets);
+  if (m && m.bdtopo) m.name = 'Maison';
+}
+
 /** La fin du parcours : le plan construit, enregistre comme nouveau projet (ou charge en local). */
 function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, fermer: () => void): Pick<ImportCadastre, 'creerProjet'> {
   const { e, signaler, occuper, principale, proj } = n;
@@ -771,6 +784,7 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
           const t = ctx.terrasseDeDepart(objets);
           if (t) objets.push(t);
         }
+        nommerLaMaison(objets);
       } catch (err) {
         e.erreur = phraseReseau(err, 'Les services de l’IGN', 'Réessayez « Créer » dans un instant.') ?? 'Construction du plan impossible : ' + detailTechnique(err);
         signaler(); return;
@@ -810,6 +824,7 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         // Cree par cette version, ou rempli pour la premiere fois (le projet neuf de la plateforme, au document vide) :
         // pas de « Mettre a jour le modele ? » a sa premiere ouverture (io/modeleGarde.ts).
         retenirProjetNeuf(cree.id);
+        retenirArriveeImport(cree.id);
         localStorage.setItem(ctx.cleDernierProjet, cree.id);
         // Le projet est enregistre : ouvrir le projet cree ne perd rien, le navigateur ne demande rien (shell/depart.ts).
         partirSansQuestion();

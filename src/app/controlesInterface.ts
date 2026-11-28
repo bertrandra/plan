@@ -478,7 +478,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'partage.copier': etape(Z8, PARTAGER, 'Copier le lien'),
   'partage.natif': etape(Z8, PARTAGER, 'Envoyer le lien par le partage du système (au doigt)'),
   'partage.autre': etape(Z8, PARTAGER, 'Créer un autre lien'),
-  'partage.retirer': etape(Z8, PARTAGER, 'Retirer un lien (Annuler dans le message, quelques secondes)', { repete: true }),
+  'partage.retirer': etape(Z8, PARTAGER, 'Retirer un lien (« Annuler le retrait » sur sa ligne, quelques secondes)', { repete: true }),
+  'partage.garder': etape(Z8, PARTAGER, 'Annuler le retrait d’un lien, tant qu’il n’est pas parti', { repete: true }),
   'partage.fermer': etape(Z8, PARTAGER, 'Fermer le partage'),
   // Mes projets (lot 2, zones/parcours/MesProjets.tsx) : ouvrir passe par `projet.ouvrir`, partir d'une adresse par sa commande.
   'mesProjets.ouvrir': etape(Z8, 'projet.mesProjets', 'Ouvrir un de mes projets', { repete: true }),
