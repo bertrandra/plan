@@ -217,31 +217,34 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
   return (
     <Deroulant id="menuExporter" titre="Exporter">
       <ul role="menu">
+        {/* Par usage, titres en petites capitales (audit UX de la 5.45.0, polissages) ; les reglages des exports (echelle du PDF,
+            emprise des equipements) regroupes a part, en fin de menu, plutot qu'entre deux entrees. */}
+        <li className="menuTitre" role="presentation">Pour le client</li>
         {/* Le devis d'abord : le document que le client recoit pour decider (dialogue : l'emetteur, le client, le numero). */}
         <Entree commandes={commandes} id="export.ouvrirDevis" libelle="Devis (PDF)…" idDom="devisBtn" />
         <Entree commandes={commandes} id="export.listeAchatPdf" libelle="Liste d’achat (PDF)" />
         <Entree commandes={commandes} id="export.listeAchatCsv" libelle="Liste d’achat (CSV)" />
-        <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.resume" libelle="Résumé à copier" apres={() => tiroir.activer('resume')} />
-        <li className="separateur" role="separator" />
+        <li className="menuTitre" role="presentation">Le plan</li>
+        <Entree commandes={commandes} id="export.png" libelle="Image PNG du plan" idDom="exportPngBtn" />
+        <Entree commandes={commandes} id="export.pdf" libelle="PDF du plan" idDom="exportPdfBtn" />
         <Entree commandes={commandes} id="export.svg" libelle="SVG" idDom="exportSvgBtn" />
-        <Entree commandes={commandes} id="export.png" libelle="PNG" idDom="exportPngBtn" />
+        <Entree commandes={commandes} id="export.dxf" libelle="DXF" idDom="exportDxfBtn" />
         {/* Le projet pose sur une photo du jardin : l'entree mene au photomontage de la Vue 3D, ou son image s'enregistre. */}
         <Entree commandes={commandes} id="export.photomontage" libelle="Photomontage sur une photo…" />
-        <Entree commandes={commandes} id="export.dxf" libelle="DXF" idDom="exportDxfBtn" />
-        <li className="menuReglage">
-          <label title="L'échelle fixe la taille de la page : à 1/200, 1 m réel = 5 mm sur papier">Échelle du PDF 1/<EchellePdf magasin={magasin} /></label>
-        </li>
-        <Entree commandes={commandes} id="export.pdf" libelle="PDF du plan" idDom="exportPdfBtn" />
-        <li className="separateur" role="separator" />
+        <li className="menuTitre" role="presentation">Dossiers</li>
         <Entree commandes={commandes} id="export.dossier" libelle="Dossier PDF des terrasses" idDom="dossierPdfBtn" />
         {/* Le dialogue de la declaration : qui declare, l'adresse, puis le cerfa 13703 et ses pieces. */}
         <Entree commandes={commandes} id="export.ouvrirDeclaration" libelle="Déclaration préalable…" idDom="declarationBtn" />
-        <Case magasin={magasin} option="dossierEquipements" idDom="chkDossierEquipements" controle="export.option.dossierEquipements" libelle="Inclure l'emprise des équipements" titre="Spa, mobilier, parasol… : tout objet dont le centre tombe sur la terrasse" />
-        <li className="menuAide">Les terrasses du dossier se cochent dans l'explorateur.</li>
         <Entree commandes={commandes} id="export.dossierPiscine" libelle="Dossier mairie de la piscine (PDF)" idDom="dossierPiscineBtn" />
-        <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.glb" libelle="GLB (scène 3D)" idDom="exportGlbBtn" />
+        <li className="separateur" role="separator" />
+        <li className="menuTitre" role="presentation">Réglages des exports</li>
+        <li className="menuReglage">
+          <label title="L'échelle fixe la taille de la page : à 1/200, 1 m réel = 5 mm sur papier">Échelle du PDF du plan 1/<EchellePdf magasin={magasin} /></label>
+        </li>
+        <Case magasin={magasin} option="dossierEquipements" idDom="chkDossierEquipements" controle="export.option.dossierEquipements" libelle="Dossier : inclure l'emprise des équipements" titre="Spa, mobilier, parasol… : tout objet dont le centre tombe sur la terrasse" />
+        <li className="menuAide">Les terrasses du dossier se cochent dans l'explorateur.</li>
       </ul>
     </Deroulant>
   );

@@ -284,6 +284,10 @@ de la parcelle sur la prise de ce mur : les photos ne se prennent que là) et `f
 Confirmations et invites (`shell/dialogs.ts`) deviennent le composant Dialog du design system ;
 `showToast` et `showErrBanner` deviennent Z9.
 
+**Le pied d'un dialogue** (audit UX de la 5.45.0, constat 10) porte son geste en bouton plein et « Fermer » en secondaire ; une
+partie facultative se replie (« Client (facultatif) » du devis) ; un exemple s'écrit « ex. : … ». À l'étape 3 de l'import, chaque
+voisine se choisit « Ignorer / Décor / Mon terrain » (constat 13), l'explication repliée derrière « ? ».
+
 **Pile de Z8 et Z9** (audit UX de la 5.45.0, constat 1). Les notifications passent **sous** les dialogues : un toast ne couvre
 jamais le bouton d'un dialogue (le voile de Z8 est à 9998, les toasts à 9997). Ce qui laisse se raviser dans un dialogue s'y fait
 sur place (« Annuler le retrait » sur la ligne d'un lien du partage), jamais dans un toast. Au téléphone et à la tablette, les

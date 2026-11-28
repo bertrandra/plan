@@ -203,6 +203,11 @@ couleur hexadécimale ne traîne hors des blocs de jetons**.
   (`<details>` piloté, replié à chaque ouverture). Rien n'est retiré, rien n'est dit deux fois : ce que le parcours simple offre
   n'est pas redit dessous. Les actions qui ferment (Annuler, Valider, « Poser la lucarne ») sont au pied, hors du défilement, à
   48 px. Modèle : `zones/AtelierToit.tsx` (Z10), `facade/modeToit/controleurToit.ts`.
+- **Un dialogue a son geste au pied, plein, et « Fermer » en secondaire** (audit UX de la 5.45.0, constat 10) ; ce qui est
+  facultatif se replie derrière un titre « … (facultatif) » ; un texte indicatif est un exemple dit « ex. : … », jamais une valeur
+  qu'on prendrait pour saisie. Un choix exclusif entre trois états s'écrit en commande segmentée avec des mots, pas en deux cases
+  qui se combinent (étape 3 de l'import : « Ignorer / Décor / Mon terrain »).
+- Un compte s'accorde au nombre (`nombreDe`, `util/format.ts`) : jamais « 1 bâtiment(s) ».
 - Boutons : `button` plein (`--ink`) pour l'action principale, `.secondary` pour le reste,
   `.small` pour les actions de ligne, `.danger` pour l'irréversible — toujours derrière une
   confirmation Z8.

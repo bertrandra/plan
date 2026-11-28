@@ -7847,7 +7847,7 @@ const POINTS = {
     if (!sans) echecs.push('la page déborde en largeur');
     return { ok: echecs.length === 0, mesure: echecs.length ? echecs.join(' ; ') : `carte « ${carte?.etat} », boutons de ${carte?.boutons.map((b) => b.h).join(' et ')} px ; Modifier : ${ecranModifier.boutons} boutons, cibles ≥ ${Math.min(...cibles)} px, quatre pans, faîtage ${f0} → ${monte.corps?.[0]?.faitage} m, « ${sens} », validé en une étape ; Ajouter : six pièces, cibles ≥ ${Math.min(...ciblesAjout)} px, « Poser la lucarne », largeur ${(luc.finM - luc.debutM).toFixed(2)} → ${(large.finM - large.debutM).toFixed(2)} m ; Annuler rend le toit ; ${tactile ? 'au doigt' : 'à la souris'}, « Plus de réglages » replié de bout en bout` };
   },
-  207: async (page, f) => {
+  208: async (page, f) => {
     // L'atelier du toit (Z10) et son controleur unique (28 novembre 2026) : la maison de la demonstration, telle quelle (un toit d'un seul
     // tenant, a quatre pans, sur un contour en L), avec une mesure LiDAR et une version de lecture. Sur le plan, l'inspecteur ouvre
     // l'atelier ; la forme en place se dit, les pieces sont grisees avec leur raison, « Découper ce toit » leve l'impasse, « Défaire » est
@@ -8274,6 +8274,71 @@ const POINTS = {
     }
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
   },
+  207: async (page, f) => {
+    // Les textes et les choix (audit UX de la 5.45.0, constats 10 et 13, polissages). Le menu Exporter range ses entrees par usage
+    // (« Pour le client », « Le plan », « Dossiers ») et ses reglages a part, en fin de menu ; « Image PNG du plan ». Le devis : le
+    // bouton plein au pied, « Fermer » en secondaire, le client replie derriere « Client (facultatif) », des exemples dits « ex. : ».
+    // L'etape 3 de l'import : une ligne par parcelle (nom, surface), un choix « Ignorer / Décor / Mon terrain », l'explication
+    // repliee derriere « ? », « Mon terrain » fusionne la parcelle a la propriete.
+    const echecs = [], mesures = [];
+    const tactile = f.nom !== 'large';
+    if (tactile) await feuille(page, 'projet');
+    const menu = await page.evaluate(() => {
+      const m = document.getElementById('menuExporter');
+      m?.setAttribute('open', '');
+      const items = [...(m?.querySelectorAll('[role="menu"] > li') ?? [])].map((li) => (li.classList.contains('menuTitre') ? '#' : '') + li.textContent.replace(/\s+/g, ' ').trim());
+      return items;
+    });
+    const titres = menu.filter((t) => t.startsWith('#')).map((t) => t.slice(1));
+    const iReglages = menu.findIndex((t) => t === '#Réglages des exports'), iEchelle = menu.findIndex((t) => /Échelle du PDF/.test(t));
+    if (titres.join() !== 'Pour le client,Le plan,Dossiers,Réglages des exports' || !menu.includes('Image PNG du plan') || iEchelle < iReglages) echecs.push('menu Exporter : ' + menu.join(' | '));
+    mesures.push('menu Exporter : ' + titres.join(', ') + ', « Image PNG du plan »');
+    await page.evaluate(() => document.querySelector('#menuExporter [data-commande="export.ouvrirDevis"]')?.click());
+    const boite = page.locator('.dialogueDevis');
+    await boite.waitFor({ timeout: 10000 });
+    const devis = await page.evaluate(() => {
+      const d = document.querySelector('.dialogueDevis'), pied = d.querySelector('.piedDialogue');
+      const principal = pied?.querySelector('[data-commande="export.devis"]'), fermer = pied?.querySelector('[data-controle="devis.fermer"]');
+      return { principal: principal ? principal.textContent.trim() + (principal.classList.contains('secondary') ? ' (secondaire)' : '') : null, fermer: fermer?.classList.contains('secondary'),
+        client: d.querySelector('details.clientDevis')?.open ?? null, adresse: d.querySelector('[data-cle="devis-adresse"] input')?.getAttribute('placeholder') ?? '',
+        boutonsDansLesChamps: d.querySelectorAll('.hoteChamps [data-cle="devis-telecharger"]').length };
+    });
+    if (devis.principal !== 'Télécharger le devis' || !devis.fermer || devis.client !== false || !/^ex\. : /.test(devis.adresse) || devis.boutonsDansLesChamps) echecs.push('devis : ' + JSON.stringify(devis));
+    // FUMEE_CAPTURES_UX=dossier : le devis et l'etape 3, en PNG, pour les comparer a l'audit.
+    const capturer = async (nom) => { if (process.env.FUMEE_CAPTURES_UX) { mkdirSync(process.env.FUMEE_CAPTURES_UX, { recursive: true }); await page.screenshot({ path: process.env.FUMEE_CAPTURES_UX + '/' + nom + '-' + f.nom + '.png' }); } };
+    await capturer('D10-devis');
+    mesures.push('devis : « ' + devis.principal + ' » plein au pied, client replié, « ' + devis.adresse + ' »');
+    await page.locator('[data-controle="devis.fermer"]').click();
+    if (tactile) await feuille(page, null);
+    await page.evaluate(() => window.__plan.executer('projet.depuisAdresse'));
+    const imp = page.locator('.dialogueCadastre');
+    await imp.waitFor({ timeout: 15000 });
+    await imp.locator('[data-controle="cadastre.importDirect"]').uncheck();
+    await imp.locator('input.promptInput').first().fill(ADRESSE);
+    await imp.locator('[data-controle="cadastre.suggestion"]').first().waitFor({ timeout: 15000 }).catch(() => {});
+    await imp.locator('input.promptInput').first().press('Enter');
+    await page.locator('.dialogueCadastre', { hasText: 'Parcelle trouvée (2/3)' }).waitFor({ timeout: 30000 });
+    await imp.getByRole('button', { name: /Parcelles voisines/ }).click();
+    await page.locator('.dialogueCadastre', { hasText: 'création (3/3)' }).waitFor({ timeout: 30000 });
+    const lignes = await page.evaluate(() => [...document.querySelectorAll('.dialogueCadastre .ligneVoisine')].map((l) => ({
+      h: Math.round(l.querySelector('.enteteVoisine')?.getBoundingClientRect().height ?? 0), choix: [...l.querySelectorAll('.choixSegment')].map((b) => b.textContent.trim()),
+      min: Math.min(...[...l.querySelectorAll('button')].map((b) => b.getBoundingClientRect().height)), deborde: l.scrollWidth > l.clientWidth + 1 })));
+    const aide = await page.evaluate(() => { const d = document.querySelector('.dialogueCadastre details.aideRepliee'); return d ? { ouverte: d.open, lignes: Math.round(d.querySelector('summary').getBoundingClientRect().height) } : null; });
+    if (!lignes.length || lignes.some((l) => l.choix.join() !== 'Ignorer,Décor,Mon terrain' || l.h > 30 || l.deborde || (tactile && l.min < 44))) echecs.push('étape 3 : ' + JSON.stringify(lignes.slice(0, 2)));
+    if (!aide || aide.ouverte) echecs.push('explication de l’étape 3 : ' + JSON.stringify(aide));
+    await imp.locator('.listeVoisines').scrollIntoViewIfNeeded();
+    await capturer('D13-etape3');
+    const premiere = imp.locator('.ligneVoisine').first();
+    await premiere.locator('[data-choix="terrain"]').click();
+    const fusion = (await imp.locator('.resumePropriete').textContent()) ?? '';
+    const choisi = await premiere.getAttribute('data-choix-voisine');
+    await premiere.locator('[data-choix="ignorer"]').click();
+    const ignore = await premiere.getAttribute('data-choix-voisine');
+    if (choisi !== 'terrain' || !/Propriété fusionnée|Fusion impossible/.test(fusion) || ignore !== 'ignorer') echecs.push('choix « Mon terrain » : ' + choisi + ', « ' + fusion.slice(0, 60) + ' », puis ' + ignore);
+    mesures.push('étape 3 : ' + lignes.length + ' voisines, une ligne de ' + (lignes[0]?.h ?? 0) + ' px, « Ignorer / Décor / Mon terrain », « Mon terrain » → « ' + fusion.slice(0, 40) + '… »');
+    await imp.locator('[data-controle="cadastre.annuler"]').click();
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
+  },
   199: async (page) => {
     // Relire un projet existant donne ce que donne un projet neuf (retour du proprietaire a Hardencourt, 27 novembre 2026 : « le L est
     // en 2 toits et 1 lucarne decouverte » sur son projet rouvert, « c'est bon sur un nouveau projet sur la meme adresse, actualiser
@@ -8476,14 +8541,15 @@ const POINTS = {
     await page.waitForTimeout(200);
     const v5 = await vue();
     if (Math.abs(v5[2] - avant3[2]) > 0.01) echecs.push('le zoom n’est pas gardé à l’étape 3');
-    const coches = () => boite.locator('[data-controle="cadastre.importerVoisine"]:checked').count();
+    // Depuis le constat 13 de l'audit UX de la 5.45.0, une voisine se choisit « Ignorer / Décor / Mon terrain » : « importer » est « Décor ».
+    const coches = () => boite.locator('[data-controle="cadastre.choixVoisine"][data-choix="decor"][aria-pressed="true"]').count();
     const n0 = await coches();
     const t3 = await cible();
     if (!t3) echecs.push('étape 3 : aucune voisine touchable');
     else {
       if (tactile) await page.touchscreen.tap(t3.x, t3.y); else await page.mouse.click(t3.x, t3.y);
       await page.waitForTimeout(250);
-      if (await coches() !== n0 + 1) echecs.push('étape 3 : le toucher ne coche pas « importer » (' + n0 + ' → ' + (await coches()) + ')');
+      if (await coches() !== n0 + 1) echecs.push('étape 3 : le toucher ne met pas la voisine en « Décor » (' + n0 + ' → ' + (await coches()) + ')');
     }
     await boite.locator('[data-controle="cadastre.apercuToutVoir"]').click();
     await page.waitForTimeout(100);
@@ -12436,6 +12502,8 @@ function pointsPour(nomClasse) {
   //       et qui coche (etape 3), le zoom garde d'une etape a l'autre, « Tout voir ».
   // 202 : se deplacer sur le plan 2D sans attraper d'objet : glisser sur un objet non choisi deplace la vue, un toucher choisit,
   //       l'objet choisi se deplace, la parcelle choisie deplace la vue (interaction/choixGeste.ts).
+  // 207 : le menu Exporter par usage, le devis (bouton plein, client replie), l'etape 3 de l'import en choix segmentes
+  //       (audit UX de la 5.45.0, constats 10 et 13).
   // 206 : le plan desencombre (mesures en preference, etiquettes sans chevauchement, noms lisibles), les cotes nommees d'une seule
   //       facon, la vue libre de la Vue 3D (audit UX de la 5.45.0, constats 6, 7 et 8).
   // 205 : la mise en page par classe : plan en pleine hauteur et explorateur replie sous 1 200 px au bureau, 44 px a la tablette,
@@ -12444,10 +12512,10 @@ function pointsPour(nomClasse) {
   // surface au cadastre et tracee, le total retenu du chiffrage (audit UX de la 5.45.0, constats 1, 3, 5 et 9).
   // 203 : la camera de la Vue 3D ne passe plus sous le sol : orbite poussee vers le bas, deplacement, molette ou pincement, camera
   //       posee sous le sol ; l'oeil reste a 0,30 m au-dessus du sol sous lui, la cible sur le sol ou au-dessus.
-  // 207 : l'atelier du toit (Z10) et son controleur unique : ouvert sur le plan par l'inspecteur, l'impasse du toit d'un seul tenant
+  // 208 : l'atelier du toit (Z10) et son controleur unique : ouvert sur le plan par l'inspecteur, l'impasse du toit d'un seul tenant
   // levee par « Découper ce toit », « Défaire » sous les yeux, la 3D attachee a la session, une forme sans choix qui garde la galerie,
   // « Bâtiment entier » qui dit ce qui disparaitra, « Voir le toit du projet » sans perte, « Quitter sans garder » au bit pres.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
