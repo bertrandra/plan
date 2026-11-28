@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.46.0] — 2026-11-28
+
+Version **mineure** au sens de `MD/RELEASE.md` : un seul contrôleur d'édition du toit et sa zone, l'atelier du toit (Z10), seul
+endroit où l'on édite un toit, sur le plan comme dans la Vue 3D (#797), et les treize corrections de l'audit UX de la 5.45.0
+(#795, #796, #798, #799). **Rien n'est mis derrière un droit** ; dans l'inspecteur, les champs de forme du toit laissent la place
+à un résumé et à « Modifier le toit », leurs réglages étant dans l'atelier. **Aucune quantité ni aucun export ne change** : avant le
+changement de numéro, le code de `main` (5a1e0aa7) régénère les témoins de la 5.45.0 au bit près ; les neuf témoins qui portent le
+numéro ne changent qu'à lui (la date de build reste le 30 octobre 2026 ; preuve forte, neuf sur neuf,
+`tests/fixtures/golden/EMPREINTES.md`) ; `projet.json`, les quantités, `liste-achat.csv`, `moteur-piscine-pergola.json`,
+`cadastre-objets.json` et `glb-structure.json` sont identiques (point 24 de la fumée rejoué). AE 101 identique. Schéma inchangé
+(16), aucun champ nouveau. La version de lecture des toits ne change pas (13). `deploy/`, `banc/` et `regles/` ne changent pas
+depuis la 5.45.0 ; la requête témoin de l'assistant change (les côtés y sont lus dans l'ordre, lot C). Les requêtes de la 5.45.0 ont
+été vérifiées contre l'API Claude sur `main` après la fusion de sa version (« Vérifier l'API Claude », run 46119062785, réussi) ;
+celles de la 5.46.0 sont à vérifier de même après la fusion.
+
 ### Modifié
 
 - **La hauteur à l'égout, la couverture et « Toit en 3D » se règlent dans l'atelier du toit** (Z10 ; décision du propriétaire,
