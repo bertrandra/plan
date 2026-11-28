@@ -7939,6 +7939,65 @@ const POINTS = {
     verifier('point de vue', await lire());
     return { ok: echecs.length === 0, mesure: 'sol ' + (depart.relief ? 'en relief' : 'plat') + ' ; ' + mesures.join(' ; ') + (echecs.length ? ' ; ECHECS : ' + echecs.join(', ') : '') };
   },
+  204: async (page, f) => {
+    // L'ouverture et la selection au doigt (audit UX de la 5.45.0, constats 1, 3, 5 et 9). La demonstration ouverte : rien de choisi,
+    // aucun toast ; l'avertissement de l'administrateur en tete du menu Admin, marque d'une pastille jusqu'a sa premiere ouverture ;
+    // au doigt, un toucher sur la parcelle du projet la choisit sans feuille, une barre d'une ligne propose « Propriétés », qui ouvre
+    // l'inspecteur ; sa surface dit le cadastre et le trace ; le chiffrage de la terrasse dit un total retenu, la fourchette en second.
+    const echecs = [], mesures = [];
+    const ouverture = await page.evaluate(() => ({ sel: window.__plan.etat().selectedKey, toasts: [...document.querySelectorAll('.toast')].map((t) => t.textContent) }));
+    if (ouverture.sel !== null) echecs.push('sélection à l’ouverture : ' + ouverture.sel);
+    if (ouverture.toasts.some((t) => /Avertissement|CAPACITES|acces\.ts/.test(t))) echecs.push('toast d’avertissement à l’ouverture');
+    mesures.push('ouverture : rien de choisi, ' + ouverture.toasts.length + ' toast');
+    if (f.nom !== 'large') await feuille(page, 'projet');
+    const pastille = await page.locator('#menuAdmin .pastilleMenu').count();
+    await page.evaluate(() => document.getElementById('menuAdmin')?.setAttribute('open', ''));
+    await page.waitForTimeout(200);
+    const ligne = ((await page.locator('#menuAdmin .menuNote').textContent().catch(() => '')) ?? '').trim();
+    const pastilleApres = await page.locator('#menuAdmin .pastilleMenu').count();
+    await page.evaluate(() => document.getElementById('menuAdmin')?.removeAttribute('open'));
+    if (f.nom !== 'large') await feuille(page, null);
+    if (!pastille || pastilleApres) echecs.push('pastille du menu Admin : ' + pastille + ' avant, ' + pastilleApres + ' après');
+    if (!/^Relief du terrain \(IGN\) est ouvert à tous les comptes/.test(ligne) || /\.ts|CAPACITES|backprod/.test(ligne)) echecs.push('ligne du menu Admin « ' + ligne + ' »');
+    mesures.push('menu Admin « ' + ligne.slice(0, 60) + '… »');
+    if (f.nom !== 'large') {
+      const pt = await page.evaluate(() => {
+        const s = document.getElementById('stage').getBoundingClientRect();
+        for (let y = s.top + 40; y < s.bottom - 40; y += 11) for (let x = s.left + 20; x < s.right - 70; x += 11) {
+          if (document.elementFromPoint(x, y)?.closest('[data-key]')?.getAttribute('data-key') === 'parcelle') return { x, y };
+        }
+        return null;
+      });
+      if (!pt) echecs.push('aucun point de la parcelle à toucher');
+      else {
+        await page.touchscreen.tap(pt.x, pt.y); await page.waitForTimeout(500);
+        const barre = await page.evaluate(() => { const b = document.querySelector('.feuilleSelection'); return { sel: window.__plan.etat().selectedKey, feuille: window.__plan.magasin().feuille, discrete: !!b?.classList.contains('selectionDiscrete'), h: b ? Math.round(b.getBoundingClientRect().height) : 0, boutons: [...(b?.querySelectorAll('button') ?? [])].map((x) => Math.round(x.getBoundingClientRect().height)) }; });
+        if (barre.sel !== 'parcelle' || barre.feuille || !barre.discrete || barre.h > 72 || barre.boutons.some((h) => h < 44)) echecs.push('toucher sur la parcelle : ' + JSON.stringify(barre));
+        mesures.push('toucher sur la parcelle : barre de ' + barre.h + ' px, aucune feuille');
+        await page.locator('.selectionDiscrete [data-controle="selection.proprietes"]').click();
+        await page.waitForTimeout(400);
+        const ouverte = await page.evaluate(() => window.__plan.magasin().feuille === 'proprietes' || window.__plan.magasin().inspecteurOuvert);
+        if (!ouverte) echecs.push('« Propriétés » n’ouvre pas l’inspecteur');
+        await feuille(page, null);
+      }
+    } else {
+      await selectionner(page, "o.key === 'parcelle'");
+    }
+    await inspecteur(page);
+    const surface = await page.evaluate(() => ((document.querySelector('.inspecteurPanneau')?.textContent ?? '').replace(/\s+/g, ' ').match(/\d[\d ]* m² au cadastre · [\d ]+ m² tracés/) ?? [''])[0]);
+    if (!/^716 m² au cadastre · 72\d m² tracés$/.test(surface)) echecs.push('surface de la parcelle « ' + surface + ' »');
+    mesures.push('surface « ' + surface + ' »');
+    if (f.nom === 'compact') await feuille(page, null);
+    await selectionner(page, TERRASSE);
+    await page.evaluate(() => window.__plan.ouvrirResultats('bom'));
+    if (f.nom === 'compact') await feuille(page, 'resultats');
+    await page.waitForTimeout(400);
+    const total = await page.evaluate(() => [...(document.getElementById('terrasseBomTotals')?.children ?? [])].map((c) => c.textContent.replace(/\s+/g, ' ').trim()));
+    const calcules = await page.locator('#terrasseBomTable td.prixCalcule').count();
+    if (total[0] !== 'Total retenu HT' || !/^\d{1,3}( \d{3})* €.*(calculé|saisi|milieu)/.test(total[4] || '') || !calcules) echecs.push('total « ' + total.join(' | ') + ' », ' + calcules + ' prix calculés marqués');
+    mesures.push('total « ' + (total[4] || '') + ' » (fourchette ' + total[2] + ' – ' + total[3] + ')');
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
+  },
   199: async (page) => {
     // Relire un projet existant donne ce que donne un projet neuf (retour du proprietaire a Hardencourt, 27 novembre 2026 : « le L est
     // en 2 toits et 1 lucarne decouverte » sur son projet rouvert, « c'est bon sur un nouveau projet sur la meme adresse, actualiser
@@ -12087,9 +12146,11 @@ function pointsPour(nomClasse) {
   //       et qui coche (etape 3), le zoom garde d'une etape a l'autre, « Tout voir ».
   // 202 : se deplacer sur le plan 2D sans attraper d'objet : glisser sur un objet non choisi deplace la vue, un toucher choisit,
   //       l'objet choisi se deplace, la parcelle choisie deplace la vue (interaction/choixGeste.ts).
+  // 204 : l'ouverture sans selection, l'avertissement de l'admin dans son menu, la barre de selection d'un terrain au doigt, la
+  // surface au cadastre et tracee, le total retenu du chiffrage (audit UX de la 5.45.0, constats 1, 3, 5 et 9).
   // 203 : la camera de la Vue 3D ne passe plus sous le sol : orbite poussee vers le bas, deplacement, molette ou pincement, camera
   //       posee sous le sol ; l'oeil reste a 0,30 m au-dessus du sol sous lui, la cible sur le sol ou au-dessus.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
