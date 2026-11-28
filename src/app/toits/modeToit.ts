@@ -9,10 +9,9 @@
 // objet pendant une session modifiee pose d'abord la question (Valider, Abandonner, Rester : `quitterPuis`).
 
 import { estBatiment, estChezUnVoisin } from '../../model/fonctions.js';
-import { lieuDuProjet } from '../../facade/modeToit/reglagesBatiment.js';
 import { enPoints } from '../../model/formes.js';
 import { reordonner, restaurer as restaurerSession } from '../../facade/modeToit/sessionToit.js';
-import { creerControleurToit, type ControleurToit, type Issue, type IntentionToit } from '../../facade/modeToit/controleurToit.js';
+import { creerControleurToit, lieuDuProjet, type ControleurToit, type Issue, type IntentionToit } from '../../facade/modeToit/controleurToit.js';
 import { facadeProche, facadesDuBatiment, facadeValideeDuMur, facadeVersLePoint, orientationDe, texteDeLaPhoto, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
 import { poseDeDessus, poseEnPerspective, type PointScene, type Reserve } from '../../three/poseFacade.js';
 import { moteur3d } from '../../three/demande3d.js';

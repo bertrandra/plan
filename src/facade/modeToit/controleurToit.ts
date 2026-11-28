@@ -30,6 +30,9 @@ import { couvertureDuBatiment, egoutDuBatiment, PAS_EGOUT_M, poserCouleur, poser
   type CouvertureDuBatiment, type EgoutDuBatiment, type LieuDuBatiment, type OptionReglage, type SourceToit } from './reglagesBatiment.js';
 import type { CorpsToit, ObjetPlan } from '../../model/types.js';
 
+/** Le lieu des batiments d'un projet, que l'ouverture d'une session passe au controleur (la latitude de la parcelle). */
+export { lieuDuProjet } from './reglagesBatiment.js';
+
 /** Ce que la personne fait : elle MODIFIE ce qui existe, ou elle AJOUTE une piece (retour du proprietaire, 24 novembre 2026). */
 export type IntentionToit = 'modifier' | 'ajouter';
 export const estIntentionToit = (v: unknown): v is IntentionToit => v === 'modifier' || v === 'ajouter';
