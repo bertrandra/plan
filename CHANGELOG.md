@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.47.0] — 2026-11-28
+
+Version **mineure** au sens de `MD/RELEASE.md` : la hauteur à l'égout, « Rendre au calcul », la couverture et « Toit en 3D » d'un
+bâtiment se règlent dans l'atelier du toit (Z10), par le contrôleur du toit ; l'inspecteur n'en garde qu'une lecture (#802). **Rien
+n'est mis derrière un droit** ; ces réglages restent des gestes du projet, annulables, qui demandent le droit d'écrire, comme avant.
+**Aucune quantité ni aucun export ne change** : avant le changement de numéro, le code de `main` (353e9f86) régénère les témoins de
+la 5.46.0 au bit près ; les neuf témoins qui portent le numéro ne changent qu'à lui (la date de build reste le 30 octobre 2026 ;
+preuve forte, neuf sur neuf, `tests/fixtures/golden/EMPREINTES.md`). AE 101 identique. Schéma inchangé (16), aucun champ nouveau.
+La version de lecture des toits ne change pas (13). `deploy/`, `banc/` et `regles/` ne changent pas depuis la 5.46.0. Les requêtes
+de la 5.46.0 ont été vérifiées contre l'API Claude sur `main` après la fusion de sa version (« Vérifier l'API Claude », run
+46165610068, réussi) ; celles de la 5.47.0 sont à vérifier de même après la fusion.
+
 ### Modifié
 
 - **La hauteur à l'égout, la couverture et « Toit en 3D » se règlent dans l'atelier du toit** (Z10 ; décision du propriétaire,
