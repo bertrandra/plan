@@ -359,8 +359,8 @@ function AjouterSimple({ choisie, choisir, facade, e, commandes }: { choisie: st
       </div>
       {!memeRaison && (
         <p className={'noteReglage consignePose' + (refus ? ' refus' : '')} role="note">
-          {refus ?? (surFacade ? (facade ? 'Elle ira sur la ' + facade.charAt(0).toLowerCase() + facade.slice(1).replace(/ · vue sur la photo.*$/, '') + '. Touchez un autre mur pour changer.' : 'Elle ira sur un mur libre de ' + e.portee.mots.toLowerCase() + (etatToit().en3d ? ' ; touchez un mur de la maison pour choisir la façade.' : '.'))
-            : 'Elle se pose au milieu du toit de ' + e.portee.mots.toLowerCase() + '. Vous réglerez sa largeur juste après.')}
+          {refus ?? (surFacade ? (facade ? 'Elle ira sur la ' + facade.charAt(0).toLowerCase() + facade.slice(1).replace(/ · vue sur la photo.*$/, '') + '. Touchez un autre mur pour changer.' : 'Elle ira sur un mur libre (' + e.portee.mots + ')' + (etatToit().en3d ? ' ; touchez un mur de la maison pour choisir la façade.' : '.'))
+            : 'Elle se pose au milieu du toit (' + e.portee.mots + '). Vous réglerez sa largeur juste après.')}
         </p>
       )}
     </>
@@ -493,7 +493,7 @@ export function AtelierToit({ magasin, commandes }: Props) {
               ) : (
                 <>
                   <AjoutsDeLaCible e={e} commandes={commandes} />
-                  <h3 className="titrePlateau" id="titrePlateauToit">{'Autres pièces, sur ' + e.portee.mots.toLowerCase() + ' : un toucher les pose'}</h3>
+                  <h3 className="titrePlateau" id="titrePlateauToit">{'Autres pièces (' + e.portee.mots + ') : un toucher les pose'}</h3>
                   <div className="toitOnglets" role="tablist" aria-labelledby="titrePlateauToit">
                     {ONGLETS.map((t) => (
                       <button key={t.id} type="button" role="tab" aria-selected={onglet === t.id} className="toitOnglet" onClick={() => setOnglet(t.id)}>{t.libelle}</button>

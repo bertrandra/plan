@@ -286,7 +286,8 @@
   .panneauToit .defaireToit{ align-self:flex-start; min-height:44px; }
   /* Sur le plan, l'atelier n'a pas la colonne des commandes de camera de la Vue 3D a sa droite : il se pose contre le bord. */
   html[data-classe="large"] .panneauToit[data-vue="plan"]{ right:8px; }
-  html[data-classe="moyen"] .panneauToit[data-vue="plan"]{ right:8px; }
+  /* A la tablette, le rail des outils flotte a gauche du plan : l'atelier commence a sa droite. */
+  html[data-classe="moyen"] .panneauToit[data-vue="plan"]{ right:8px; left:calc(var(--largeur-rail, 64px) + 24px); }
   .panneauToit .valeurSens{ font-size:.82rem; color:var(--ink-soft); }
   .panneauToit .formesSimples, .panneauToit .piecesSimples{ display:grid; gap:6px; }
   .panneauToit .formesSimples{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
@@ -372,6 +373,8 @@
   html[data-mode-toit] .entreeMaison, html[data-vitrine] .entreeMaison{ display:none; }
   /* L'atelier du toit ouvert sur le plan : la barre de la selection (le batiment, deja nomme par l'atelier) le couvrirait au doigt. */
   html[data-mode-toit] #zoneSelection{ display:none; }
+  /* Au doigt, l'inspecteur est une feuille ou un panneau flottant : il couvrirait l'atelier, qui le remplace le temps de la session. */
+  html[data-mode-toit]:not([data-classe="large"]) #zoneInspecteur{ display:none; }
   /* Un message ne couvre pas l'entree : tant qu'elle est sur la scene, les messages passent en haut de l'ecran, comme pendant une
      session du mode au telephone (un message au bas de la fenetre tombait sur « Modifier » et prenait son toucher ; point 160 de la fumee). */
   html:has(.entreeMaison) .notificationsToasts{ bottom:auto; top:calc(var(--reserve-haut, 0px) + 72px); flex-direction:column; }
