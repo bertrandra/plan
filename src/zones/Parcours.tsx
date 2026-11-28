@@ -46,7 +46,7 @@ export function Parcours({ commandes, magasin }: { commandes: RegistreCommandes;
       {p.type === 'actualisation' && <Actualisation infos={p.infos} lancer={p.lancer} fermer={fermer} />}
       {p.type === 'texture' && <ChoixTexture titre={p.titre} caseLibelle={p.caseLibelle} choisir={p.choisir} fermer={fermer} />}
       {p.type === 'declaration' && <Declaration inspecteur={p.service} magasin={magasin} fermer={fermer} commandes={commandes} dossier={p.dossier} />}
-      {p.type === 'devis' && <Devis inspecteur={p.service} preferences={p.preferences} magasin={magasin} fermer={fermer} />}
+      {p.type === 'devis' && <Devis inspecteur={p.service} preferences={p.preferences} magasin={magasin} commandes={commandes} fermer={fermer} />}
       {p.type === 'assistant' && <Assistant service={p.service} commandes={p.commandes} fermer={fermer} />}
       {p.type === 'partage' && <Partage service={p.service} commandes={commandes} magasin={magasin} fermer={fermer} />}
       {p.type === 'mesProjets' && <MesProjets service={p.service} commandes={commandes} magasin={magasin} fermer={fermer} />}

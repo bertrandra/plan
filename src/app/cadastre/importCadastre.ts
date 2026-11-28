@@ -365,7 +365,7 @@ function lectures(n: Noyau): Lectures {
     resumePropriete() {
       const parcelles = parcellesPropriete();
       if (parcelles.length <= 1) {
-        return { texte: 'Propriété : ' + libelleParcelle(principale()) + ' seule. Cochez « propriété » sur une mitoyenne pour fusionner plusieurs parcelles en un seul terrain.', alerte: false };
+        return { texte: 'Propriété : ' + libelleParcelle(principale()) + ' seule. Choisissez « Mon terrain » sur une mitoyenne pour fusionner plusieurs parcelles en un seul terrain.', alerte: false };
       }
       const fusion = fusionnerAnneaux(parcelles.map(p => p.pts), FUSION_TOL_M);
       if (!fusion) {

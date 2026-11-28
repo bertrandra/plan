@@ -31,7 +31,7 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
   // Les toits lus en tache de fond (app/toits/toitsFond.ts), puis les murs : combien sur combien, tant qu'il en reste.
   const toits = useSyncExternalStore(lectureToits.abonner, lectureToits.progression);
   const murs = toits?.phase === 'murs';
-  const suite = toits?.etat === 'pause' ? ' (en pause)' : toits?.etat === 'arretee' ? (murs ? ' (photos de rue muettes)' : ' (service LiDAR muet)') : '';
+  const suite = toits?.etat === 'pause' ? ' (en pause)' : toits?.etat === 'arretee' ? (murs ? ' (photos de rue indisponibles)' : ' (relevé de l’IGN indisponible)') : '';
 
   return (
     <>
@@ -47,7 +47,8 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
         <span className="etatToits" title={murs
           ? "Couleur des murs du voisinage lue sur les photos de rue Panoramax, du plus proche au plus loin ; Fichier › Suspendre ou Reprendre"
           : "Toits du voisinage lus sur le LiDAR HD de l'IGN, du plus proche au plus loin ; Fichier › Suspendre ou Reprendre"}>
-          {murs ? 'Murs (photos)' : 'Toits LiDAR'} : {toits.faits.toLocaleString('fr-FR')} / {toits.total.toLocaleString('fr-FR')}{suite}
+          {/* En mots simples (audit UX de la 5.45.0, polissages : « Toits LiDAR : 0 / 58 ») ; le detail est dans l'infobulle. */}
+          {murs ? 'Couleur des murs voisins' : 'Toits voisins lus'} : {toits.faits.toLocaleString('fr-FR')} sur {toits.total.toLocaleString('fr-FR')}{suite}
         </span>
       )}
       <span className="etatSelection" title="Objet sélectionné">{selection ? selection.name : 'Aucune sélection'}</span>

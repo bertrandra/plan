@@ -1,6 +1,6 @@
 // La lecture des toits en tache de fond, ou elle en est (app/toits/toitsFond.ts, core/).
 //
-// La barre d'etat dit « Toits LiDAR : 120 / 2 400 », puis « Murs (photos) : … », et le menu Fichier propose de suspendre ou de
+// La barre d'etat dit « Toits voisins lus : 120 sur 2 400 », puis « Couleur des murs voisins : … », et le menu Fichier propose de suspendre ou de
 // reprendre. L'ecouteur ecrit cet etat, les zones le lisent : il vit ici, sous les deux, comme la
 // lecture du relief (core/lectureRelief.ts). Rien ici ne s'enregistre.
 

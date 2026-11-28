@@ -34,20 +34,31 @@ export function tauxSaisi(t: string): number | null {
 
 type CleEmetteur = keyof EmetteurDevis;
 
+/** Les champs du client (le declarant, range sur la parcelle) : le dialogue les replie a part (zones/parcours/Devis.tsx). */
+const CHAMPS_CLIENT = new WeakSet<Champ>();
+export const estChampClient = (ch: Champ): boolean => CHAMPS_CLIENT.has(ch);
+
 export function sectionDevis(prefs: PreferencesDevis, terrasses: string[]): Section {
   const defauts = prefs.defautsEmetteur();
   const emetteur = (cle: CleEmetteur, libelle: string, placeholder: string, aide?: string): Champ => ({
     type: 'texte', cle: 'devis-' + cle, libelle, placeholder: defauts[cle] || placeholder, sale: false, effets: ['inspecteur'], ...(aide ? { aide } : {}),
     lire: () => prefs.lire().emetteur[cle] ?? '', ecrire: (_c, v) => prefs.ecrire({ emetteur: { [cle]: v } })
   });
-  // Sans parcelle, le client n'a pas ou se ranger : le devis le laisse a completer.
-  const client = (ch: Champ): Champ => ({ ...ch, libelle: 'Client : ' + ch.libelle.toLowerCase(), visible: (cx) => !!cx.parcelle && cx.obj === cx.parcelle });
+  // Sans parcelle, le client n'a pas ou se ranger : le devis le laisse a completer. Dans le dialogue, il se range a part, replie
+  // derriere « Client (facultatif) » (audit UX de la 5.45.0, constat 10) : son libelle n'a plus a redire « Client ».
+  const client = (ch: Champ): Champ => {
+    const c: Champ = { ...ch, visible: (cx) => !!cx.parcelle && cx.obj === cx.parcelle };
+    CHAMPS_CLIENT.add(c);
+    return c;
+  };
+  // Un exemple se dit comme tel : « ex. : … », en texte indicatif (la feuille de style l'ecrit en italique, couleur secondaire).
+  const ex = (t: string) => 'ex. : ' + t;
   const champs: Champ[] = [
     emetteur('nom', 'Émetteur', 'Votre nom ou votre entreprise', 'Le nom en tête du devis ; vide, celui de votre compte'),
-    emetteur('adresse', 'Adresse', '12 rue des Artisans, 78000 Versailles'),
-    emetteur('telephone', 'Téléphone', '01 23 45 67 89'),
-    emetteur('email', 'Courriel', 'nom@exemple.fr'),
-    emetteur('mentions', 'Mentions', 'SIRET, assurance…', 'Une ligne libre sous vos coordonnées ; le devis n’ajoute aucune mention de lui-même'),
+    emetteur('adresse', 'Adresse', ex('12 rue des Artisans, 78000 Versailles')),
+    emetteur('telephone', 'Téléphone', ex('01 23 45 67 89')),
+    emetteur('email', 'Courriel', ex('nom@exemple.fr')),
+    emetteur('mentions', 'Mentions', ex('SIRET, assurance décennale…'), 'Une ligne libre sous vos coordonnées ; le devis n’ajoute aucune mention de lui-même'),
     {
       type: 'texte', cle: 'devis-tva', libelle: 'Taux de TVA (%)', placeholder: 'vide : TVA non comprise', sale: false, effets: ['inspecteur'],
       aide: 'Le taux qui s’applique à vos ventes (20, 10, 5,5…). Sans taux, le devis s’arrête au total HT et dit « TVA non comprise ».',
@@ -58,17 +69,13 @@ export function sectionDevis(prefs: PreferencesDevis, terrasses: string[]): Sect
       aide: 'Votre référence ; vide, celle que donnent le nom du projet et la date du jour',
       lire: () => prefs.lire().numero, ecrire: (_c, v) => prefs.ecrire({ numero: v.trim() })
     },
-    client(champDeclaration('prenom', 'Prénom')), client(champDeclaration('nom', 'Nom')),
-    client(champDeclaration('numero', 'Numéro', '12')), client(champDeclaration('voie', 'Voie', 'Rue des Lilas')),
-    client(champDeclaration('codePostal', 'Code postal')), client(champDeclaration('localite', 'Localité')),
-    client(champDeclaration('telephone', 'Téléphone')), client(champDeclaration('email', 'Adresse électronique', 'nom@exemple.fr')),
+    client(champDeclaration('prenom', 'Prénom', ex('Marie'))), client(champDeclaration('nom', 'Nom', ex('Martin'))),
+    client(champDeclaration('numero', 'Numéro', ex('12'))), client(champDeclaration('voie', 'Voie', ex('rue des Lilas'))),
+    client(champDeclaration('codePostal', 'Code postal', ex('78110'))), client(champDeclaration('localite', 'Localité', ex('Le Vésinet'))),
+    client(champDeclaration('telephone', 'Téléphone', ex('06 12 34 56 78'))), client(champDeclaration('email', 'Adresse électronique', ex('marie.martin@exemple.fr'))),
     {
       type: 'lecture', cle: 'devis-terrasses', libelle: 'Terrasses',
       valeur: () => terrasses.length ? terrasses.map((t, i) => 'T' + (i + 1) + ' ' + t).join(', ') : 'aucune : dessinez une terrasse'
-    },
-    {
-      type: 'bouton', cle: 'devis-telecharger', libelle: '', nom: 'Télécharger le devis', texte: () => 'Télécharger le devis (PDF)',
-      agit: { commande: 'export.devis' }, actif: () => terrasses.length > 0, executer: (cx) => cx.executerCommande('export.devis')
     }
   ];
   return {

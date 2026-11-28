@@ -4,7 +4,7 @@
 // changements. Le champ d'adresse garde le focus pendant la frappe : seules les suggestions se
 // redessinent sous lui.
 
-import { chiffreFr } from '../../util/format.js';
+import { nombreDe, chiffreFr } from '../../util/format.js';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { centroid } from '../../geometry/basic.js';
 import { PAS_ZOOM, borner, cadreComplet, estComplet, grossissement, largeurMinimale, zoomer } from '../../geometry/cadreApercu.js';
@@ -96,7 +96,6 @@ function Apercu({ importe }: Props) {
           const style = l.role === 'principale' ? { fill: '#FBF3D9', stroke: '#3B2E1F' }
             : l.role === 'retenue' ? { fill: '#EDE3CB', stroke: '#8A7B63' }
             : { fill: 'transparent', stroke: '#9a9a9a', strokeDasharray: (trait * 4).toFixed(3) + ' ' + (trait * 3).toFixed(3) };
-          const c = centroid(l.pts);
           return (
             <g key={l.idu}>
               <polygon points={points(l.pts)} {...style} strokeWidth={(survole ? trait * 2.2 : trait).toFixed(4)}
@@ -104,7 +103,6 @@ function Apercu({ importe }: Props) {
                 onMouseEnter={l.cliquable ? () => importe.survoler(l.idu) : undefined}
                 onMouseLeave={l.cliquable ? () => { if (e.survol === l.idu) importe.survoler(null); } : undefined}
                 onClick={cliquable(l.candidate)} />
-              <text x={c.x.toFixed(2)} y={(-c.y).toFixed(2)} textAnchor="middle" fontSize={police.toFixed(3)} fill="#3B2E1F" pointerEvents="none">{l.libelle}</text>
             </g>
           );
         })}
@@ -120,6 +118,15 @@ function Apercu({ importe }: Props) {
             stroke={retenu ? couche.contour : '#b0b0b0'} strokeWidth={(retenu ? trait : trait * 0.7).toFixed(4)}
             strokeDasharray={retenu ? undefined : (trait * 2).toFixed(3) + ' ' + (trait * 2).toFixed(3)} pointerEvents="none" />;
         }))}
+        {/* Les noms des parcelles, par-dessus tout : poses avec leur parcelle, ils passaient sous les batiments (« AE 101 » presque
+            invisible sous la maison, audit UX de la 5.45.0, constat 13). Un halo clair, la principale en gras. */}
+        <g pointerEvents="none">
+          {lots.map((l) => {
+            const c = centroid(l.pts);
+            return <text key={'n' + l.idu} x={c.x.toFixed(2)} y={(-c.y).toFixed(2)} textAnchor="middle" fontSize={(police * (l.role === 'principale' ? 1.25 : 1)).toFixed(3)}
+              fontWeight={l.role === 'principale' ? 700 : 400} fill="#2B2117" stroke="#FFFDF8" strokeWidth={(police * 0.28).toFixed(3)} paintOrder="stroke" strokeLinejoin="round">{l.libelle}</text>;
+          })}
+        </g>
         {/* Le point d'adresse, souvent hors de toute parcelle : le montrer evite de croire a un bug. */}
         <circle cx="0" cy="0" r={(Math.max(0.4, complet.w / 120) / g).toFixed(4)} fill="#a02020" pointerEvents="none" />
       </svg>
@@ -237,7 +244,7 @@ function ResumeDirect({ importe }: Props) {
       <Apercu importe={importe} />
       <div className="infoParcelle" role="status">
         <b>{'Parcelle ' + libelleParcelle(p)}</b>{' — ' + (p.commune || '') + ' — ' + importe.ligneSurface(p)}<br />
-        {'Sur la parcelle : ' + n(e.batiments, e.importerBatiments) + ' bâtiment(s), ' + (n(e.haies, e.importerHaies) + n(e.vegetation, e.importerVegetation)) + ' haie(s) et zone(s) de végétation.'}
+        {'Sur la parcelle : ' + nombreDe(n(e.batiments, e.importerBatiments), 'bâtiment') + ', ' + nombreDe(n(e.haies, e.importerHaies) + n(e.vegetation, e.importerVegetation), 'haie ou zone de végétation', 'haies et zones de végétation') + '.'}
         {e.plu?.zones?.[0] && <><br />{'PLU : zone ' + e.plu.zones[0].libelle}</>}
         {importe.reliefPermis() && <><br />{e.importerRelief ? 'Relief : lu à la création, ' + (e.reliefToutesParcelles ? 'sur toutes les parcelles.' : 'sur la parcelle du projet.') : 'Relief : non lu.'}</>}
       </div>
@@ -292,27 +299,50 @@ function Etape2({ importe }: Props) {
   );
 }
 
-/** Une voisine : « propriete » la fusionne a la principale, « importer » la pose en decor de reference. */
+/** Ce que devient une voisine : rien, un decor de reference (« importer »), ou une part du terrain (« propriete », fusionnee). */
+type ChoixVoisine = 'ignorer' | 'decor' | 'terrain';
+const CHOIX_VOISINE: readonly [ChoixVoisine, string, string][] = [
+  ['ignorer', 'Ignorer', 'Ni importée ni fusionnée'],
+  ['decor', 'Décor', 'Importée comme voisine, en décor de référence'],
+  ['terrain', 'Mon terrain', 'Fait partie de la propriété : fusionnée avec la parcelle principale, sa limite interne restant en pointillé']
+];
+
+/**
+ * Une voisine (audit UX de la 5.45.0, constat 13) : une ligne, son nom et sa surface, puis un choix segmente « Ignorer / Décor /
+ * Mon terrain » — la meme semantique que les deux cases d'avant (« importer », « propriete »), qui tenaient sur quatre lignes au
+ * telephone. La distance et « En faire la principale » viennent dessous, en petit.
+ */
 function LigneVoisine({ importe, c }: Props & { c: Candidate }) {
   const e = importe.etat();
   const prop = e.propriete.has(c.idu);
+  const actuel: ChoixVoisine = prop ? 'terrain' : e.selection.has(c.idu) ? 'decor' : 'ignorer';
+  const choisir = (voulu: ChoixVoisine) => {
+    if (voulu === actuel) return;
+    if (prop) importe.basculerPropriete(c);
+    if (voulu === 'terrain') importe.basculerPropriete(c);
+    else if ((voulu === 'decor') !== importe.etat().selection.has(c.idu)) importe.basculerVoisine(c);
+  };
   return (
-    <div className={'ligneVoisine' + (e.survol === c.idu ? ' survolee' : '')}
+    <div className={'ligneVoisine' + (e.survol === c.idu ? ' survolee' : '')} data-choix-voisine={actuel}
       onMouseEnter={() => importe.survoler(c.idu)} onMouseLeave={() => { if (e.survol === c.idu) importe.survoler(null); }}>
-      <label title="Cette parcelle fait partie de la propriété : elle sera fusionnée avec la parcelle principale, sa limite interne restant en pointillé.">
-        <input type="checkbox" data-controle="cadastre.propriete" checked={prop} onChange={() => importe.basculerPropriete(c)} /> propriété
-      </label>
-      <label title="Importer cette parcelle comme voisine, en décor de référence.">
-        <input type="checkbox" data-controle="cadastre.importerVoisine" checked={e.selection.has(c.idu) || prop} disabled={prop} onChange={() => importe.basculerVoisine(c)} /> importer
-      </label>
-      <span className="texteVoisine" onClick={() => importe.basculerVoisine(c)}>
-        {libelleParcelle(c) + ' — ' + importe.ligneSurface(c) + (c.frontiere ? ' — ' + chiffreFr(c.frontiere, 1) + ' m de limite commune' : ' — à ' + chiffreFr(c.distancePrincipale || 0, 1) + ' m')}
-      </span>
-      {/* Permuter la principale sans repasser par l'etape 2 : c'est ici qu'on voit le voisinage en
-          entier, donc ici qu'on se rend compte qu'on a designe la mauvaise parcelle. */}
-      <button type="button" data-controle="cadastre.principale" className="secondary petitBouton"
-        title="En faire la parcelle principale : celle qui porte l'adresse, l'origine du plan et le zonage PLU. L'actuelle redevient une voisine."
-        onClick={(ev) => { ev.stopPropagation(); void importe.choisirPrincipale(c); }}>↑ principale</button>
+      <div className="enteteVoisine">
+        <span className="nomVoisine">{libelleParcelle(c)}</span>
+        <span className="surfaceVoisine">{importe.ligneSurface(c)}</span>
+      </div>
+      <div className="choixVoisine" role="group" aria-label={'Que faire de ' + libelleParcelle(c)}>
+        {CHOIX_VOISINE.map(([choix, mot, titre]) => (
+          <button key={choix} type="button" data-controle="cadastre.choixVoisine" data-choix={choix} aria-pressed={actuel === choix} title={titre}
+            className={'choixSegment' + (actuel === choix ? ' actif' : '')} onClick={() => choisir(choix)}>{mot}</button>
+        ))}
+      </div>
+      <div className="detailVoisine">
+        <span>{c.frontiere ? chiffreFr(c.frontiere, 1) + ' m de limite commune' : 'à ' + chiffreFr(c.distancePrincipale || 0, 1) + ' m'}</span>
+        {/* Permuter la principale sans repasser par l'etape 2 : c'est ici qu'on voit le voisinage en
+            entier, donc ici qu'on se rend compte qu'on a designe la mauvaise parcelle. */}
+        <button type="button" data-controle="cadastre.principale" className="lienVoisine"
+          title="En faire la parcelle principale : celle qui porte l'adresse, l'origine du plan et le zonage PLU. L'actuelle redevient une voisine."
+          onClick={(ev) => { ev.stopPropagation(); void importe.choisirPrincipale(c); }}>En faire la principale</button>
+      </div>
     </div>
   );
 }
@@ -422,14 +452,19 @@ function Etape3({ importe }: Props) {
       <div className="corpsParcours">
         <Apercu importe={importe} />
         <div className={'resumePropriete' + (resume.alerte ? ' alerte' : '')}>{resume.texte}</div>
-        <div className="aideParcours">
-          Cochez « propriété » pour les parcelles qui forment votre terrain (elles seront fusionnées en une seule), « importer » pour celles qui
-          restent un simple décor de référence. Un clic sur l'aperçu bascule « importer ». Un objet coché « contraint à la parcelle » reste
-          enfermé dans la parcelle principale : pour construire à cheval sur une voisine, décochez cette contrainte dans le panneau Objet.
-        </div>
+        {/* L'explication derriere « ? » : six lignes au telephone, avant meme la liste (constat 13). */}
+        <details className="aideRepliee">
+          <summary data-controle="cadastre.aideVoisines" aria-label="Explication des choix">Pour chaque parcelle voisine : Ignorer, Décor ou Mon terrain. <span className="pointAide" aria-hidden="true">?</span></summary>
+          <div className="aideParcours">
+            « Mon terrain » pour les parcelles qui forment votre terrain (elles seront fusionnées en une seule), « Décor » pour celles qui
+            restent un simple décor de référence. Toucher une parcelle de l'aperçu la met en « Décor ». Un objet coché « contraint à la
+            parcelle » reste enfermé dans la parcelle principale : pour construire à cheval sur une voisine, décochez cette contrainte dans
+            le panneau Objet.
+          </div>
+        </details>
         <div className="barreSelection">
-          <Bouton controle="cadastre.cocherMitoyennes" onClick={importe.cocherMitoyennes}>Cocher toutes les mitoyennes</Bouton>
-          <Bouton controle="cadastre.toutDecocher" onClick={importe.toutDecocher}>Tout décocher</Bouton>
+          <Bouton controle="cadastre.cocherMitoyennes" onClick={importe.cocherMitoyennes}>Toutes les mitoyennes en décor</Bouton>
+          <Bouton controle="cadastre.toutDecocher" onClick={importe.toutDecocher}>Aucune en décor</Bouton>
         </div>
         <div className="listeVoisines">
           {groupe('Parcelles mitoyennes', e.adjacentes)}
