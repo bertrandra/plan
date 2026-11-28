@@ -38,7 +38,7 @@ export function Devis({ inspecteur, preferences, magasin, commandes, fermer }: {
                 <div className="champs"><ListeChamps champs={section.champs.filter((ch) => !estChampClient(ch))} c={c} inspecteur={service} /></div>
                 {c.parcelle && (
                   <details className="clientDevis">
-                    <summary data-controle="devis.client">Client <span className="facultatif">(facultatif)</span></summary>
+                    <summary data-controle="devis.client"><span className="chevronClient" aria-hidden="true">›</span>Client <span className="facultatif">(facultatif)</span></summary>
                     <div className="champs"><ListeChamps champs={section.champs.filter(estChampClient)} c={c} inspecteur={service} /></div>
                   </details>
                 )}

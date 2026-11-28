@@ -8184,6 +8184,9 @@ const POINTS = {
         boutonsDansLesChamps: d.querySelectorAll('.hoteChamps [data-cle="devis-telecharger"]').length };
     });
     if (devis.principal !== 'Télécharger le devis' || !devis.fermer || devis.client !== false || !/^ex\. : /.test(devis.adresse) || devis.boutonsDansLesChamps) echecs.push('devis : ' + JSON.stringify(devis));
+    // FUMEE_CAPTURES_UX=dossier : le devis et l'etape 3, en PNG, pour les comparer a l'audit.
+    const capturer = async (nom) => { if (process.env.FUMEE_CAPTURES_UX) { mkdirSync(process.env.FUMEE_CAPTURES_UX, { recursive: true }); await page.screenshot({ path: process.env.FUMEE_CAPTURES_UX + '/' + nom + '-' + f.nom + '.png' }); } };
+    await capturer('D10-devis');
     mesures.push('devis : « ' + devis.principal + ' » plein au pied, client replié, « ' + devis.adresse + ' »');
     await page.locator('[data-controle="devis.fermer"]').click();
     if (tactile) await feuille(page, null);
@@ -8203,6 +8206,8 @@ const POINTS = {
     const aide = await page.evaluate(() => { const d = document.querySelector('.dialogueCadastre details.aideRepliee'); return d ? { ouverte: d.open, lignes: Math.round(d.querySelector('summary').getBoundingClientRect().height) } : null; });
     if (!lignes.length || lignes.some((l) => l.choix.join() !== 'Ignorer,Décor,Mon terrain' || l.h > 30 || l.deborde || (tactile && l.min < 44))) echecs.push('étape 3 : ' + JSON.stringify(lignes.slice(0, 2)));
     if (!aide || aide.ouverte) echecs.push('explication de l’étape 3 : ' + JSON.stringify(aide));
+    await imp.locator('.listeVoisines').scrollIntoViewIfNeeded();
+    await capturer('D13-etape3');
     const premiere = imp.locator('.ligneVoisine').first();
     await premiere.locator('[data-choix="terrain"]').click();
     const fusion = (await imp.locator('.resumePropriete').textContent()) ?? '';

@@ -600,6 +600,10 @@
   .dialogueDevis .clientDevis{ margin-top:10px; border-top:1px solid var(--hairline); padding-top:6px; }
   .dialogueDevis .clientDevis > summary{ min-height:36px; display:flex; align-items:center; gap:6px; cursor:pointer; font-family:var(--sans); font-weight:600; font-size:0.9rem; }
   html:not([data-classe="large"]) .dialogueDevis .clientDevis > summary{ min-height:44px; }
+  .dialogueDevis .clientDevis > summary{ list-style:none; }
+  .dialogueDevis .clientDevis > summary::-webkit-details-marker{ display:none; }
+  .dialogueDevis .chevronClient{ display:inline-block; transition:transform .15s; color:var(--ink-soft); }
+  .dialogueDevis .clientDevis[open] .chevronClient{ transform:rotate(90deg); }
   .dialogueDevis .clientDevis .facultatif{ font-weight:400; color:var(--ink-soft); }
   .dialogueDevis input::placeholder{ font-style:italic; color:var(--ink-soft); opacity:0.8; }
   .dialogueDeclaration, .dialogueDevis{ width:min(620px,96vw); max-height:92vh; overflow:auto; }
