@@ -186,7 +186,7 @@ describe('les bornes uniques des elements de facade (constat 4)', () => {
   });
 });
 
-describe('toute ecriture fige, sauf « Règles » (constat 5)', () => {
+describe('toute ecriture de la forme fige, sauf « Règles » (constat 5) ; les reglages du batiment ne figent pas (reglagesBatiment.test.ts)', () => {
   const gestes: [string, (c: ControleurToit, o: ObjetPlan) => unknown][] = [
     ['faitage', (c) => c.reglerFaitage(1)], ['sens', (c) => c.tournerSens()], ['forme', (c) => c.choisirForme('forme:croupes')],
     ['regler', (c) => c.regler('pente', '45')], ['piece', (c) => { c.choisirIntention('ajouter'); return c.poserPiece('sur:cheminee'); }],

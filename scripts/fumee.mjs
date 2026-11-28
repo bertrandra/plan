@@ -7951,6 +7951,112 @@ const POINTS = {
     if (!sans) echecs.push('la page déborde en largeur');
     return { ok: echecs.length === 0, mesure: echecs.length ? echecs.join(' ; ') : `Z10 ouverte sur le plan puis attachée à la 3D ; impasse dite (six pièces grisées, « ${verbe} »), ${decoupes} corps découpés, « Défaire » sous les yeux ; ${n0} corps par la forme en place ; une forme sans choix garde la galerie (« ${portee} ») ; « Bâtiment entier » : « ${averti} » ; voir le projet puis « + » sans perte ; Règles puis Quitter sans garder : bâtiment au bit près` };
   },
+  209: async (page, f) => {
+    // Les reglages du batiment dans l'atelier du toit (28 novembre 2026, « Go déplace ») : la maison de la demonstration, un toit d'un
+    // seul tenant, une mesure LiDAR (deux lectures : « Tel que mesuré », « Un seul toit ») et une version de lecture. L'inspecteur
+    // ne fait plus que lire le toit (« Égout », « Couverture ») ; l'atelier regle la hauteur a l'egout (+ et saisie), la rend au calcul,
+    // choisit la couleur, le materiau, la pose et ce que la 3D montre, chaque geste un pas que « Défaire » rend ; aucun ne fige le toit.
+    // « Valider » : une etape d'historique, le projet modifie ; un Ctrl+Z rend le batiment, valeur pour valeur.
+    const echecs = [];
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const b = (o.batiment ??= {});
+      delete b.corpsToit; delete b.toitFige; delete b.modeToit; delete b.volumesToit; delete b.egoutChoisi;
+      o.elevation = 5.2;
+      b.toitLidarLu = 9;
+      b.toitMesure = { pas: 0.5, x0: 0, y0: 0, nx: 2, ny: 1, z: [7, null], egout: 6, faite: 7, source: 'lidar' };
+      // Un toit de la BD TOPO, lu au LiDAR : une lecture pourrait reprendre la hauteur (« Rendre au calcul » offert une fois saisie).
+      b.toit = { ...(b.toit ?? { forme: 'croupes', hauteur: 3, angleFaitage: 0 }), source: 'bdtopo' };
+      delete b.toit.couverture; delete b.toit.pose; delete b.toit.estime;
+      window.__plan.toucher('maison');
+      window.__plan.selectionnerCle('maison');
+    });
+    // Cles triees : l'historique du projet rend les valeurs, pas forcement dans l'ordre du fichier (comme au point 97).
+    const batiment = () => page.evaluate(() => {
+      const trie = (v) => (Array.isArray(v) ? v.map(trie) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, trie(v[k])])) : v);
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      return JSON.stringify(trie({ e: o.elevation, b: o.batiment }));
+    });
+    const lire = () => page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.key === 'maison'); const b = o.batiment ?? {}; return { e: o.elevation, choisi: b.egoutChoisi ?? null, lu: b.toitLidarLu ?? null, fige: !!b.toitFige, mode: b.modeToit ?? null, couleur: b.toit?.couleur ?? null, couverture: b.toit?.couverture ?? null, pose: b.toit?.pose ?? null }; });
+    const depart = await batiment();
+    const panneau = '.panneauToit';
+    const groupe = panneau + ' .reglagesBatiment';
+
+    // ---- L'inspecteur lit, n'ecrit plus -------------------------------------------------------------
+    await inspecteur(page);
+    await ouvrirSection(page, 'toit');
+    const z5 = await page.evaluate(() => [...document.querySelectorAll('#zoneInspecteur [data-cle]')].map((e) => e.getAttribute('data-cle')));
+    for (const cle of ['toitMode', 'toitCouleur', 'toitMateriau', 'toitPose', 'elevation', 'rendreEgout']) if (z5.includes(cle)) echecs.push('l’inspecteur montre encore « ' + cle + ' »');
+    for (const cle of ['toitEgout', 'toitResume', 'toitModifier']) if (!z5.includes(cle)) echecs.push('l’inspecteur ne montre pas « ' + cle + ' »');
+    const egoutZ5 = ((await page.locator('#zoneInspecteur [data-cle="toitEgout"]').first().innerText({ timeout: 10000 }).catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    if (!/5,20 m/.test(egoutZ5)) echecs.push('« Égout » de l’inspecteur : « ' + egoutZ5 + ' »');
+    await etape('Modifier le toit', () => page.locator('#zoneInspecteur [data-cle="toitModifier"] button').first().click({ timeout: 15000 }));
+    if (f.nom === 'compact') await page.evaluate(() => window.__plan.ouvrirFeuille(null));
+    await etape('Z10', () => page.locator('#stage .panneauToit[data-zone="Z10"]').waitFor({ timeout: 30000 }));
+    await panneauToitDeplie(page, 10000);
+    await etape('groupe « Le bâtiment »', () => page.locator(groupe).waitFor({ timeout: 10000 }));
+
+    // ---- La hauteur a l'egout : + puis la saisie, chacun un pas ; « Défaire » le rend ---------------------------------------
+    const origine = async () => ((await page.locator(groupe + ' [data-valeur="origineEgout"]').textContent({ timeout: 5000 }).catch(() => '')) || '').trim();
+    const origineAvant = await origine();
+    await page.locator(groupe + ' .boutonPas[data-commande="toit.egout"][data-sens="1"]').click({ timeout: 10000 });
+    await page.waitForTimeout(250);
+    const apresPlus = await lire();
+    if (Math.abs(apresPlus.e - 5.3) > 1e-9 || apresPlus.choisi !== 'saisie' || apresPlus.fige) echecs.push('« + » de l’égout : ' + JSON.stringify(apresPlus));
+    const origineSaisie = await origine();
+    if (origineSaisie !== 'Saisie') echecs.push('l’état de la hauteur après « + » : « ' + origineSaisie + ' »');
+    const saisie = page.locator(groupe + ' .saisieEgout');
+    await saisie.fill('5,85');
+    await saisie.press('Enter');
+    await page.waitForTimeout(250);
+    if ((await lire()).e !== 5.85) echecs.push('la hauteur saisie n’a pas été écrite (' + (await lire()).e + ')');
+    await page.locator(panneau + ' .defaireToit').click({ timeout: 10000 });
+    await page.waitForTimeout(250);
+    if (Math.abs((await lire()).e - 5.3) > 1e-9) echecs.push('« Défaire » n’a pas rendu la hauteur d’avant la saisie');
+
+    // ---- « Rendre au calcul » : la marque tombe, le toit redevient a lire ------------------------------------------------------
+    await etape('Rendre au calcul', () => page.locator(groupe + ' [data-commande="toit.rendreEgout"]').click({ timeout: 10000 }));
+    await page.waitForTimeout(250);
+    const rendu = await lire();
+    if (rendu.choisi !== null || rendu.lu !== null) echecs.push('« Rendre au calcul » : ' + JSON.stringify(rendu));
+    if ((await page.locator(groupe + ' [data-commande="toit.rendreEgout"]').count()) !== 0) echecs.push('« Rendre au calcul » reste offert');
+
+    // ---- La couverture : la couleur (toit unique), le materiau, la pose ------------------------------------------------------
+    await etape('couleur', () => page.locator(groupe + ' .couleurCouverture').fill('#336699'));
+    await page.waitForTimeout(250);
+    await etape('matériau', () => page.locator(groupe + ' select[data-commande="toit.materiau"]').selectOption('ardoise'));
+    await page.waitForTimeout(250);
+    await etape('pose', () => page.locator(groupe + ' [data-commande="toit.pose"][data-valeur="losange"]').click({ timeout: 10000 }));
+    await page.waitForTimeout(250);
+    const couvert = await lire();
+    if (couvert.couleur !== '#336699' || couvert.couverture !== 'ardoise' || couvert.pose !== 'losange' || couvert.fige) echecs.push('couverture : ' + JSON.stringify(couvert));
+
+    // ---- « Toit en 3D » : en mots ; la surface mesuree --------------------------------------------------------------------
+    const sources = await page.locator(groupe + ' [data-commande="toit.source"]').allTextContents();
+    if (sources.join('|') !== 'Tel que mesuré (LiDAR)|Un seul toit') echecs.push('choix de « Toit en 3D » : ' + sources.join(', '));
+    await page.locator(groupe + ' [data-commande="toit.source"][data-valeur="mesure"]').click({ timeout: 10000 });
+    await page.waitForTimeout(250);
+    if ((await lire()).mode !== 'mesure') echecs.push('« Tel que mesuré » n’a pas été choisi');
+    // Cibles de 44 px au doigt.
+    const petites = await page.evaluate(() => [...document.querySelectorAll('.panneauToit .reglagesBatiment :is(button, select, input)')].filter((e) => e.getBoundingClientRect().height < 43.5).length);
+    if (f.nom !== 'large' && petites) echecs.push(petites + ' commande(s) de moins de 44 px au doigt');
+
+    // ---- Valider : une etape, le projet modifie, rien de fige ; un Ctrl+Z rend tout -------------------------------------------
+    const sale = await page.evaluate(() => !!window.__plan.etat().dirty);
+    await page.locator(panneau + ' .piedToit [data-commande="toit.valider"]').click({ timeout: 10000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const valide = await lire();
+    const modifie = await page.evaluate(() => !!window.__plan.etat().dirty);
+    if (valide.fige || valide.mode !== 'mesure' || valide.couverture !== 'ardoise' || !modifie) echecs.push('après « Valider » : ' + JSON.stringify(valide) + ', projet ' + (modifie ? 'modifié' : 'NON modifié') + (sale ? ' (déjà marqué avant)' : ''));
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(300);
+    const rendu2 = await batiment();
+    if (rendu2 !== depart) echecs.push('un Ctrl+Z n’a pas rendu le bâtiment (' + depart + ' ≠ ' + rendu2 + ')');
+    const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
+    if (!sans) echecs.push('la page déborde en largeur');
+    return { ok: echecs.length === 0, mesure: echecs.length ? echecs.join(' ; ') : `l’inspecteur lit (« ${egoutZ5} ») ; égout « ${origineAvant} » → + 5,30 m « ${origineSaisie} » → 5,85 saisi, défait ; rendu au calcul ; couverture #336699, ardoise en losange ; « Toit en 3D » : ${sources.join(', ')} → tel que mesuré ; rien de figé ; Valider puis Ctrl+Z : bâtiment rendu, valeur pour valeur` };
+  },
   98: async (page, f) => {
     // Mode Toit : le geste n'agit que sur le corps choisi. Une aile posee contre la maison, puis choisie (pastille) : sa silhouette se
     // trace sur la scene ; une cheminee posee va sur elle seule. Vue de dessus, la poignee qui deplace le corps est un carre a fleches,
@@ -12515,7 +12621,9 @@ function pointsPour(nomClasse) {
   // 208 : l'atelier du toit (Z10) et son controleur unique : ouvert sur le plan par l'inspecteur, l'impasse du toit d'un seul tenant
   // levee par « Découper ce toit », « Défaire » sous les yeux, la 3D attachee a la session, une forme sans choix qui garde la galerie,
   // « Bâtiment entier » qui dit ce qui disparaitra, « Voir le toit du projet » sans perte, « Quitter sans garder » au bit pres.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208];
+  // 209 : les reglages du batiment dans l'atelier du toit : l'inspecteur ne fait que lire (« Égout », « Couverture ») ; la hauteur a
+  // l'egout (+, saisie, Defaire, « Rendre au calcul »), la couleur, le materiau, la pose et « Toit en 3D », sans figer ; Valider, Ctrl+Z.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

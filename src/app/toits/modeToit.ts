@@ -11,7 +11,7 @@
 import { estBatiment, estChezUnVoisin } from '../../model/fonctions.js';
 import { enPoints } from '../../model/formes.js';
 import { reordonner, restaurer as restaurerSession } from '../../facade/modeToit/sessionToit.js';
-import { creerControleurToit, type ControleurToit, type Issue, type IntentionToit } from '../../facade/modeToit/controleurToit.js';
+import { creerControleurToit, lieuDuProjet, type ControleurToit, type Issue, type IntentionToit } from '../../facade/modeToit/controleurToit.js';
 import { facadeProche, facadesDuBatiment, facadeValideeDuMur, facadeVersLePoint, orientationDe, texteDeLaPhoto, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
 import { poseDeDessus, poseEnPerspective, type PointScene, type Reserve } from '../../three/poseFacade.js';
 import { moteur3d } from '../../three/demande3d.js';
@@ -750,7 +750,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     ouvrir(intention: IntentionToit = 'modifier'): boolean {
       const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey);
       if (session || !estRetouchable(o)) return false;
-      session = { cle: o.key, ctl: creerControleurToit(o, intention), en3d: false, facade: null, derniere: null, vue: 'libre', corpsIsole: null, indice: true, vueAvant: null, isole: false, cameraAvantMode: null };
+      session = { cle: o.key, ctl: creerControleurToit(o, intention, lieuDuProjet(a.etat.objects)), en3d: false, facade: null, derniere: null, vue: 'libre', corpsIsole: null, indice: true, vueAvant: null, isole: false, cameraAvantMode: null };
       poserEntreeHistorique();
       ctx.rafraichir();
       attacher3d();

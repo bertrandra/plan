@@ -30,15 +30,15 @@ describe('les reglages passes en mode expert (B1)', () => {
     expect(caches(projet(), 'Carport 1')).toEqual(caches(projet(), 'Pergola 1'));
   });
 
-  it('un batiment : « Murs en 3D », « Toit en 3D », l appui et l entraxe des fenetres', () => {
+  it('un batiment : « Murs en 3D », l appui et l entraxe des fenetres (« Toit en 3D » est dans l atelier du toit)', () => {
     const objets = projet();
     const maison = parNom(objets, 'Maison');
     // Un batiment lu par le LiDAR et une photo de rue : les deux choix existent.
     maison.batiment = { ...(maison.batiment ?? {}), volumesToit: DEUX_CORPS,
       couleurMurs: { photo: { couleur: '#ddccbb', date: '2025-05-01' } } as never };
     const c = caches(objets, 'Maison');
-    expect(c).toEqual(expect.arrayContaining(['toit/toitMode', 'fenetres3d/appui', 'fenetres3d/entraxe', 'apparence/sourceCouleurMurs']));
-    expect(c.filter(k => !['toit/toitMode', 'fenetres3d/appui', 'fenetres3d/entraxe', 'apparence/sourceCouleurMurs'].includes(k))).toEqual([]);
+    expect(c).toEqual(expect.arrayContaining(['fenetres3d/appui', 'fenetres3d/entraxe', 'apparence/sourceCouleurMurs']));
+    expect(c.filter(k => !['fenetres3d/appui', 'fenetres3d/entraxe', 'apparence/sourceCouleurMurs'].includes(k))).toEqual([]);
     // La largeur et la hauteur des fenetres, et la couleur lue, restent a tous.
     expect(montrees(objets, 'Maison', true)).toEqual(expect.arrayContaining(['fenetres3d/largeur', 'fenetres3d/hauteur', 'apparence/couleurMursLue']));
   });
@@ -97,12 +97,12 @@ describe('un reglage expert reste montre quand il le faut', () => {
     expect(montrees(objets, 'Pergola 1', true)).toEqual(expect.arrayContaining(['pergolaStructure/avecContrefiches', 'pergolaStructure/longueurContrefiche']));
   });
 
-  it('un mode de toit, une source de couleur, un plafond de points choisis a la main', () => {
+  it('une source de couleur, un plafond de points choisis a la main', () => {
     const objets = projet();
     const maison = parNom(objets, 'Maison');
     maison.batiment = { ...(maison.batiment ?? {}), volumesToit: DEUX_CORPS,
       modeToit: 'simple', couleurMurs: { source: 'plan', photo: { couleur: '#ddccbb', date: '2025-05-01' } } as never, fenetres3d: { mode: 'toutes', largeur: 1, hauteur: 1.2, appui: 0.4, entraxe: 2.5 } };
-    expect(montrees(objets, 'Maison', true)).toEqual(expect.arrayContaining(['toit/toitMode', 'apparence/sourceCouleurMurs', 'fenetres3d/appui']));
+    expect(montrees(objets, 'Maison', true)).toEqual(expect.arrayContaining(['apparence/sourceCouleurMurs', 'fenetres3d/appui']));
     const parcelle = parNom(objets, 'Parcelle AE 101');
     parcelle.relief!.maxCellules = 20000;
     expect(montrees(objets, 'Parcelle AE 101', true)).toContain('relief/pointsMax');

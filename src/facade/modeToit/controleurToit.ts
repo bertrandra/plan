@@ -12,6 +12,9 @@
 // retour d'angle, un decroche) n'est admis que dans l'intention « Ajouter » ; un geste qui change ce qui existe, que dans « Modifier » :
 // les promesses « Rien n'est créé » et « Rien d'existant n'est touché » sont tenues ici, pas par les boutons montres. Pur : ni DOM, ni scene,
 // ni React.
+//
+// Les reglages du batiment (la source du toit, la hauteur a l'egout, la couverture : reglagesBatiment.ts) passent par la meme porte,
+// mais ne figent pas : ce ne sont pas des formes, et la lecture automatique continue de lire le reste du toit.
 
 import { champsBatiment } from '../../model/champsFonction.js';
 import { aChange, annuler, creerHistorique, egaux, empiler, ordreDe, peutAnnuler, peutRetablir, photographier, reordonner, restaurer, retablir, revenirAuDepart, type ChampsToit, type HistoriqueToit, type OrdreDesCles } from './sessionToit.js';
@@ -23,7 +26,12 @@ import { PAS_ROTATION_DEG, tournerCorps } from './corpsNeufs.js';
 import { corpsAFusionner, fusionnerCorps, gaucheEnDebut, retourDAngle, scinderCorps } from './decroche.js';
 import { traveeDecrochee } from './travees.js';
 import { replacerSaillie } from './saillies.js';
+import { couvertureDuBatiment, egoutDuBatiment, PAS_EGOUT_M, poserCouleur, poserEgout, poserMateriau, poserPose, poserSource, rendreEgoutAuCalcul, sourcesDuToit,
+  type CouvertureDuBatiment, type EgoutDuBatiment, type LieuDuBatiment, type OptionReglage, type SourceToit } from './reglagesBatiment.js';
 import type { CorpsToit, ObjetPlan } from '../../model/types.js';
+
+/** Le lieu des batiments d'un projet, que l'ouverture d'une session passe au controleur (la latitude de la parcelle). */
+export { lieuDuProjet } from './reglagesBatiment.js';
 
 /** Ce que la personne fait : elle MODIFIE ce qui existe, ou elle AJOUTE une piece (retour du proprietaire, 24 novembre 2026). */
 export type IntentionToit = 'modifier' | 'ajouter';
@@ -72,6 +80,8 @@ export interface EtatEdition {
   sens: SensSimple | null;
   /** Les choix en image de la cible (l'element choisi, le corps de la portee, ou tout le toit), chacun avec sa valeur en place. */
   groupes: (GroupeChoix & { enPlace: string | null })[];
+  /** Les reglages du batiment entier, hors de toute portee : la source du toit (null : rien a choisir), la hauteur a l'egout, la couverture. */
+  batiment: { source: { enPlace: SourceToit; options: OptionReglage[] } | null; egout: EgoutDuBatiment; couverture: CouvertureDuBatiment | null };
 }
 
 export interface ControleurToit {
@@ -105,6 +115,18 @@ export interface ControleurToit {
   placerSurLeMur(rang: number, place: { mur: number; centreM: number }): Issue;
   basculerRegles(): Issue;
 
+  /** Ce que la 3D montre du toit : les corps lus, la surface mesuree, un toit par corps, un seul toit (sans figer). */
+  choisirSource(v: string): Issue;
+  /** La hauteur a l'egout saisie (elle devient choisie), ou montee et baissee d'un pas de dix centimetres. */
+  reglerEgout(v: number): Issue;
+  egoutDUnPas(sens: 1 | -1): Issue;
+  /** La hauteur a l'egout choisie rendue a la lecture : le toit se relira a la validation. */
+  rendreEgout(): Issue;
+  /** La couverture : sa couleur (choisie, plus rien ne la recalcule), son materiau (vide : automatique), son motif de pose. */
+  choisirCouleur(v: string): Issue;
+  choisirMateriau(v: string): Issue;
+  choisirPose(v: string): Issue;
+
   /** Un glisser de poignee : l'apercu ecrit le batiment sans empiler ; la fin empile une etape ; Echap rend l'etat de la pile. */
   apercu(corps: CorpsToit[], elevation?: number): void;
   finGlisser(): boolean;
@@ -130,7 +152,8 @@ export interface ControleurToit {
 }
 
 /** Les gestes nommes d'une commande, pour dire d'avance s'ils s'appliquent (un bouton grise lit cela). */
-export type GesteNomme = 'faitage' | 'sens' | 'regler' | 'redimensionner' | 'dupliquer' | 'retirer' | 'tournerCorps' | 'scinder' | 'retourGauche' | 'retourDroite' | 'fusionner' | 'regles' | 'decouper';
+export type GesteNomme = 'faitage' | 'sens' | 'regler' | 'redimensionner' | 'dupliquer' | 'retirer' | 'tournerCorps' | 'scinder' | 'retourGauche' | 'retourDroite' | 'fusionner' | 'regles' | 'decouper'
+  | 'source' | 'egout' | 'rendreEgout' | 'couverture';
 
 /**
  * La nature de chaque geste nomme. « Découper ce toit » n'en a pas : c'est le geste explicite qui leve l'impasse d'un toit d'un seul
@@ -138,7 +161,8 @@ export type GesteNomme = 'faitage' | 'sens' | 'regler' | 'redimensionner' | 'dup
  */
 const NATURE_DU_GESTE: Record<GesteNomme, Nature | null> = {
   faitage: 'modifie', sens: 'modifie', regler: 'modifie', redimensionner: 'modifie', retirer: 'modifie', tournerCorps: 'modifie', scinder: 'modifie',
-  fusionner: 'modifie', regles: 'modifie', decouper: null, dupliquer: 'cree', retourGauche: 'cree', retourDroite: 'cree'
+  fusionner: 'modifie', regles: 'modifie', decouper: null, dupliquer: 'cree', retourGauche: 'cree', retourDroite: 'cree',
+  source: 'modifie', egout: 'modifie', rendreEgout: 'modifie', couverture: 'modifie'
 };
 
 /** Les champs du toit compares sans la marque `toitFige` : un geste qui ne ferait que figer n'a rien change. */
@@ -150,6 +174,8 @@ interface EtatSession { intention: IntentionToit; choix: Choix; voitLeProjet: bo
 /** Le noyau d'une session : le batiment, la pile, l'etat, et la porte unique d'ecriture (`transaction`) avec ce qui la sert. */
 interface Noyau {
   o: ObjetPlan;
+  /** Le lieu du batiment (la latitude de la parcelle) : le materiau deduit de la couverture le lit. */
+  lieu: LieuDuBatiment;
   hist: HistoriqueToit;
   /** L'ordre des cles a l'ouverture : le depart rendu l'est au bit pres, jusque dans l'ordre du fichier. */
   ordre: OrdreDesCles;
@@ -168,8 +194,8 @@ interface Noyau {
   raisonDuGeste(g: GesteNomme): string | null;
 }
 
-function creerNoyau(o: ObjetPlan, intention: IntentionToit): Noyau {
-  const n = { o, hist: creerHistorique(o), ordre: ordreDe(o), e: { intention, choix: { selection: null, batimentEntier: false, facade: null }, voitLeProjet: false, ferme: false, glisse: false } } as unknown as Noyau;
+function creerNoyau(o: ObjetPlan, intention: IntentionToit, lieu: LieuDuBatiment): Noyau {
+  const n = { o, lieu, hist: creerHistorique(o), ordre: ordreDe(o), e: { intention, choix: { selection: null, batimentEntier: false, facade: null }, voitLeProjet: false, ferme: false, glisse: false } } as unknown as Noyau;
   n.corps = () => o.batiment?.corpsToit ?? [];
   /** La selection si l'element existe encore. */
   n.selectionValide = () => (n.e.choix.selection && lireElement(n.corps(), n.e.choix.selection) ? n.e.choix.selection : null);
@@ -238,6 +264,9 @@ function creerNoyau(o: ObjetPlan, intention: IntentionToit): Noyau {
       case 'retourGauche': case 'retourDroite': return surCorps !== null && retourDAngle(l, surCorps, g === 'retourGauche' ? 'gauche' : 'droite') ? null : 'Pas de retour possible de ce côté : un corps y est déjà lié, ou ce corps n’est pas un appentis.';
       case 'decouper': return decoupe(n.o) ? null : 'Ce toit est déjà découpé en corps.';
       case 'regler': return t || l.length ? null : 'Rien à régler.';
+      case 'source': return sourcesDuToit(n.o) ? null : 'Ce bâtiment n’a qu’une lecture de son toit : rien à choisir.';
+      case 'rendreEgout': return egoutDuBatiment(n.o).rendable ? null : 'La hauteur à l’égout n’est pas choisie, ou aucune lecture ne pourrait la reprendre.';
+      case 'couverture': return couvertureDuBatiment(n.o, n.lieu) ? null : 'Ce bâtiment n’a pas de toit à couvrir.';
       default: return null;
     }
   };
@@ -260,7 +289,8 @@ function lecture(n: Noyau): Pick<ControleurToit, 'cle' | 'ferme' | 'etat' | 'rai
         peutDefaire: peutAnnuler(n.hist), peutRefaire: peutRetablir(n.hist), change: aChange(n.hist), voitLeProjet: n.e.voitLeProjet,
         regles: !n.o.batiment?.toitFige,
         forme: { enPlace: formeEnPlace(n.o, p), disparait: p.entier ? ceQuiDisparait(l) : [], decoupe: decoupe(n.o) },
-        faitage: faitageDeLaPortee(n.o, p), sens: sensDeLaPortee(n.o, p), groupes
+        faitage: faitageDeLaPortee(n.o, p), sens: sensDeLaPortee(n.o, p), groupes,
+        batiment: { source: sourcesDuToit(n.o), egout: egoutDuBatiment(n.o), couverture: couvertureDuBatiment(n.o, n.lieu) }
       };
     },
 
@@ -426,6 +456,28 @@ function gestesDeLaCible(n: Noyau): Pick<ControleurToit, 'redimensionner' | 'dup
   };
 }
 
+/**
+ * Les reglages du batiment (reglagesBatiment.ts) : une transaction chacun, comme tout geste, mais sans figer le toit — une couleur ou une
+ * hauteur choisie ne doit pas couper la lecture automatique du reste. Ils gardent leurs propres marques (`egoutChoisi`, `origineCouleur`).
+ */
+function reglagesDuBatiment(n: Noyau): Pick<ControleurToit, 'choisirSource' | 'reglerEgout' | 'egoutDUnPas' | 'rendreEgout' | 'choisirCouleur' | 'choisirMateriau' | 'choisirPose'> {
+  const sansFiger = (f: (b: ObjetPlan) => boolean | string): Issue => n.transaction('modifie', f, false);
+  const reglerEgout = (v: number) => sansFiger((b) => poserEgout(b, v));
+  return {
+    choisirSource: (v) => sansFiger((b) => poserSource(b, v)),
+    reglerEgout,
+    egoutDUnPas(sens) {
+      n.reprendre();
+      // Au centimetre : dix pas de dix centimetres font un metre, pas 0,9999.
+      return reglerEgout(Math.round((egoutDuBatiment(n.o).hauteur + sens * PAS_EGOUT_M) * 100) / 100);
+    },
+    rendreEgout: () => sansFiger((b) => rendreEgoutAuCalcul(b)),
+    choisirCouleur: (v) => sansFiger((b) => poserCouleur(b, v)),
+    choisirMateriau: (v) => sansFiger((b) => poserMateriau(b, v, n.lieu)),
+    choisirPose: (v) => sansFiger((b) => poserPose(b, v, n.lieu))
+  };
+}
+
 /** La pile : les glisser des poignees, defaire, refaire, revenir au depart, voir le toit du projet, valider, quitter sans garder. */
 function pile(n: Noyau): Pick<ControleurToit, 'apercu' | 'finGlisser' | 'annulerGlisser' | 'defaire' | 'refaire' | 'revenirAuDepart' | 'voirLeProjet' | 'valider' | 'quitterSansGarder'> {
   return {
@@ -469,8 +521,9 @@ function pile(n: Noyau): Pick<ControleurToit, 'apercu' | 'finGlisser' | 'annuler
       n.reprendre();
       const final = photographier(n.o), change = aChange(n.hist);
       n.e.ferme = true;
-      // « Règles » rallumees (le toit n'est plus fige a la fin) : la lecture automatique le relit tout de suite.
-      return { change, final, depart: structuredClone(n.hist.pas[0] as ChampsToit), ordre: n.ordre, relire: change && !final.toitFige };
+      // Le toit est redevenu a lire (« Règles » rallumees, une hauteur rendue au calcul : plus fige, plus de version de lecture) : la
+      // lecture automatique le relit tout de suite. Une couleur ou une source choisie sur un toit deja lu ne relance rien.
+      return { change, final, depart: structuredClone(n.hist.pas[0] as ChampsToit), ordre: n.ordre, relire: change && !final.toitFige && (final.toitLidarLu ?? null) === null };
     },
 
     quitterSansGarder() {
@@ -482,9 +535,12 @@ function pile(n: Noyau): Pick<ControleurToit, 'apercu' | 'finGlisser' | 'annuler
   };
 }
 
-/** Ouvre une session d'edition sur le batiment `o` (ecrit en place). `intention` : celle d'ouverture (« Modifier » par defaut). */
-export function creerControleurToit(o: ObjetPlan, intention: IntentionToit = 'modifier'): ControleurToit {
-  const n = creerNoyau(o, intention);
+/**
+ * Ouvre une session d'edition sur le batiment `o` (ecrit en place). `intention` : celle d'ouverture (« Modifier » par defaut) ; `lieu` :
+ * ce que le batiment ne porte pas (la latitude de la parcelle du projet, que le materiau deduit lit).
+ */
+export function creerControleurToit(o: ObjetPlan, intention: IntentionToit = 'modifier', lieu: LieuDuBatiment = {}): ControleurToit {
+  const n = creerNoyau(o, intention, lieu);
   // Les accesseurs (`ferme`) ne survivent pas a un etalement : l'objet de lecture est la base, les gestes s'y ajoutent.
-  return Object.assign(lecture(n), gestesDuToit(n), gestesDeLaCible(n), pile(n));
+  return Object.assign(lecture(n), gestesDuToit(n), gestesDeLaCible(n), reglagesDuBatiment(n), pile(n));
 }

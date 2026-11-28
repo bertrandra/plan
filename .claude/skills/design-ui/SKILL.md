@@ -28,7 +28,7 @@ opérationnel, plus les conventions visuelles tirées de `src/styles/app.css`.
 | Z7 Barre d'état | `zones/BarreEtat.tsx` | Serveur, enregistrement, échelle, pointeur, sélection, version | Un clic (sauf l'indicateur d'enregistrement) |
 | Z8 Dialogues | `zones/Dialogues.tsx`, `shell/dialogues.ts` | Parcours en plusieurs étapes, confirmations ; fermables par Échap | Un message informatif |
 | Z9 Notifications | `zones/Notifications.tsx`, `shell/notifications.ts` | Toasts empilés, bandeau d'erreur fermable | Une question à l'utilisateur, un avertissement à l'admin |
-| Z10 Atelier du toit | `zones/AtelierToit.tsx` (racine `#zoneAtelierToit`, panneau posé sur le canevas montré) | Le seul endroit où l'on édite un toit, sur le plan et en 3D : Modifier / Ajouter, « Plus de réglages », Défaire, Valider, Quitter sans garder ; il lit le contrôleur du toit et émet ses commandes `toit.*` | Une règle de toit (elle est dans `facade/modeToit/controleurToit.ts`), un champ de toit dans Z5 |
+| Z10 Atelier du toit | `zones/AtelierToit.tsx` (racine `#zoneAtelierToit`, panneau posé sur le canevas montré) | Le seul endroit où l'on édite un toit, sur le plan et en 3D : Modifier / Ajouter, « Plus de réglages » (dont « Le bâtiment » : hauteur à l'égout, couverture, « Toit en 3D »), Défaire, Valider, Quitter sans garder ; il lit le contrôleur du toit et émet ses commandes `toit.*` | Une règle de toit (elle est dans `facade/modeToit/controleurToit.ts`), un champ de toit qui écrit dans Z5 (Z5 ne fait que le lire) |
 
 Règles :
 

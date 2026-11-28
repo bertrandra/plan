@@ -16,6 +16,7 @@ import { MOTS_INTENTION, type EtatEdition, type IntentionToit } from '../facade/
 import { FORMES_SIMPLES, OPTIONS_PIECE, PIECES_SIMPLES, piece, piecesDe, type FamillePiece, type PieceCatalogue } from '../facade/modeToit/pieces.js';
 import { MOTS_SENS } from '../facade/modeToit/gestes.js';
 import { libellesDesElements, memeCible, titreDuGroupe, type CibleElement } from '../facade/modeToit/elements.js';
+import { AIDE_SOURCE, type OptionReglage } from '../facade/modeToit/reglagesBatiment.js';
 import { vueDeSaillie, vueSurLeToit } from '../three/vueSaillie.js';
 import { hotes3d } from '../three/etat3d.js';
 import { VignetteToit, VignetteVue } from './EcranChaine.js';
@@ -367,6 +368,110 @@ function AjouterSimple({ choisie, choisir, facade, e, commandes }: { choisie: st
   );
 }
 
+/** Un choix exclusif en mots (`.segmente`) : un bouton par valeur, une commande du registre, celui en place enfonce. */
+function ChoixEnMots({ commandes, id, titre, options, enPlace }: { commandes: RegistreCommandes; id: string; titre: string; options: readonly OptionReglage[]; enPlace: string }) {
+  const e = commandes.etat(id), refus = refusDe(e);
+  return (
+    <div className="segmente" role="group" aria-label={titre}>
+      {options.map((x) => (
+        <button key={x.valeur} type="button" className={x.valeur === enPlace ? 'actif' : undefined} data-commande={id} data-valeur={x.valeur} aria-pressed={x.valeur === enPlace}
+          disabled={!e.utilisable} title={x.libelle + (refus ? ' — ' + refus : '')} onClick={(ev) => { commandes.executer(id, ev.currentTarget); }}>{x.libelle}</button>
+      ))}
+    </div>
+  );
+}
+
+/** La hauteur a l'egout saisie au clavier : elle s'ecrit quand on quitte le champ ou qu'on valide (Entree), pas a chaque chiffre. */
+function SaisieEgout({ commandes, hauteur }: { commandes: RegistreCommandes; hauteur: number }) {
+  const ecrite = hauteur.toFixed(2).replace('.', ',');
+  const [texte, setTexte] = useState(ecrite);
+  useEffect(() => { setTexte(ecrite); }, [ecrite]);
+  const e = commandes.etat('toit.egout');
+  const ecrire = (el: HTMLInputElement) => { if (el.value.trim() !== ecrite) commandes.executer('toit.egout', el); };
+  return (
+    <input type="text" inputMode="decimal" className="valeurPas saisieEgout" data-commande="toit.egout" aria-labelledby="titreEgoutToit" value={texte} disabled={!e.utilisable}
+      onChange={(ev) => { setTexte(ev.currentTarget.value); }} onBlur={(ev) => { ecrire(ev.currentTarget); }}
+      onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); ecrire(ev.currentTarget); } else if (ev.key === 'Escape') { ev.stopPropagation(); setTexte(ecrite); } }} />
+  );
+}
+
+/** La couleur de la couverture : la palette du systeme ; le choix s'ecrit a sa fermeture (`change`), pas a chaque teinte survolee. */
+function CouleurCouverture({ commandes, valeur }: { commandes: RegistreCommandes; valeur: string }) {
+  const champ = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const el = champ.current;
+    if (!el) return;
+    el.value = valeur;
+    const surChange = () => { commandes.executer('toit.couleur', el); };
+    el.addEventListener('change', surChange);
+    return () => { el.removeEventListener('change', surChange); };
+  }, [commandes, valeur]);
+  return <input ref={champ} type="color" className="couleurCouverture" data-commande="toit.couleur" aria-labelledby="titreCouleurToit" defaultValue={valeur} disabled={!commandes.etat('toit.couleur').utilisable} />;
+}
+
+/**
+ * Le batiment entier, hors de toute portee : la hauteur a l'egout (d'ou elle vient, − et + ou saisie, « Rendre au calcul »), la
+ * couverture (couleur, materiau, pose) et ce que la 3D montre du toit. Chacun une commande ; le controleur dit ce qui est offert.
+ */
+function ReglagesDuBatiment({ e, commandes }: { e: EtatEdition; commandes: RegistreCommandes }) {
+  const { egout, couverture: c, source } = e.batiment;
+  const materiau = commandes.etat('toit.materiau');
+  return (
+    <div className="groupeReglage reglagesBatiment" role="group" aria-labelledby="titreBatimentToit">
+      <span className="titreGroupe" id="titreBatimentToit">Le bâtiment</span>
+      <div className="reglageSimple enLigne">
+        <div className="texteReglage">
+          <span className="titreReglage" id="titreEgoutToit">Hauteur à l’égout</span>
+          <span className="noteReglage" data-valeur="origineEgout">{egout.origine.charAt(0).toUpperCase() + egout.origine.slice(1)}</span>
+          {egout.corpsGardentLeurs && <span className="noteReglage">Chaque corps garde ses égouts : sa poignée, en 3D, le déplace.</span>}
+        </div>
+        <div className="pasAPas" role="group" aria-labelledby="titreEgoutToit">
+          <BoutonPas commandes={commandes} id="toit.egout" sens={-1} libelle="Baisser l’égout de 10 cm" effet={egout.hauteur > 0} />
+          <SaisieEgout commandes={commandes} hauteur={egout.hauteur} />
+          <BoutonPas commandes={commandes} id="toit.egout" sens={1} libelle="Monter l’égout de 10 cm" effet />
+        </div>
+      </div>
+      {egout.rendable && (
+        <button type="button" className="boutonToit rendreEgout" data-commande="toit.rendreEgout" disabled={!commandes.etat('toit.rendreEgout').utilisable}
+          title="Saisie ou validée par un audit, cette hauteur n’est plus réécrite par aucune lecture. Rendue au calcul, elle est relue sur le LiDAR à la validation."
+          onClick={(ev) => { commandes.executer('toit.rendreEgout', ev.currentTarget); }}>Rendre au calcul</button>
+      )}
+      {c?.couleur && (
+        <div className="reglageSimple enLigne">
+          <div className="texteReglage">
+            <span className="titreReglage" id="titreCouleurToit">Couleur de la couverture</span>
+            {c.couleur.note && <span className="noteReglage">{c.couleur.note.charAt(0).toUpperCase() + c.couleur.note.slice(1)}</span>}
+          </div>
+          <CouleurCouverture commandes={commandes} valeur={c.couleur.valeur} />
+        </div>
+      )}
+      {c?.materiau && (
+        <div className="reglageSimple">
+          <label className="titreReglage" htmlFor="materiauToit">Matériau</label>
+          <select id="materiauToit" className="choixToit" data-commande="toit.materiau" value={c.materiau.enPlace} disabled={!materiau.utilisable}
+            title="Automatique : le matériau déduit des fichiers fonciers, de la couleur et de la pente. Un autre choix l’emporte en 3D."
+            onChange={(ev) => { commandes.executer('toit.materiau', ev.currentTarget); }}>
+            {c.materiau.options.map((x) => <option key={x.valeur} value={x.valeur}>{x.libelle}</option>)}
+          </select>
+        </div>
+      )}
+      {c?.pose && (
+        <div className="reglageSimple">
+          <span className="titreReglage">Pose</span>
+          <ChoixEnMots commandes={commandes} id="toit.pose" titre="Pose de la couverture" options={c.pose.options} enPlace={c.pose.enPlace} />
+        </div>
+      )}
+      {source && (
+        <div className="reglageSimple">
+          <span className="titreReglage">Toit en 3D</span>
+          <ChoixEnMots commandes={commandes} id="toit.source" titre="Ce que la 3D montre du toit" options={source.options} enPlace={source.enPlace} />
+          <p className="noteReglage">{AIDE_SOURCE}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** La barre de la session, rangee sous « Plus de réglages » : refaire, revenir au depart, voir le toit du projet ; en 3D, isoler et les vues. */
 function BarreSession({ commandes, en3d }: { commandes: RegistreCommandes; en3d: boolean }) {
   const e = etatToit();
@@ -489,6 +594,7 @@ export function AtelierToit({ magasin, commandes }: Props) {
                     onClick={(ev) => { commandes.executer('toit.regles', ev.currentTarget); }}>
                     {'Règles ' + (e.regles ? 'allumées' : 'coupées')}
                   </button>
+                  <ReglagesDuBatiment e={e} commandes={commandes} />
                 </>
               ) : (
                 <>

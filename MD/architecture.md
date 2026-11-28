@@ -798,12 +798,15 @@ DOM, no module state) is the only door through which a roof is edited by hand. A
 (`sessionToit.ts`, whose `CHAMPS_DU_TOIT` is the single list of fields a gesture may touch), the intention (*modifier* / *ajouter*), the
 target (an element, "Bâtiment entier", the façade being looked at) and the "show the project's roof" flag. Its API is intents —
 `choisirForme`, `decouper`, `reglerFaitage`, `tournerSens`, `regler`, `poserPiece`, `poserDecroche`, `redimensionner`, `dupliquer`,
-`retirer`, `tournerCorps`, `scinder`, `retourDAngle`, `fusionner`, `placerSurLeMur`, `basculerRegles`, the handle drag (`apercu`,
+`retirer`, `tournerCorps`, `scinder`, `retourDAngle`, `fusionner`, `placerSurLeMur`, `basculerRegles`, the building's settings
+(`choisirSource`, `reglerEgout`, `egoutDUnPas`, `rendreEgout`, `choisirCouleur`, `choisirMateriau`, `choisirPose`, pure decisions in
+`reglagesBatiment.ts`), the handle drag (`apercu`,
 `finGlisser`, `annulerGlisser`), `defaire`, `refaire`, `revenirAuDepart`, `voirLeProjet`, `valider`, `quitterSansGarder` — plus a
 readable state (`etat()`: scope in words, what a shape would remove, the shape in place, ridge and direction, the target's choice
 groups) and reasons (`raisonDePiece`, `raisonDuGeste`) that buttons grey with. Every gesture is one transaction: it resumes the
-session state, computes in a draft (`gestes.ts::brouillonDe`), compares, writes, freezes (`toitFige`) and pushes once; "Règles" is the
-only write that does not freeze. The *modifier*/*ajouter* promise ("nothing is created" / "nothing existing is touched") is enforced
+session state, computes in a draft (`gestes.ts::brouillonDe`), compares, writes, freezes (`toitFige`) and pushes once; "Règles" and the
+building's settings (what the 3D shows, eaves height, roofing) do not freeze — they are not shapes, and keep their own marks
+(`egoutChoisi`, `origineCouleur`). The *modifier*/*ajouter* promise ("nothing is created" / "nothing existing is touched") is enforced
 here, not by which buttons are shown.
 
 **Where each decision lives.** `gestes.ts` (layer 3, pure): the scope of a gesture (`porteeDuGeste`, the only one), shapes on a body,
@@ -817,9 +820,10 @@ audit (which still writes through the engine, `corpsSousContrainte`).
 is edited, on the plan as in the 3D view; it reads the controller and emits `toit.*` commands (`app/ecouteurs/toitCatalogue.ts`, thin
 bindings). The 3D view (`app/toits/modeToit.ts` and `zones/vue3d/ToitEn3d.tsx`) adds what only happens on the scene — the façade
 camera, handles, the façade navigator, touching a wall — and attaches to a session opened on the plan when the 3D view opens. The 2D
-inspector (Z5) only summarises the roof and opens Z10. Removed: `three/gestesToits.ts`, `facade/modeToit/simple.ts`,
-`app/toits/intention.ts`, `zones/vue3d/ModeToit.tsx`, the inspector's roof fields and the `toit.modifierEn3d` command; old project
-files are data and read as before.
+inspector (Z5) only reads the roof (summary, eaves height and where it comes from, roofing) and opens Z10. Removed:
+`three/gestesToits.ts`, `facade/modeToit/simple.ts`, `app/toits/intention.ts`, `zones/vue3d/ModeToit.tsx`, the inspector's roof fields
+(shape, then on 28 November 2026 "Toit en 3D", roofing colour, material and pattern, a building's "Élévation" and "Rendre au calcul"),
+the `toit.modifierEn3d` and `objet.rendreEgout` commands; old project files are data and read as before.
 
 ### 5.3 Data view
 

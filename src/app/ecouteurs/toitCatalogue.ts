@@ -136,6 +136,24 @@ function declarerGestes(commande: CommandeToit, mode: Mode): void {
     const issue = mode.geste((c) => c.basculerRegles());
     if (issue.fait) showToast(sessionToit()?.ctl.etat().regles ? 'Règles allumées : le toit sera relu quand vous validerez.' : 'Règles coupées : le toit reste tel que vous le réglez.');
   }, true, raison('regles'));
+  // Les reglages du batiment (le groupe « Le bâtiment » de l'atelier) : la valeur vient de `data-valeur` sur le bouton, ou de ce que la
+  // liste, la palette ou le champ saisi tient (`value`) ; le controleur la verifie et dit son refus.
+  const valeur = (source?: HTMLElement): string | undefined => source?.dataset.valeur ?? (source && 'value' in source ? String((source as HTMLInputElement).value) : undefined);
+  const avecValeur = (f: (v: string) => void) => (src?: HTMLElement) => { const v = valeur(src); if (v !== undefined) f(v); };
+  commande('toit.source', 'Choisir ce que la 3D montre du toit', permis('source'), avecValeur((v) => { mode.geste((c) => c.choisirSource(v)); }), true, raison('source'));
+  // − et + (`data-sens`) d'un pas, ou la hauteur saisie (une virgule comme un point : c'est ainsi qu'on l'ecrit en francais).
+  commande('toit.egout', 'Régler la hauteur à l’égout', permis('egout'), (src) => {
+    if (src?.dataset.sens) { mode.geste((c) => c.egoutDUnPas(sens(src))); return; }
+    const v = valeur(src);
+    if (v !== undefined) mode.geste((c) => c.reglerEgout(Number(v.trim().replace(',', '.'))));
+  }, true, raison('egout'));
+  commande('toit.rendreEgout', 'Rendre la hauteur à l’égout au calcul', permis('rendreEgout'), () => {
+    const issue = mode.geste((c) => c.rendreEgout());
+    if (issue.fait) showToast('La hauteur à l’égout redeviendra automatique quand vous validerez : la lecture du toit la reprendra.');
+  }, true, raison('rendreEgout'));
+  commande('toit.couleur', 'Choisir la couleur de la couverture', permis('couverture'), avecValeur((v) => { mode.geste((c) => c.choisirCouleur(v)); }), true, raison('couverture'));
+  commande('toit.materiau', 'Choisir le matériau de la couverture', permis('couverture'), avecValeur((v) => { mode.geste((c) => c.choisirMateriau(v)); }), true, raison('couverture'));
+  commande('toit.pose', 'Choisir le motif de pose', permis('couverture'), avecValeur((v) => { mode.geste((c) => c.choisirPose(v)); }), true, raison('couverture'));
   // Une piece du catalogue (`data-piece`) : une forme modifie le toit, une autre piece s'ajoute ; le controleur dit ce qui l'empeche.
   commande('toit.poser', 'Poser sur le toit', () => !!sessionToit(), (src) => {
     const id = src?.dataset.piece;

@@ -308,12 +308,14 @@ jusqu'à sa première ouverture de la session (`ligneAdminCapacitesForcees`, `ap
 - **Ce qu'elle porte** : le commutateur Modifier / Ajouter et sa promesse ; la portée des gestes en mots (« Sur : Corps principal ») et,
   quand il y a le choix, les pastilles (« Bâtiment entier », les corps, les éléments) ; le parcours simple (forme, hauteur du faîtage,
   sens ; six pièces à poser, grisées avec leur raison) ; « Défaire » dès le premier geste ; « Plus de réglages » (refaire, revenir au
-  départ, voir le toit du projet, les autres formes et pièces, l'inspecteur de la cible, ses gestes, les Règles ; en 3D seulement, les
-  vues, isoler, recadrer) ; au pied, « Quitter sans garder » et « Valider » (et « Poser … » quand on ajoute). Toutes ses commandes sont
+  départ, voir le toit du projet, les autres formes et pièces, l'inspecteur de la cible, ses gestes, les Règles, et le groupe « Le
+  bâtiment » : hauteur à l'égout et « Rendre au calcul », couleur, matériau et pose de la couverture, « Toit en 3D » ; en 3D seulement,
+  les vues, isoler, recadrer) ; au pied, « Quitter sans garder » et « Valider » (et « Poser … » quand on ajoute). Toutes ses commandes sont
   `toit.*`, exposées `atelierToit` dans `app/exposition.ts`.
 - **Ce qu'elle ne porte jamais** : une règle de toit. Elle lit l'état du contrôleur du toit (`facade/modeToit/controleurToit.ts`, par
   `app/toits/modeToit.ts::sessionToit`) et émet ses intentions par le registre ; ce qui est permis, borné, visé et ce qui va disparaître
-  est dit par le contrôleur. Aucune autre zone n'édite un toit : Z5 le résume (forme, faîtage, source) et l'ouvre (« Modifier le toit »,
+  est dit par le contrôleur. Aucune autre zone n'édite un toit : Z5 le lit (forme, faîtage, source, hauteur à l'égout et d'où elle vient, couverture)
+  et l'ouvre (« Modifier le toit »,
   `toit.modifier`) ; Z4 (la Vue 3D) garde ce qui se fait sur la scène — poignées, plan des façades, toucher d'un mur, indicateur
   d'insertion (`zones/vue3d/ToitEn3d.tsx`), qui passent eux aussi par le contrôleur.
 - **Par classe d'écran** : au téléphone, une feuille basse (58 % au plus, repliable par sa languette), sur le plan comme en 3D ; à la

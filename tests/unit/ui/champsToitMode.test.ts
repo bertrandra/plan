@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { sectionToit } from '../../../src/ui/champs/facade.js';
-import { champsVisibles, type Champ, type ChampChoix, type ChampLecture, type ContexteChamps } from '../../../src/ui/champs/types.js';
+import { champsVisibles, type Champ, type ChampLecture, type ContexteChamps } from '../../../src/ui/champs/types.js';
 import type { CorpsToit, ObjetPlan, ToitMesure, VolumeToit } from '../../../src/model/types.js';
 import { decrireCorps } from '../../../src/ui/champs/facade.js';
 import type { ChampCarte } from '../../../src/ui/champs/types.js';
 import { versMemoire } from '../../../src/model/champsFonction.js';
 
-// Le choix « Toit en 3D » de la section « Facades et toit » (MD/spec-toit-ign.md §12.3) : quand il
-// se montre, ce qu'il propose, et ce qu'il cache.
+// La section « Toit » de l'inspecteur d'un batiment : elle lit le toit (resume, hauteur a l'egout, couverture, ce que la 3D dessine) et
+// ouvre l'atelier du toit, ou tout se regle (« Toit en 3D », la couverture et la hauteur y sont depuis le 28 novembre 2026 :
+// tests/unit/facade/modeToit/reglagesBatiment.test.ts).
 
 const pts = [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }];
 function contexte(plus: Record<string, unknown>): ContexteChamps {
@@ -22,42 +23,41 @@ const volumes: VolumeToit[] = [
 const cles = (c: ContexteChamps) => champsVisibles(sectionToit(), c).map((x: Champ) => x.cle);
 const champ = <T extends Champ>(_c: ContexteChamps, cle: string): T => { const ch = sectionToit().champs.find((x) => x.cle === cle); if (!ch) throw new Error(cle); return ch as T; };
 
-describe('Toit en 3D', () => {
-  it('sans mesure ni corps, le choix ne se montre pas ; le toit se resume et s ouvre dans l atelier du toit, jamais ici', () => {
-    const c = contexte({});
-    expect(cles(c)).not.toContain('toitMode');
-    expect(cles(c)).toEqual(expect.arrayContaining(['toitResume', 'toitModifier']));
-    for (const cle of ['toitForme', 'toitHauteur', 'toitFaitage', 'appentisOuvert']) expect(cles(c)).not.toContain(cle);
+describe('la section « Toit » de l inspecteur : une lecture, et le bouton de l atelier', () => {
+  it('le toit se resume et s ouvre dans l atelier du toit ; aucun reglage du toit ne s ecrit ici', () => {
+    const c = contexte({ toitMesure: mesure, volumesToit: volumes, bdtopo: { materiauxToiture: '2' } });
+    expect(cles(c)).toEqual(expect.arrayContaining(['toitResume', 'toitEgout', 'toitCouverture', 'toitModifier']));
+    // La source (« Toit en 3D »), la couverture, la hauteur et la forme : dans l'atelier du toit seulement (decision du 28 novembre 2026).
+    const ecrivent = sectionToit().champs.filter((x) => 'ecrire' in x).map((x) => x.cle);
+    expect(ecrivent).toEqual([]);
+    for (const cle of ['toitMode', 'toitCouleur', 'toitMateriau', 'toitPose', 'toitForme', 'toitHauteur', 'toitFaitage']) expect(sectionToit().champs.map((x) => x.cle)).not.toContain(cle);
     expect(champ<ChampLecture>(c, 'toitResume').valeur(c)).toBe('Toit à deux pans · faîtage à 9,0 m');
     expect((champ(c, 'toitModifier') as Champ & { agit: unknown }).agit).toEqual({ commande: 'toit.modifier' });
   });
 
-  it('avec une mesure LiDAR sans corps : un toit par corps par defaut, « tel que mesure » propose, la mesure decrite', () => {
-    const c = contexte({ toitMesure: mesure, volumesToit: volumes });
-    const mode = champ<ChampChoix>(c, 'toitMode');
-    // Un toit construit par defaut ; la surface brute se choisit.
-    expect(mode.lire(c)).toBe('volumes');
-    mode.ecrire(c, 'mesure');
-    expect(mode.lire(c)).toBe('mesure');
-    expect(mode.options(c).map((o) => o.valeur)).toEqual(['mesure', 'volumes', 'simple']);
+  it('dit la hauteur a l egout et d ou elle vient', () => {
+    const c = contexte({ batiment: { egoutChoisi: 'saisie' } });
+    expect(champ<ChampLecture>(c, 'toitEgout').valeur(c)).toBe('6,00 m');
+    expect(champ<ChampLecture>(c, 'toitEgout').note?.(c)).toBe('saisie');
+  });
+
+  it('dit la couverture : le materiau deduit ou choisi, et une pose autre que les rangs droits ; rien sur un toit-terrasse', () => {
+    const deduit = contexte({ bdtopo: { materiauxToiture: '2' } });
+    expect(champ<ChampLecture>(deduit, 'toitCouverture').valeur(deduit)).toBe('Automatique (ardoise)');
+    const choisie = contexte({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'ardoise', pose: 'losange' } } });
+    expect(champ<ChampLecture>(choisie, 'toitCouverture').valeur(choisie)).toBe('Ardoise, en losange');
+    const plat = contexte({ batiment: { toit: { forme: 'plat', hauteur: 0, angleFaitage: 0 } } });
+    expect(cles(plat)).not.toContain('toitCouverture');
+  });
+
+  it('montre ce que la 3D dessine : la mesure en surface, les toits par corps', () => {
+    const c = contexte({ toitMesure: mesure, volumesToit: volumes, batiment: { modeToit: 'mesure' } });
     expect(cles(c)).toContain('toitMesure');
     expect(champ<ChampLecture>(c, 'toitMesure').valeur(c)).toBe('égout 4,2 m · faîte 7,8 m · 27 × 19 cellules à 0,50 m · LiDAR HD de l’IGN');
     expect(cles(c)).not.toContain('toitCorps');
-    // Un toit par corps : la liste des corps ; un seul toit : ses reglages reviennent.
-    mode.ecrire(c, 'volumes');
-    expect(c.obj.batiment?.modeToit).toBe('volumes');
-    expect(cles(c)).toContain('toitCorps');
-    expect(champ<ChampLecture>(c, 'toitCorps').valeur(c)).toContain('Corps 8,0 × 8,0 m : deux pans · égout 6,0 m');
-    expect(cles(c)).not.toContain('toitMesure');
-    mode.ecrire(c, 'simple');
-    expect(cles(c)).not.toContain('toitCorps');
-  });
-
-  it('avec des corps seuls : un toit par corps par defaut, et pas de « tel que mesure »', () => {
-    const c = contexte({ volumesToit: volumes });
-    const mode = champ<ChampChoix>(c, 'toitMode');
-    expect(mode.lire(c)).toBe('volumes');
-    expect(mode.options(c).map((o) => o.valeur)).toEqual(['volumes', 'simple']);
+    const v = contexte({ toitMesure: mesure, volumesToit: volumes });
+    expect(cles(v)).toContain('toitCorps');
+    expect(champ<ChampLecture>(v, 'toitCorps').valeur(v)).toContain('Corps 8,0 × 8,0 m : deux pans · égout 6,0 m');
   });
 });
 
@@ -85,10 +85,7 @@ describe('Corps et pignons', () => {
 
   it('est le defaut quand les corps existent, la carte se montre avec le decoupage, et chaque corps se decrit', () => {
     const c = contexte({ toitMesure: mesure, volumesToit: volumes, corpsToit: corps });
-    const mode = champ<ChampChoix>(c, 'toitMode');
-    expect(mode.lire(c)).toBe('corps');
-    expect(mode.options(c).map((o) => o.valeur)).toEqual(['corps', 'mesure', 'volumes', 'simple']);
-    expect(cles(c)).toEqual(expect.arrayContaining(['toitMode', 'toitCarte', 'toitCorpsLus']));
+    expect(cles(c)).toEqual(expect.arrayContaining(['toitCarte', 'toitCorpsLus']));
     expect(cles(c)).not.toContain('toitForme');
     const carte = champ<ChampCarte>(c, 'toitCarte').carte(c)!;
     expect(carte.corps).toHaveLength(3);
@@ -108,46 +105,8 @@ describe('Corps et pignons', () => {
     expect(carteCroupes.corps[0]!.aretiers).toHaveLength(4);
     expect(carte.corps.every((k) => k.aretiers.length === 0)).toBe(true);
     // Tel que mesure : la carte reste, la ligne des corps se cache.
-    mode.ecrire(c, 'mesure');
-    expect(c.obj.batiment?.modeToit).toBe('mesure');
+    c.obj.batiment!.modeToit = 'mesure';
     expect(cles(c)).toContain('toitCarte');
     expect(cles(c)).not.toContain('toitCorpsLus');
-  });
-});
-
-// Le materiau de la couverture : deduit par defaut (et annonce tel quel), il se choisit et l'emporte.
-describe('Materiau de la couverture', () => {
-  it('annonce le materiau deduit, se choisit, puis revient a l automatique', () => {
-    const c = contexte({ bdtopo: { materiauxToiture: '2' } });
-    const m = champ<ChampChoix>(c, 'toitMateriau');
-    expect(cles(c)).toContain('toitMateriau');
-    expect(m.lire(c)).toBe('');
-    expect(m.options(c)[0]).toEqual({ valeur: '', libelle: 'Automatique (ardoise)' });
-    expect(m.options(c).map((o) => o.valeur)).toEqual(['', 'tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'zinc', 'bac-acier', 'membrane', 'vegetale']);
-    m.ecrire(c, 'zinc');
-    expect(c.obj.batiment?.toit?.couverture).toBe('zinc');
-    // Le materiau deduit ne change pas avec le choix : il reste lisible dans « Automatique ».
-    expect(m.options(c)[0]!.libelle).toBe('Automatique (ardoise)');
-    m.ecrire(c, '');
-    expect(c.obj.batiment?.toit && 'couverture' in c.obj.batiment.toit).toBe(false);
-  });
-
-  it('une couverture hors du catalogue se montre telle quelle, dessinee en tuile, et reste dans l objet', () => {
-    const c = contexte({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo', couverture: 'lauze-solaire' } } });
-    const m = champ<ChampChoix>(c, 'toitMateriau');
-    expect(m.lire(c)).toBe('lauze-solaire');
-    expect(m.options(c).at(-1)).toEqual({ valeur: 'lauze-solaire', libelle: 'Couverture inconnue (« lauze-solaire »), dessinée en tuile' });
-    expect(() => cles(c)).not.toThrow();
-    // Reprise telle quelle, elle reste ; un autre choix la remplace, comme tout choix.
-    m.ecrire(c, 'lauze-solaire');
-    expect(c.obj.batiment?.toit?.couverture).toBe('lauze-solaire');
-    m.ecrire(c, 'ardoise');
-    expect(c.obj.batiment?.toit?.couverture).toBe('ardoise');
-    expect(m.options(c).map((o) => o.valeur)).not.toContain('lauze-solaire');
-  });
-
-  it('ne se montre pas sur un toit plat simple', () => {
-    const c = contexte({ toit: { forme: 'plat', hauteur: 0, angleFaitage: 0 } });
-    expect(cles(c)).not.toContain('toitMateriau');
   });
 });
