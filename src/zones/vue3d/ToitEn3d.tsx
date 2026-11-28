@@ -75,7 +75,8 @@ export function ToitEn3d({ magasin, commandes }: Props) {
       <NavigateurFacades magasin={magasin} commandes={commandes} />
       <PlanToit magasin={magasin} commandes={commandes} />
       <IndiceMain magasin={magasin} />
-      <PoigneesToit magasin={magasin} />
+      {/* Les poignees changent ce qui existe : en « Ajouter », rien d'existant n'est touche (le controleur le refuse), elles ne se montrent pas. */}
+      {s.ctl.etat().intention === 'modifier' && <PoigneesToit magasin={magasin} />}
       <EtatSession insertion={insertionToit()} intention={s.ctl.etat().intention} commandes={commandes} clavier={!tactile} />
     </>
   );

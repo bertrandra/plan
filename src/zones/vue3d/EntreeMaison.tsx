@@ -29,7 +29,9 @@ const NOMS_MAX = 3;
 export function EntreeMaison({ commandes, magasin }: { commandes: RegistreCommandes; magasin: Magasin }) {
   const e = commandes.etat('toit.modifier'), ajout = commandes.etat('toit.ajouter'), ce = commandes.etat('toit.modifierCe');
   const ref = useRef<HTMLButtonElement>(null);
-  useEffect(() => { if (ref.current && prendreFocusDeSortie()) ref.current.focus(); });
+  // Le focus se rend apres le rendu de l'atelier du toit (Z10, une autre racine) : tant qu'il n'a pas retire `data-mode-toit`, la feuille de
+  // style cache encore cette entree, et un focus pose maintenant serait perdu.
+  useEffect(() => { if (ref.current && prendreFocusDeSortie()) { const b = ref.current; setTimeout(() => { b.focus(); }, 0); } });
   const etat = magasin.store.getState().etat;
   const vise = batimentVise(etat.objects, etat.selectedKey);
   if (e.utilisable && estRetouchable(vise)) {

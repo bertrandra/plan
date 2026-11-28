@@ -7,7 +7,7 @@
 // intentions par les commandes du registre : il ne sait ni poser, ni borner, ni dire sur quoi agit un geste. Il se pose sur le canevas
 // montre (un portail : la scene de la Vue 3D, ou le plan), pour que la scene et le plan se cadrent dans ce qu'il laisse libre.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from 'zustand';
 import { etatToit, sessionToit } from '../app/toits/modeToit.js';
@@ -76,9 +76,9 @@ function BoutonToit({ commandes, id, icone, libelle, texte, presse, miroir, dang
 }
 
 /** Les groupes de choix de la cible, chacun sous son titre : des boutons-images a choix exclusif (`toit.regler`), celui en place enfonce. */
-function GroupesReglage({ e, commandes }: { e: EtatEdition; commandes: RegistreCommandes }) {
+function GroupesReglage({ e, commandes, children }: { e: EtatEdition; commandes: RegistreCommandes; children?: ReactNode }) {
   const c = commandes.etat('toit.regler'), refus = refusDe(c);
-  if (!e.groupes.length) return null;
+  if (!e.groupes.length && !children) return null;
   return (
     <div className="inspecteurToit" data-cible={e.batimentEntier ? 'batiment' : undefined} role="group" aria-label={'Réglages · ' + e.portee.mots}>
       {e.groupes.map((g) => (
@@ -94,6 +94,7 @@ function GroupesReglage({ e, commandes }: { e: EtatEdition; commandes: RegistreC
           {g.raison && <p className="raisonGroupe" role="note">{g.raison}</p>}
         </div>
       ))}
+      {children}
     </div>
   );
 }
@@ -174,7 +175,8 @@ function CatalogueToit({ famille, e, commandes, insertion, tactile }: { famille:
   const blocage = seule && raisons.length === 1 && seule[1].length === pieces.length ? seule[0] : null;
   return (
     <>
-      {blocage && <Blocage raison={blocage} e={e} commandes={commandes} />}
+      {/* Le verbe qui leve le blocage est au parcours simple, au-dessus : un geste n'existe qu'a un endroit. */}
+      {blocage && <Blocage raison={blocage} e={e} commandes={commandes} verbe={false} />}
       <div className="toitCatalogue" data-famille={famille}>
         {pieces.map((p) => {
           const refus = refusDePiece(p.id), options = OPTIONS_PIECE[p.id], idCommande = COMMANDE_DE_PIECE[p.id] ?? 'toit.poser';
@@ -216,11 +218,11 @@ function CatalogueToit({ famille, e, commandes, insertion, tactile }: { famille:
 }
 
 /** Un blocage se dit, avec le geste qui le leve : un toit pas encore en corps se decoupe d'un bouton a verbe (audit UX du 28 novembre 2026). */
-function Blocage({ raison, e, commandes }: { raison: string; e: EtatEdition; commandes: RegistreCommandes }) {
+function Blocage({ raison, e, commandes, verbe = true }: { raison: string; e: EtatEdition; commandes: RegistreCommandes; verbe?: boolean }) {
   return (
     <div className="blocageToit" role="note">
       <p>{raison}</p>
-      {e.forme.decoupe && <BoutonToit commandes={commandes} id="toit.decouper" icone="toit" libelle={e.forme.decoupe.libelle} texte={e.forme.decoupe.libelle} />}
+      {verbe && e.forme.decoupe && <BoutonToit commandes={commandes} id="toit.decouper" icone="toit" libelle={e.forme.decoupe.libelle} texte={e.forme.decoupe.libelle} />}
     </div>
   );
 }
@@ -481,8 +483,7 @@ export function AtelierToit({ magasin, commandes }: Props) {
                       <CatalogueToit famille="toit" e={e} commandes={commandes} insertion={insertion} tactile={tactile} />
                     </div>
                   )}
-                  <GroupesReglage e={e} commandes={commandes} />
-                  <GestesModifier e={e} commandes={commandes} en3d={en3d} />
+                  <GroupesReglage e={e} commandes={commandes}>{e.selection && <GestesModifier e={e} commandes={commandes} en3d={en3d} />}</GroupesReglage>
                   <button type="button" className="toitRegles" data-commande="toit.regles" aria-pressed={e.regles} disabled={!commandes.etat('toit.regles').utilisable}
                     title={e.regles ? 'Règles allumées : le toit se lit tout seul. Cliquez pour le régler vous-même.' : 'Règles coupées : le toit reste comme vous le réglez. Cliquez pour reprendre la lecture automatique.'}
                     onClick={(ev) => { commandes.executer('toit.regles', ev.currentTarget); }}>

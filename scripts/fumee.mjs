@@ -10034,6 +10034,8 @@ const POINTS = {
       return ((k.de + k.a) / 2 > s) === versLaFin;
     }, [m, k, s]);
     const decrocher = async (m, cote, cm) => {
+      // Une piece posee ramene a « Modifier » : la piece « Décroché » est du cote « Ajouter ».
+      await voletToit(page, 'Façade');
       await page.locator('[data-piece="facade:decroche"]').click({ timeout: 10000 });
       let p = null;
       for (const t of [0.5, 0.42, 0.58, 0.35, 0.65]) { p = await pointDuMur(m, t); if (p) break; }
@@ -10518,9 +10520,10 @@ const POINTS = {
   136: async (page, f) => {
     // Une session du mode Toit ne se perd plus sans qu'on le demande (audit de la navigation, 6 novembre 2026). Une premiere session
     // validee fait une etape du projet ; dans la seconde, « Annuler » du projet annule le geste de la session et laisse l'etape d'avant ;
-    // un toucher sur le panneau, au-dessus de la maison, ne choisit pas de facade ; « Plan » pose la question, « Rester » garde tout ;
-    // Echap ouvre « Abandonner les changements ? », qui reste ouvert, et un second Echap le referme seul ; le retour du navigateur vaut
-    // Echap et ne quitte pas Plan ; « Plan », puis « Abandonner » : le plan, le toit de la premiere validation.
+    // un toucher sur le panneau, au-dessus de la maison, ne choisit pas de facade ; choisir un autre objet pose la question, « Rester »
+    // garde tout ; Echap ouvre « Abandonner les changements ? », qui reste ouvert, et un second Echap le referme seul ; le retour du
+    // navigateur vaut Echap et ne quitte pas Plan ; « Plan » garde la session (l'atelier du toit s'y pose) ; une autre selection, puis
+    // « Abandonner » : le toit de la premiere validation.
     const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
     await page.evaluate(() => {
       const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
@@ -10570,8 +10573,8 @@ const POINTS = {
     await etape('toucher le panneau', () => page.locator('.panneauToit p.indiceToit').first().click({ timeout: 10000 }));
     await page.waitForTimeout(600);
     const sansFuite = (await indice()) === avantToucher;
-    // « Plan » : la question ; « Rester ».
-    await page.evaluate(() => window.__plan.executer('vue.plan'));
+    // Choisir un autre objet (la terrasse) : la question ; « Rester ». Passer au plan, lui, garde la session (l'atelier du toit s'y pose).
+    await page.evaluate(() => window.__plan.selectionnerPremiere('terrasse'));
     const question = await page.locator('.dialogueBoite .dialogueTitre').textContent({ timeout: 5000 }).catch(() => '');
     await etape('Rester', () => page.locator('[data-controle="dialogue.tertiaire"]').click({ timeout: 10000 }));
     const reste = (await page.evaluate(() => window.__plan.magasin().vue)) === 'vue3d' && (await enSession()) && !(await dialogue());
@@ -10589,13 +10592,16 @@ const POINTS = {
     await page.waitForTimeout(600);
     const retour = page.url() === url && (await enSession()) && (await dialogue());
     if (await dialogue()) await page.keyboard.press('Escape');
-    // « Plan », « Abandonner » : le plan, le toit de la premiere validation.
+    // « Plan » garde la session, sans question ; une autre selection, « Abandonner » : le toit de la premiere validation.
     await page.evaluate(() => window.__plan.executer('vue.plan'));
+    await page.waitForTimeout(600);
+    const garde = (await page.evaluate(() => window.__plan.magasin().vue)) === 'plan' && (await enSession()) && !(await dialogue());
+    await page.evaluate(() => window.__plan.selectionnerPremiere('terrasse'));
     await etape('Abandonner', () => page.locator('[data-controle="dialogue.secondaire"]').click({ timeout: 30000 }));
     await page.waitForTimeout(400);
-    const quitte = (await page.evaluate(() => window.__plan.magasin().vue)) === 'plan' && !(await enSession()) && (await fige()) === premier;
+    const quitte = garde && (await page.evaluate(() => window.__plan.magasin().vue)) === 'plan' && !(await enSession()) && (await fige()) === premier;
     const ok = premier && apresGeste !== premier && annule && sansFuite && /Quitter la modification/.test(question || '') && reste && echapOuvre && echapFerme && retour && quitte;
-    return { ok, mesure: `Annuler du projet en session : ${annule ? 'le geste de la session' : 'AUTRE CHOSE'} ; toucher sur le panneau : ${sansFuite ? 'rien dans la scène' : 'FAÇADE CHOISIE'} ; « Plan » : « ${question || '—'} », Rester ${reste ? 'garde la session' : 'NE GARDE PAS'} ; Échap ${echapOuvre ? 'ouvre la question' : 'N’OUVRE RIEN'}, ${echapFerme ? 'puis la referme' : 'PUIS AUTRE CHOSE'} ; retour du navigateur ${retour ? 'reste dans Plan, la question posée' : 'QUITTE'} ; Abandonner ${quitte ? 'mène au plan, toit validé gardé' : 'ÉCHOUE'}` };
+    return { ok, mesure: `Annuler du projet en session : ${annule ? 'le geste de la session' : 'AUTRE CHOSE'} ; toucher sur le panneau : ${sansFuite ? 'rien dans la scène' : 'FAÇADE CHOISIE'} ; une autre sélection : « ${question || '—'} », Rester ${reste ? 'garde la session' : 'NE GARDE PAS'} ; Échap ${echapOuvre ? 'ouvre la question' : 'N’OUVRE RIEN'}, ${echapFerme ? 'puis la referme' : 'PUIS AUTRE CHOSE'} ; retour du navigateur ${retour ? 'reste dans Plan, la question posée' : 'QUITTE'} ; « Plan » ${garde ? 'garde la session' : 'LA PERD'}, Abandonner ${quitte ? 'rend le toit validé' : 'ÉCHOUE'}` };
   },
   131: async (page, f) => {
     // Modifier un batiment avec les memes gestes que l'ajout (decision du proprietaire, 4 novembre 2026) : le projet de demonstration de
@@ -11014,7 +11020,10 @@ const POINTS = {
     await poser('Façade', 'facade:travee');
     await lacher();
     await etape('pastille de l’auvent (retour)', () => page.locator('.puceToit[data-type="corps"][data-rang="' + rangAuvent + '"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    // Un retour d'angle cree un corps : il est du cote « Ajouter » (le controleur le refuse en « Modifier »).
+    await etape('Ajouter (retour)', () => page.locator('.panneauToit [data-commande="toit.intention"][data-intention="ajouter"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await etape('retour d’angle', () => page.locator('[data-commande="toit.retour"][data-cote="droite"]').dispatchEvent('click', {}, { timeout: 20000 }));
+    await etape('Modifier (après le retour)', () => page.locator('.panneauToit [data-commande="toit.intention"][data-intention="modifier"]').dispatchEvent('click', {}, { timeout: 20000 }));
     await page.waitForTimeout(400);
     const apresRetour = await lire();
     // Le bow-window, a gauche (la partie qui avance), sous l'auvent : sans toit propre, le toit de l'auvent le couvre.
@@ -12198,7 +12207,10 @@ function pointsPour(nomClasse) {
   //       l'objet choisi se deplace, la parcelle choisie deplace la vue (interaction/choixGeste.ts).
   // 203 : la camera de la Vue 3D ne passe plus sous le sol : orbite poussee vers le bas, deplacement, molette ou pincement, camera
   //       posee sous le sol ; l'oeil reste a 0,30 m au-dessus du sol sous lui, la cible sur le sol ou au-dessus.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203];
+  // 204 : l'atelier du toit (Z10) et son controleur unique : ouvert sur le plan par l'inspecteur, l'impasse du toit d'un seul tenant
+  // levee par « Découper ce toit », « Défaire » sous les yeux, la 3D attachee a la session, une forme sans choix qui garde la galerie,
+  // « Bâtiment entier » qui dit ce qui disparaitra, « Voir le toit du projet » sans perte, « Quitter sans garder » au bit pres.
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -731,13 +731,14 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
 
   const fermer = (): void => {
     if (!session) return;
+    // Le focus etait dans l'atelier, qui va disparaitre (ou nulle part) : il revient au bouton qui l'ouvre, pas au corps de la page. Lu
+    // avant que l'atelier ne se demonte, et pose avant le rendu qui montre ce bouton.
+    const actif = typeof document === 'undefined' ? null : document.activeElement;
+    if (!actif || actif === document.body || actif.closest('.panneauToit, .navigateurToit, .dialogueBoite')) focusDemande = Date.now();
     detacher3d();
     session = null;
     retirerEntreeHistorique();
     a.render();
-    // Le focus etait dans l'atelier, qui disparait (ou nulle part) : il revient au bouton qui l'ouvre, pas au corps de la page.
-    const actif = typeof document === 'undefined' ? null : document.activeElement;
-    if (!actif || actif === document.body || actif.closest('.panneauToit, .navigateurToit, .dialogueBoite')) focusDemande = Date.now();
     ctx.rafraichir();
   };
 
