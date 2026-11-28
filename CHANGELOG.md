@@ -38,6 +38,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - Polissages : sélecteur Plan / 3D, onglets du tiroir, cases des étapes de l'import et poignée des feuilles à 44 px au doigt ; les
   onglets du tiroir qui défilent s'estompent du côté où il en reste ; « Enregistrer » passe en secondaire quand tout est enregistré.
 - Fumée : point 205 (mise en page par classe) ; point 9 adapté.
+- **Vue 3D : la vue libre** (constat 6). Un geste parti d'une vue d'ensemble (glisser, pincement, molette, boutons, flèches) garde
+  le regard à 10° au moins sous l'horizon, 2 m au moins de la cible et l'œil à 1,50 m au moins du sol : un glisser amenait la caméra
+  de 27,5 m à 0,94 m, le regard à l'horizontale, et quatre pincements à 0,30 m. La hauteur des yeux, un point de vue enregistré, le
+  photomontage et la vue de prise de l'audit gardent la règle des 0,30 m. Rien ne bouge hors d'un geste : captures, GLB et banc
+  visuel inchangés.
+- **Plan désencombré** (constat 7) : les mesures des cotes (« → -0,62 m · Δ +0,02 m ») deviennent une préférence d'affichage de
+  l'appareil, éteinte par défaut (menu Affichage, « Mesures des cotes sur le plan » ; poser une cote l'allume) ; deux étiquettes qui
+  se chevauchent laissent la place à la plus prioritaire (objet choisi, noms, cotes, mesures) ; l'encart « Échelle » quitte le plan,
+  l'échelle graphique suffit ; les noms se lisent sur leur fond, en sombre comme en clair (contraste de 4,5 au moins). Écran
+  seulement : SVG, PDF, DXF et PNG exportés ne changent pas.
+- **Côtés nommés une fois** (constat 8) : un côté nommé par défaut se lit d'après sa place, sur le plan comme dans l'inspecteur
+  (« Côté 6 « Côté 4 » » devient « Côté 6 », le côté de référence propose 1 à 6 dans l'ordre) ; insérer ou retirer un sommet
+  renumérote les noms par défaut, un nom saisi reste le sien. Le projet de démonstration et les exports gardent leurs noms. La
+  requête témoin de la vérification de l'API Claude (`tests/fixtures/assistant/requete-verification.json`) est régénérée : le
+  catalogue envoyé à l'assistant y lit les côtés dans l'ordre.
+- Fumée : point 206 ; points 203 (la vue libre), 185 et 192 adaptés ; les mots du geste du doigt (téléphone) portent un nom et une infobulle.
 
 ## [5.45.0] — 2026-11-28
 

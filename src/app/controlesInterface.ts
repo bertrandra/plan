@@ -107,6 +107,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'fichier.option.remplacerImportSvg': { libelle: 'Supprimer les objets existants avant d’importer (SVG)', zone: Z1, nature: 'option' },
   'fichier.option.remplacerImportJson': { libelle: 'Remplacer le plan actuel (import JSON)', zone: Z1, nature: 'option' },
   'fichier.option.exportSansParcelle': { libelle: 'Exporter sans la parcelle', zone: Z1, nature: 'option' },
+  'affichage.option.mesures': { libelle: 'Mesures des cotes sur le plan', zone: Z1, nature: 'affichage', description: 'Dessine sur le plan les mesures des cotes (→ 2,50 m · Δ +0,20 m) ; une préférence de l’appareil, éteinte par défaut, qui s’allume quand vous posez une cote' },
   'affichage.option.modeExpert': { libelle: 'Mode expert', zone: Z1, nature: 'affichage', description: 'Montre les formats techniques, les constantes de calcul et les réglages fins de la 3D ; une préférence de l’appareil, éteinte par défaut' },
   'fichier.option.enregistrementAuto': { libelle: 'Enregistrement automatique', zone: Z1, nature: 'option', description: 'Enregistre le projet quelques secondes après chaque modification ; une préférence de l’appareil, cochée par défaut' },
   'export.option.echellePdf': { libelle: 'Échelle du PDF', zone: Z1, nature: 'option' },

@@ -41,6 +41,9 @@ Règles :
   navigation, une feuille ou le tiroir. Un avertissement pour l'administrateur est une ligne en tête du menu Admin (pastille
   jusqu'à la première ouverture de la session), jamais un toast, jamais un nom de fichier.
 - **Un projet s'ouvre sans rien de choisi.** Au doigt, un terrain verrouillé touché n'a qu'une barre discrète, « Propriétés ».
+- **Une indication de plus sur le plan est une préférence d'affichage, éteinte par défaut** si elle n'est pas lue à chaque fois
+  (les mesures des cotes) ; deux étiquettes ne se chevauchent pas (objet choisi > noms > cotes > mesures,
+  `app/assemblage/chevauchements.ts`) ; un nom d'objet atteint 4,5:1 sur le fond.
 - **Terrasse est un contexte, pas une vue** : sélectionner une terrasse fait apparaître sa section
   dans Z5 et ses onglets dans Z6. Ne pas réintroduire de mode Terrasse.
 - **Remplacer, c'est supprimer** : une région remplacée disparaît d'`index.html`, elle n'est pas

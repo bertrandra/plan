@@ -178,17 +178,13 @@ function creerResultatsDuTiroir(etat: EtatApp, ctx: ContexteResultats, magasin: 
       if (!ref || !mesure.cibles.length) return;
       ecrireCotes(() => {
         mesure.cibles.forEach(t => {
-          etat.measures.push({
-            id: idMesure(),
-            refObjKey: ref.objKey, refSegIndex: ref.segIndex,
-            startEnd: mesure.startEnd,
-            targetObjKey: t.objKey, targetPtIndex: t.ptIndex,
-            show: true, displayMode: 'along'
-          });
+          etat.measures.push({ id: idMesure(), refObjKey: ref.objKey, refSegIndex: ref.segIndex, startEnd: mesure.startEnd,
+            targetObjKey: t.objKey, targetPtIndex: t.ptIndex, show: true, displayMode: 'along' });
         });
         mesure.cibles = [];
         mesure.pointage = null;
       });
+      magasin.definirOption('mesuresSurLePlan', true); // une cote posee se voit (app/mesuresSurLePlan.ts)
     },
     modifierCote(id, ecrire) {
       const m = etat.measures.find(x => x.id === id);

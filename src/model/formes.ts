@@ -59,3 +59,26 @@ export function nomsSommetsDe(o: ObjetAPoints): string[] {
 export function nomsCotesDe(o: ObjetAPoints): string[] {
   return o.segmentNames ??= o.pts.map((_, i) => 'Cote ' + (i + 1));
 }
+
+/**
+ * Un nom de cote ou de coin donne par defaut (« Cote 3 », « Côté 3 », « Coin 2 », « Point 2 ») : ce n'est qu'un numero, que
+ * l'ecran redit d'apres la place et qu'une insertion renumerote. Un nom saisi par la personne n'en est pas un.
+ */
+export const NOM_DE_COTE_PAR_DEFAUT = /^C[oô]t[eé] \d+$/;
+export const NOM_DE_COIN_PAR_DEFAUT = /^(Coin|Point) \d+$/;
+
+/**
+ * Le nom du cote `i` (0, 1…) tel que l'ecran le montre, sur le plan comme dans l'inspecteur : un nom par defaut se lit d'apres la
+ * place du cote (« Côté 4 » est le quatrieme), un nom saisi reste le sien (audit UX de la 5.45.0, constat 8 : « Côté 6 « Côté 4 » »,
+ * et l'ordre 1, 2, 5, 3, 6, 4 apres des insertions). Le projet et les exports gardent le nom enregistre.
+ */
+export function nomAfficheDuCote(nom: string | null | undefined, i: number): string {
+  return !nom || NOM_DE_COTE_PAR_DEFAUT.test(nom) ? 'Côté ' + (i + 1) : nom;
+}
+
+/** Le nom du coin `i` tel que l'ecran le montre : par defaut d'apres sa place, saisi tel quel. */
+export function nomAfficheDuCoin(nom: string | null | undefined, i: number): string {
+  if (!nom) return '';
+  const m = NOM_DE_COIN_PAR_DEFAUT.exec(nom);
+  return m ? m[1] + ' ' + (i + 1) : nom;
+}

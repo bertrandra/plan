@@ -4,9 +4,5 @@
 // enregistree et exportee telle quelle (les exports sont sous empreintes). A l'ecran, ce nom par defaut s'ecrit « Côté 1 » ;
 // un nom donne par la personne reste le sien.
 
-/** Le nom du cote `i` (0, 1…) tel que l'ecran le montre : le nom du projet, « Côté n » s'il n'en a pas ou garde celui par defaut. */
-export function nomDuCote(nom: string | null | undefined, i: number): string {
-  if (!nom) return 'Côté ' + (i + 1);
-  const m = /^Cote (\d+)$/.exec(nom);
-  return m ? 'Côté ' + m[1] : nom;
-}
+/** Le nom du cote `i` (0, 1…) tel que l'ecran le montre : un nom par defaut d'apres la place du cote, un nom saisi tel quel. */
+export { nomAfficheDuCote as nomDuCote } from '../model/formes.js';

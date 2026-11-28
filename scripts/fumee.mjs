@@ -4728,7 +4728,9 @@ const POINTS = {
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 });
     await page.waitForTimeout(500);
-    const icones = await page.evaluate(() => [...document.querySelectorAll('#terrasse3dZoomControls button')].map((b) => ({
+    // Au telephone, la colonne ne garde que quatre commandes (constat 12 de l'audit UX de la 5.45.0) : le zoom, les quarts de tour,
+    // l'image et le photomontage sont dans « Caméra et image » des reglages, comptes ici avec elle.
+    const icones = await page.evaluate(() => [...document.querySelectorAll('#terrasse3dZoomControls button, #zoneReglages3d button[id^="terrasse3d"][data-commande^="3d."]')].map((b) => ({
       id: b.id || b.getAttribute('data-commande') || '?', nom: (b.getAttribute('aria-label') || '').trim(), titre: (b.getAttribute('title') || '').trim()
     })));
     const muettes = icones.filter((i) => !i.nom || !i.titre);
@@ -5804,6 +5806,9 @@ const POINTS = {
     if (sortes.length < 12) echecs.push('seulement ' + sortes.length + ' sortes d’objets dans la démonstration');
 
     // ---- 3. Les etiquettes ne prennent plus le clic -------------------------------------------------
+    // Les mesures des cotes sont une preference d'affichage eteinte par defaut (constat 7 de l'audit UX de la 5.45.0) : on l'allume.
+    await page.evaluate(() => window.__plan.magasin && document.getElementById('chkMesuresSurLePlan')?.click());
+    await page.waitForTimeout(300);
     await page.evaluate(() => { window.__plan.selectionnerCle(null); window.__plan.executer('vue.ajuster'); });
     await replier();
     await page.waitForTimeout(700);
@@ -7892,7 +7897,7 @@ const POINTS = {
     const lire = () => page.evaluate(() => {
       const sc = window.__plan.scene3d(), p = sc.camera.position, t = sc.controls.target;
       const sol = (x, z) => (sc.hauteurSol ? sc.hauteurSol({ x: x + sc.cen.x, y: sc.cen.y - z }) : 0);
-      return { relief: !!sc.hauteurSol, auDessus: p.y - sol(p.x, p.z), cible: t.y - sol(t.x, t.z), dist: p.distanceTo(t) };
+      return { relief: !!sc.hauteurSol, auDessus: p.y - sol(p.x, p.z), cible: t.y - sol(t.x, t.z), dist: p.distanceTo(t), incl: Math.asin((p.y - t.y) / p.distanceTo(t)) * 180 / Math.PI };
     });
     const r = await page.evaluate(() => { const b = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect(); return { x0: b.left, y0: b.top, x1: b.right, y1: b.bottom }; });
     const c = { x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2 }, h = r.y1 - r.y0;
@@ -7903,18 +7908,22 @@ const POINTS = {
       await page.waitForTimeout(300);
     };
     const mesures = [], echecs = [];
-    const verifier = (nom, m) => {
-      mesures.push(nom + ' ' + m.auDessus.toFixed(2) + ' m');
-      if (m.auDessus < 0.29) echecs.push(nom + ' : oeil a ' + m.auDessus.toFixed(2) + ' m du sol');
+    // Depuis le constat 6 de l'audit UX de la 5.45.0, un geste parti de la vue d'ensemble y reste : regard a 10° au moins sous
+    // l'horizon, 2 m au moins de la cible, oeil a 1,50 m au moins du sol ; une camera posee plus bas (un point de vue) garde 0,30 m.
+    const verifier = (nom, m, libre = true) => {
+      mesures.push(nom + ' ' + m.auDessus.toFixed(2) + ' m' + (libre ? ', ' + m.incl.toFixed(1) + '°, ' + m.dist.toFixed(1) + ' m de la cible' : ''));
+      const plancher = libre ? 1.49 : 0.29;
+      if (m.auDessus < plancher) echecs.push(nom + ' : oeil a ' + m.auDessus.toFixed(2) + ' m du sol');
+      if (libre && (m.incl < 9.9 || m.dist < 1.99)) echecs.push(nom + ' : regard a ' + m.incl.toFixed(1) + '°, ' + m.dist.toFixed(2) + ' m de la cible');
       if (m.cible < -0.01) echecs.push(nom + ' : cible a ' + m.cible.toFixed(2) + ' m sous le sol');
     };
     const depart = await lire();
-    // 1. L'orbite poussee vers le bas, trois glisser de 60 % de la hauteur : la camera s'arrete au ras du sol, a la meme distance. Le
+    // 1. L'orbite poussee vers le bas, trois glisser de 60 % de la hauteur : la camera s'arrete a la borne de la vue libre, a la meme distance. Le
     //    glisser part au-dessus de la barre « Modifier » du bas de la scene, qui prendrait le pointeur.
     for (let k = 0; k < 3; k++) await glisser1({ x: c.x, y: r.y0 + h * 0.75 }, 0, -h * 0.6);
     const bas = await lire();
     verifier('orbite', bas);
-    if (bas.auDessus > 0.5) echecs.push('orbite : la camera ne descend pas au ras du sol (' + bas.auDessus.toFixed(2) + ' m)');
+    if (bas.incl > 11 && bas.auDessus > 1.6) echecs.push('orbite : la camera ne descend pas jusqu’à la borne (' + bas.incl.toFixed(1) + '°, ' + bas.auDessus.toFixed(2) + ' m)');
     if (Math.abs(bas.dist - depart.dist) > depart.dist * 0.02) echecs.push('orbite : distance a la cible ' + depart.dist.toFixed(1) + ' -> ' + bas.dist.toFixed(1) + ' m');
     // 2. Le deplacement : la vue tiree vers le haut, plusieurs fois, descend la camera et la cible.
     await page.evaluate(() => window.__plan.executer('3d.modeDeplacement'));
@@ -7937,7 +7946,7 @@ const POINTS = {
       sc.camera.position.set(sc.controls.target.x + 8, sc.controls.target.y - 5, sc.controls.target.z + 8);
       sc.controls.update();
     });
-    verifier('point de vue', await lire());
+    verifier('point de vue', await lire(), false);
     return { ok: echecs.length === 0, mesure: 'sol ' + (depart.relief ? 'en relief' : 'plat') + ' ; ' + mesures.join(' ; ') + (echecs.length ? ' ; ECHECS : ' + echecs.join(', ') : '') };
   },
   204: async (page, f) => {
@@ -8074,6 +8083,74 @@ const POINTS = {
       if (!/Rapprocher.*Éloigner.*Quart de tour à gauche.*Image PNG/.test(camera)) echecs.push('groupe « Caméra et image » : « ' + camera.slice(0, 120) + ' »');
       if (!(z1 < z0)) echecs.push('« Rapprocher » ne rapproche pas (' + z0 + ' → ' + z1 + ')');
       mesures.push('colonne : ' + col.join(', ') + ' (' + commandes + ' commandes) ; « Caméra et image » : Rapprocher ' + (z0 ?? 0).toFixed(1) + ' → ' + (z1 ?? 0).toFixed(1) + ' m');
+    }
+    return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
+  },
+  206: async (page, f) => {
+    // Le plan desencombre, les cotes nommees d'une seule facon, la vue libre de la Vue 3D (audit UX de la 5.45.0, constats 6, 7 et 8).
+    // La demonstration : aucune mesure de cote dessinee par defaut, aucune etiquette visible qui en chevauche une autre, pas d'encart
+    // « Échelle » sur le plan, les noms lisibles sur leur fond (contraste de 4,5) ; « Mesures des cotes sur le plan » les montre.
+    // La terrasse : ses cotes lues « Côté 1 » a « Côté 6 » dans l'ordre (le projet garde « Cote 5 » au troisieme rang), le côté de
+    // reference propose 1 a 6. Vue 3D : un glisser vers le bas s'arrete a 10° sous l'horizon, l'oeil a 1,50 m ; la hauteur des yeux
+    // pose la camera a hauteur d'homme et un glisser depuis elle n'est pas repris.
+    const echecs = [], mesures = [];
+    const plan = () => page.evaluate(() => {
+      const vis = (e) => { const st = getComputedStyle(e); return e.textContent && st.display !== 'none' && st.visibility !== 'hidden' && e.getBoundingClientRect().width > 0; };
+      const t = [...document.querySelectorAll('#stage text')].filter(vis), r = t.map((e) => e.getBoundingClientRect());
+      let chev = 0;
+      for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) { const a = r[i], b = r[j]; if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) chev++; }
+      const rvb = (c) => (c.match(/\d+/g) || []).slice(0, 3).map(Number);
+      const lum = ([R, G, B]) => [R, G, B].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const fond = rvb(getComputedStyle(document.body).backgroundColor);
+      const noms = t.filter((e) => e.dataset.etiquette === 'nom').map((e) => { const a = lum(rvb(getComputedStyle(e).fill)), b = lum(fond); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); });
+      return { visibles: t.length, chev, mesures: t.filter((e) => e.dataset.etiquette === 'mesure').length, pastille: !!document.querySelector('.pastilleEchelle'), contrasteMin: noms.length ? Math.min(...noms) : 21 };
+    });
+    const p0 = await plan();
+    if (p0.mesures || p0.chev || p0.pastille) echecs.push('plan à l’ouverture : ' + JSON.stringify(p0));
+    if (p0.contrasteMin < 4.5) echecs.push('nom à un contraste de ' + p0.contrasteMin.toFixed(2));
+    if (f.nom !== 'large') await feuille(page, 'projet');
+    await page.evaluate(() => document.getElementById('menuAffichage')?.setAttribute('open', ''));
+    await page.locator('#chkMesuresSurLePlan').check();
+    await page.evaluate(() => document.getElementById('menuAffichage')?.removeAttribute('open'));
+    if (f.nom !== 'large') await feuille(page, null);
+    await page.waitForTimeout(400);
+    const p1 = await plan();
+    await page.evaluate(() => localStorage.removeItem('plan.mesuresSurLePlan'));
+    if (!p1.mesures || p1.chev) echecs.push('mesures demandées : ' + JSON.stringify(p1));
+    mesures.push('plan : ' + p0.visibles + ' étiquettes, 0 mesure, ' + p0.chev + ' chevauchement, noms à ' + p0.contrasteMin.toFixed(1) + ':1 au moins ; mesures demandées : ' + p1.mesures + ' dessinées, ' + p1.chev + ' chevauchement');
+    await selectionner(page, TERRASSE);
+    await inspecteur(page);
+    const cotes = await page.evaluate(() => [...document.querySelectorAll('.inspecteurPanneau .champ-ligne[data-cle^="cote"] .ligneResume')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean));
+    const options = await page.evaluate(() => [...(document.querySelector('.inspecteurPanneau [data-cle="segmentReference"] select')?.options ?? [])].map((o) => o.textContent.trim()));
+    if (cotes.length !== 6 || !options.length) echecs.push(cotes.length + ' lignes de côtés, ' + options.length + ' côtés de référence lus');
+    const doubles = cotes.filter((t) => /« Côté \d+ »/.test(t));
+    if (doubles.length) echecs.push('côtés nommés deux fois : ' + doubles.join(' | '));
+    if (options.length && options.join() !== ['Côté 1', 'Côté 2', 'Côté 3', 'Côté 4', 'Côté 5', 'Côté 6'].join()) echecs.push('côté de référence : ' + options.join(', '));
+    mesures.push('côtés : ' + (cotes.slice(0, 3).join(' | ') || '(lignes non lues)') + ' ; côté de référence : ' + (options.join(', ') || '(non lu)'));
+    if (f.nom === 'compact') await feuille(page, null);
+    if (f.nom !== 'moyen') {
+      await page.evaluate(() => window.__plan.executer('vue.3d'));
+      await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 60000 });
+      await vue3dEconome(page);
+      await image3dStable(page, 3000);
+      const lire = () => page.evaluate(() => {
+        const sc = window.__plan.scene3d(), p = sc.camera.position, t = sc.controls.target;
+        const sol = (x, z) => (sc.hauteurSol ? sc.hauteurSol({ x: x + sc.cen.x, y: sc.cen.y - z }) : 0);
+        return { oeil: p.y - sol(p.x, p.z), incl: Math.asin((p.y - t.y) / p.distanceTo(t)) * 180 / Math.PI, dist: p.distanceTo(t) };
+      });
+      const b = await page.evaluate(() => { const r = document.querySelector('#terrasse3dCanvasHost').getBoundingClientRect(); return { x: (r.left + r.right) / 2, y: r.top + r.height * 0.7, h: r.height }; });
+      const glisser1 = async (dy) => { if (f.nom !== 'large') await doigts(page, [{ x: b.x, y: b.y }], [{ x: b.x, y: b.y + dy }], 8); else await glisser(page, { x: b.x, y: b.y }, 0, dy, 10); await page.waitForTimeout(300); };
+      for (let k = 0; k < 3; k++) await glisser1(-b.h * 0.5);
+      const bas = await lire();
+      if (bas.incl < 9.9 || bas.oeil < 1.49 || bas.dist < 1.99) echecs.push('vue libre : ' + JSON.stringify(bas));
+      await page.evaluate(() => window.__plan.executer('3d.hauteurDesYeux')); await page.waitForTimeout(300);
+      const yeux = await lire();
+      await glisser1(-b.h * 0.1);
+      const apres = await lire();
+      if (yeux.incl > 9.9 && yeux.oeil > 1.6) echecs.push('hauteur des yeux : ' + JSON.stringify(yeux));
+      if (apres.incl > 9.9 && apres.oeil > 1.6) echecs.push('glisser depuis la hauteur des yeux repris dans la vue libre : ' + JSON.stringify(apres));
+      mesures.push('Vue 3D : glisser vers le bas arrêté à ' + bas.incl.toFixed(1) + '°, œil à ' + bas.oeil.toFixed(2) + ' m ; hauteur des yeux ' + yeux.oeil.toFixed(2) + ' m, ' + yeux.incl.toFixed(1) + '°, gardée après un glisser (' + apres.oeil.toFixed(2) + ' m)');
+      await page.evaluate(() => window.__plan.executer('vue.plan'));
     }
     return { ok: echecs.length === 0, mesure: (echecs.length ? 'ÉCHECS : ' + echecs.join(' ; ') + ' — ' : '') + mesures.join(' ; ') };
   },
@@ -12225,13 +12302,15 @@ function pointsPour(nomClasse) {
   //       et qui coche (etape 3), le zoom garde d'une etape a l'autre, « Tout voir ».
   // 202 : se deplacer sur le plan 2D sans attraper d'objet : glisser sur un objet non choisi deplace la vue, un toucher choisit,
   //       l'objet choisi se deplace, la parcelle choisie deplace la vue (interaction/choixGeste.ts).
+  // 206 : le plan desencombre (mesures en preference, etiquettes sans chevauchement, noms lisibles), les cotes nommees d'une seule
+  //       facon, la vue libre de la Vue 3D (audit UX de la 5.45.0, constats 6, 7 et 8).
   // 205 : la mise en page par classe : plan en pleine hauteur et explorateur replie sous 1 200 px au bureau, 44 px a la tablette,
   //       la colonne de la Vue 3D en quatre commandes au telephone (audit UX de la 5.45.0, constats 2, 11 et 12).
   // 204 : l'ouverture sans selection, l'avertissement de l'admin dans son menu, la barre de selection d'un terrain au doigt, la
   // surface au cadastre et tracee, le total retenu du chiffrage (audit UX de la 5.45.0, constats 1, 3, 5 et 9).
   // 203 : la camera de la Vue 3D ne passe plus sous le sol : orbite poussee vers le bas, deplacement, molette ou pincement, camera
   //       posee sous le sol ; l'oeil reste a 0,30 m au-dessus du sol sous lui, la cible sur le sol ou au-dessus.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -239,6 +239,7 @@ export function dessinerCotes(groupe: SVGElement, ctx: ContexteCotes): void {
     // Avec un relief, l'etiquette dit aussi le denivele entre les deux bouts de la cote (§5.2).
     const d = deniveleCote(ctx.objets, g, m.displayMode);
     t.textContent = prefix + aLaVirgule(value.toFixed(2))+' m' + (d === null ? '' : ' · ' + texteDenivele(d));
+    t.dataset.etiquette = 'mesure';
     groupe.appendChild(t);
   });
 

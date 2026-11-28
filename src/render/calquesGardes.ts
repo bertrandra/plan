@@ -64,9 +64,11 @@ export function redessinerSiChange(calques: Element | readonly Element[], nom: s
   if (!premier) { dessiner(); return; }
   if (cles.get(premier) !== cle) { dessiner(); cles.set(premier, cle); return; }
   if (!verifier()) return;
-  const avant = liste.map((c) => c.innerHTML);
+  // Le masquage des etiquettes qui se chevauchent (app/assemblage/chevauchements.ts) se pose apres le dessin : il n'en fait pas partie.
+  const net = (h: string) => h.replace(/ data-chevauche=""/g, '');
+  const avant = liste.map((c) => net(c.innerHTML));
   dessiner();
-  if (liste.some((c, i) => c.innerHTML !== avant[i])) {
+  if (liste.some((c, i) => net(c.innerHTML) !== avant[i])) {
     console.error(`[cle de version] calque « ${nom} » : son dessin a change sans que sa cle change ; il serait reste tel quel dans le paquet livre`);
   }
 }
