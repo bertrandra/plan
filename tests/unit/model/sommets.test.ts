@@ -66,15 +66,16 @@ describe('insererSommet', () => {
     expect(f.pts[4]).toEqual({ x: 0, y: 4 });
   });
 
-  it('numerote d apres le nouveau total, ce qui peut produire deux fois le meme nom', () => {
-    // Comportement du fichier d'origine, conserve tel quel : ces noms sont des suggestions
-    // editables, pas des cles. Le figer evite qu'une « correction » silencieuse change un export.
+  it('renumerote les noms par defaut d apres la place, et garde un nom saisi (audit UX de la 5.45.0, constat 8)', () => {
+    // Jusqu'a la 5.45.0, le nom neuf suivait le total (« Coin 5 » au deuxieme rang) : les listes lisaient 1, 5, 2, 3, 4.
     const f = carre();
+    f.segmentNames[2] = 'Rue';
     insererSommet(f, 0, { x: 3, y: 0 });
     insererSommet(f, 3, { x: 10, y: 5 });
-    expect(f.vertexNames.filter((n) => n === 'Coin 5')).toHaveLength(1);
-    expect(f.vertexNames[1]).toBe('Coin 5');
-    expect(f.vertexNames[4]).toBe('Coin 6');
+    expect(f.vertexNames).toEqual(['Coin 1', 'Coin 2', 'Coin 3', 'Coin 4', 'Coin 5', 'Coin 6']);
+    expect(f.segmentNames).toEqual(['Cote 1', 'Cote 2', 'Cote 3', 'Rue', 'Cote 5', 'Cote 6']);
+    supprimerSommet(f, 1);
+    expect(f.segmentNames).toEqual(['Cote 1', 'Cote 2', 'Rue', 'Cote 4', 'Cote 5']);
   });
 });
 
@@ -109,5 +110,17 @@ describe('supprimerSommet', () => {
     supprimerSommet(f, 3);
     expect(f.segmentNames).toEqual(['Cote 1', 'Cote 2', 'Cote 3']);
     expect(enPhase(f)).toBe(true);
+  });
+});
+
+describe('le nom d un cote a l ecran (audit UX de la 5.45.0, constat 8)', () => {
+  it('lit un nom par defaut d apres la place, garde un nom saisi', async () => {
+    const { nomAfficheDuCote, nomAfficheDuCoin } = await import('../../../src/model/formes.js');
+    // La terrasse de la demonstration : « Cote 1, 2, 5, 3, 6, 4 » enregistres, lus 1 a 6 dans l'ordre.
+    expect(['Cote 1', 'Cote 2', 'Cote 5', 'Cote 3', 'Cote 6', 'Cote 4'].map(nomAfficheDuCote)).toEqual(['Côté 1', 'Côté 2', 'Côté 3', 'Côté 4', 'Côté 5', 'Côté 6']);
+    expect(nomAfficheDuCote('Sud-Ouest (rue)', 0)).toBe('Sud-Ouest (rue)');
+    expect(nomAfficheDuCote(undefined, 2)).toBe('Côté 3');
+    expect(nomAfficheDuCoin('Coin 7', 2)).toBe('Coin 3');
+    expect(nomAfficheDuCoin('Coin Nord', 2)).toBe('Coin Nord');
   });
 });

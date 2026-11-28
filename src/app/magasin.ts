@@ -20,6 +20,7 @@ import type { Vue } from './modes.js';
 import type { Classe } from './exposition.js';
 // Le mode expert, une preference de l'appareil que le magasin tient : son branchement se demande avec le magasin.
 export { brancherModeExpert } from './modeExpert.js';
+export { brancherMesuresSurLePlan } from './mesuresSurLePlan.js';
 
 /** La hauteur du tiroir des resultats (app/tiroir.ts) : rangee ici, avec l'etat qui la tient. */
 export type HauteurTiroir = 'replie' | 'mi' | 'plein';
@@ -112,10 +113,16 @@ export interface OptionsCommandes {
    * lecture seule.
    */
   modeExpert: boolean;
+  /**
+   * Affichage : les mesures des cotes sur le plan (« → 2,50 m · Δ +0,20 m »), app/mesuresSurLePlan.ts. Eteintes par defaut (audit UX
+   * de la 5.45.0, constat 7) ; une preference de l'appareil, comme le mode expert : ni Ctrl+Z, ni « projet modifie », permise en
+   * lecture seule. Poser une cote l'allume.
+   */
+  mesuresSurLePlan: boolean;
 }
 
 export const OPTIONS_PAR_DEFAUT: OptionsCommandes = {
-  remplacerImportSvg: false, remplacerImportJson: true, exportSansParcelle: false, dossierEquipements: true, echellePdf: 200, enregistrementAuto: true, modeExpert: false
+  remplacerImportSvg: false, remplacerImportJson: true, exportSansParcelle: false, dossierEquipements: true, echellePdf: 200, enregistrementAuto: true, modeExpert: false, mesuresSurLePlan: false
 };
 
 export interface Magasin {

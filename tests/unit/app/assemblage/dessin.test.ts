@@ -26,7 +26,7 @@ describe('les poignees sorties du calque des objets', () => {
     const etat = creerEtat({ objects: [maison] } as never, (o) => o as ObjetPlan[]);
     etat.selectedKey = 'maison';
     const surface = creerSurface(etat);
-    const dessin = creerDessin(etat, surface, { insererSommetAuClic: () => {}, contexteSoleil: () => ({}) as never });
+    const dessin = creerDessin(etat, surface, { insererSommetAuClic: () => {}, mesuresVisibles: () => true, contexteSoleil: () => ({}) as never });
     const ctx = {
       objetMasque: () => false, estTerrain: () => false, rebuildHandles: dessin.rebuildHandles, groupeObjets: surface.objets
     } as unknown as ContexteRendu;

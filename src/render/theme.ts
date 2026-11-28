@@ -75,6 +75,9 @@ export type JetonsEncres = Record<'ink' | 'rule' | 'paper' | 'accent' | 'panel-b
  * argument, revient a l'origine. Le plan ne change qu'au dessin suivant : a l'appelant de le demander.
  */
 export function poserEncres(j?: JetonsEncres): void {
+  FOND_DES_NOMS = j?.paper ?? ORIGINE.paper;
+  ENCRE_DES_NOMS = j?.ink ?? ORIGINE.ink;
+  encresDesNoms.clear();
   SVG_INK = j?.ink ?? ORIGINE.ink;
   SVG_GRID_MAJOR = j?.rule ?? ORIGINE.rule;
   SVG_LABEL_HALO = (j?.paper ?? ORIGINE.paper) + 'cc';
@@ -95,3 +98,48 @@ export function poserEncres(j?: JetonsEncres): void {
 
 /** Les decimales a l'ecran s'ecrivent a la francaise ; les exports gardent le point (empreintes). */
 export const aLaVirgule = (texte: string) => texte.replace(/(\d)\.(\d)/g, '$1,$2');
+
+/**
+ * Le nom d'un objet s'ecrit dans sa couleur, sur un halo du fond (render/objects.ts). En theme sombre, un nom rouge fonce sur un halo
+ * presque noir ne se lisait pas (audit UX de la 5.45.0, constat 7) : la couleur est eclaircie vers l'encre du theme, juste assez
+ * pour un contraste de 5 avec le fond (4,5 exiges, et le halo n'est pas tout a fait opaque). Ecran seulement : les exports gardent leurs encres, et le projet sa couleur.
+ */
+let FOND_DES_NOMS = ORIGINE.paper;
+let ENCRE_DES_NOMS = ORIGINE.ink;
+const encresDesNoms = new Map<string, string>();
+
+function rvb(c: string): [number, number, number] | null {
+  const m = /^#([0-9a-f]{6})$/i.exec(c.trim()) ?? /^#([0-9a-f]{3})$/i.exec(c.trim());
+  if (!m || !m[1]) return null;
+  const h = m[1].length === 3 ? m[1].split('').map((x) => x + x).join('') : m[1];
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];
+}
+function luminance([r, g, b]: [number, number, number]): number {
+  const f = (v: number) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+/** Le rapport de contraste de deux couleurs `#RRGGBB`. */
+export function contraste(a: string, b: string): number {
+  const ca = rvb(a), cb = rvb(b);
+  if (!ca || !cb) return 21;
+  const la = luminance(ca), lb = luminance(cb);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** La couleur d'un nom sur le plan : la sienne, eclaircie vers l'encre du theme si elle ne se lit pas sur le fond. */
+export function encreDeNom(couleur: string): string {
+  const deja = encresDesNoms.get(couleur);
+  if (deja) return deja;
+  const c = rvb(couleur), e = rvb(ENCRE_DES_NOMS);
+  let rendu = couleur;
+  if (c && e && contraste(couleur, FOND_DES_NOMS) < 5) {
+    for (let t = 0.1; t <= 1.001; t += 0.1) {
+      const m = c.map((v, i) => Math.round(v + ((e[i] ?? v) - v) * t));
+      const hex = '#' + m.map((v) => v.toString(16).padStart(2, '0')).join('');
+      rendu = hex;
+      if (contraste(hex, FOND_DES_NOMS) >= 5) break;
+    }
+  }
+  encresDesNoms.set(couleur, rendu);
+  return rendu;
+}

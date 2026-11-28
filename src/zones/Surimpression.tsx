@@ -117,9 +117,6 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
     );
   }
 
-  // Une echelle graphique plutot qu'un rapport : « 1:100 » depend de la densite de l'ecran, un
-  // trait de 5 m reste vrai sur tous. Le trait vise 48 px et tombe sur une longueur ronde.
-  const pasEchelle = niceStep(48 / etat.scene.scale);
   return (
     <>
       <div className="groupeFlottant" role="group" aria-label="Vue du plan">
@@ -136,11 +133,13 @@ export function Surimpression({ magasin, commandes, pointage }: PropsSurimpressi
             data-commande="terrasse.isoler" onClick={() => { commandes.executer('terrasse.isoler'); }}><Icone nom="isoler" taille={20} /></button>
         )}
       </div>
-      <div className="pastilleEchelle" aria-live="off" title={'1 m = ' + Math.round(etat.scene.scale) + ' px'}>
-        {pointeur
-          ? 'x ' + metres(pointeur.x) + ' · y ' + metres(pointeur.y) + ' m'
-          : <>Échelle <span className="barreEchelle" style={{ width: Math.round(pasEchelle * etat.scene.scale) + 'px' }} aria-hidden="true" /> {pasEchelle.toLocaleString('fr-FR')} m</>}
-      </div>
+      {/* L'encart « Échelle » a quitte le plan (audit UX de la 5.45.0, constat 7) : l'echelle graphique du plan la dit deja. La
+          pastille ne vient plus que pendant un glisser, pour la position du pointeur. */}
+      {pointeur && (
+        <div className="pastilleEchelle" aria-live="off" title={'1 m = ' + Math.round(etat.scene.scale) + ' px'}>
+          {'x ' + metres(pointeur.x) + ' · y ' + metres(pointeur.y) + ' m'}
+        </div>
+      )}
       {bandeau}
     </>
   );

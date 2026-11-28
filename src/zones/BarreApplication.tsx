@@ -352,6 +352,9 @@ function MenuAffichage({ magasin, commandes, inspecteur }: PropsMenu & { inspect
         <Entree commandes={commandes} id="affichage.orthoRecharger" libelle="Recharger le fond IGN" />
         <li className="menuAide">Le fond est la photo aérienne ou le Plan IGN, où les rues sont dessinées et nommées ; en Vue 3D, il se drape sur le relief. Le remplissage ne s'applique que fond affiché : le contour et les cotes restent, seul le fond de couleur s'efface. Les tuiles ne sont pas enregistrées, ces réglages le sont.</li>
         <li className="separateur" role="separator" />
+        {/* Les mesures des cotes sur le plan (app/mesuresSurLePlan.ts), eteintes par defaut : une preference de l'appareil, comme le mode expert. */}
+        <Case magasin={magasin} option="mesuresSurLePlan" idDom="chkMesuresSurLePlan" controle="affichage.option.mesures" libelle="Mesures des cotes sur le plan"
+          titre="Dessine sur le plan les mesures des cotes (→ 2,50 m · Δ +0,20 m). Une préférence de cet appareil ; poser une cote l’allume." />
         {/* Une preference de l'appareil (app/modeExpert.ts) : ni Ctrl+Z, ni « projet modifie », permise en lecture seule. */}
         <Case magasin={magasin} option="modeExpert" idDom="chkModeExpert" controle="affichage.option.modeExpert" libelle="Mode expert"
           titre="Montre les formats techniques (DXF, GLB, JSON…), les constantes de calcul et les réglages fins de la 3D. Une préférence de cet appareil." />

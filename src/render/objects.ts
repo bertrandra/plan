@@ -22,7 +22,7 @@
 import { sommetDe } from '../geometry/anneau.js';
 import { vue } from './vues.js';
 import { creerSvg } from './svg.js';
-import { SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND, SVG_PASTILLE, SVG_PASTILLE_TEXTE, aLaVirgule } from './theme.js';
+import { SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND, SVG_PASTILLE, SVG_PASTILLE_TEXTE, aLaVirgule, encreDeNom } from './theme.js';
 import { versEcran } from '../geometry/vue.js';
 import { pathD } from '../geometry/path.js';
 import { centroid, dist, angleInterieurDeg } from '../geometry/basic.js';
@@ -30,6 +30,7 @@ import { exteriorBisector } from '../geometry/polygon.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 import { largeurChemin } from '../model/ouvrages/index.js';
+import { nomAfficheDuCote, nomAfficheDuCoin } from '../model/formes.js';
 import { traceAuPlan } from './ouvrages/index.js';
 import type { EtatScene } from '../geometry/vue.js';
 import { versionObjet } from '../core/controleurObjets.js';
@@ -157,8 +158,10 @@ export function creerDomObjet(racine: SVGElement, obj: ObjetRendu, scene: EtatSc
   v.nameEl.setAttribute('font-weight','700');
   v.nameEl.setAttribute('paint-order','stroke');
   v.nameEl.setAttribute('stroke',SVG_LABEL_HALO); v.nameEl.setAttribute('stroke-width','3');
-  v.nameEl.setAttribute('fill', obj.stroke);
+  v.nameEl.setAttribute('fill', encreDeNom(obj.stroke));
   v.nameEl.style.pointerEvents = 'none';
+  // Les etiquettes se rangent par priorite quand elles se chevauchent (app/assemblage/chevauchements.ts) : leur sorte et leur objet.
+  v.nameEl.dataset.etiquette = 'nom'; v.nameEl.dataset.de = obj.key;
   racine.appendChild(v.nameEl);
   v.pointEls = []; v.ptLabelEls = []; v.edgeEls = []; v.segLabelEls = [];
   v.radiusHandle = null;
@@ -197,6 +200,7 @@ export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): vo
       sl.setAttribute('paint-order','stroke'); sl.setAttribute('stroke',SVG_PASTILLE); sl.setAttribute('stroke-width','12');
       sl.setAttribute('stroke-linejoin','round'); sl.setAttribute('stroke-linecap','round'); sl.setAttribute('dominant-baseline','middle');
       sl.style.pointerEvents = 'none';
+      sl.dataset.etiquette = 'cote'; sl.dataset.de = obj.key;
       racine.appendChild(sl); v.segLabelEls.push(sl);
     }
     for(let i=0;i<n;i++){
@@ -209,6 +213,7 @@ export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): vo
       const lb=creerSvg('text');
       lb.setAttribute('font-family','Helvetica Neue, Arial, sans-serif'); lb.setAttribute('font-size','10'); lb.setAttribute('fill','#333'); lb.setAttribute('font-weight','700');
       lb.style.pointerEvents = 'none';
+      lb.dataset.etiquette = 'cote'; lb.dataset.de = obj.key;
       racine.appendChild(lb); v.ptLabelEls.push(lb);
     }
   } else {
@@ -382,7 +387,8 @@ function etiquettesDe(obj: ObjetRendu & { pts: PtBrut[] }): Etiquettes {
       const dx = nb.x-pb2.x, dy = nb.y-pb2.y; const L=Math.hypot(dx,dy)||1;
       e.ext.push({x:-dy/L, y:dx/L});
     }
-    const vName = obj.vertexNames?.[i] || ('P'+(i+1));
+    // Un nom par defaut se lit d'apres la place du coin, comme celui d'un cote (model/formes.ts, constat 8 de l'audit UX).
+    const vName = nomAfficheDuCoin(obj.vertexNames?.[i], i) || ('P'+(i+1));
     // Un chemin ouvert n'a pas d'interieur : parler de son angle interieur n'aurait pas de sens.
     const showAngleHere = obj.showAngles && obj.type==='polygon';
     // L'angle n'est calcule que s'il doit etre affiche.
@@ -390,7 +396,7 @@ function etiquettesDe(obj: ObjetRendu & { pts: PtBrut[] }): Etiquettes {
     e.sommets.push(etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN));
     if(i < edgeCount){
       const longueur = dist(pt, sommetDe(obj.pts, i+1));
-      e.cotes.push(etiquetteComposee(obj.segmentNames?.[i] ?? '', longueurEnMetres(longueur), obj.showSegNames, obj.showDims, SEP_ECRAN));
+      e.cotes.push(etiquetteComposee(nomAfficheDuCote(obj.segmentNames?.[i], i), longueurEnMetres(longueur), obj.showSegNames, obj.showDims, SEP_ECRAN));
       e.longueurs.push(longueur);
     }
   });
@@ -540,6 +546,7 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
   if(!el || !nameEl) return;
   // Le halo suit les encres du plan, qui peuvent changer apres la creation (render/theme.ts).
   poser(nameEl, 'stroke', SVG_LABEL_HALO);
+  poser(nameEl, 'fill', encreDeNom(obj.stroke));
 
     // Masque : rien de cet objet ne se dessine, y compris ses poignees s'il se trouve etre
     // l'objet selectionne - un contour invisible avec des coins bien visibles serait plus

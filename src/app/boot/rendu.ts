@@ -1,6 +1,7 @@
 // Le rendu du plan (app/boot/plan.ts) : le dessin orchestre par render/pipeline.ts, le rendu complet, l'apercu par transformation
 // pendant un geste quand le rendu complet est trop lent pour le suivre, et le rendu de quelques objets seulement.
 
+import { creerChevauchements } from '../assemblage/chevauchements.js';
 import { synchroniserContexteTerrasse } from '../../core/contexteTerrasse.js';
 import { rendreScene, rendreObjets, type ContexteRendu } from '../../render/pipeline.js';
 import { dessinerCourbesRelief } from '../../render/relief.js';
@@ -58,6 +59,7 @@ export interface DependancesRendu {
 
 export function creerRendu(d: DependancesRendu) {
   const { etat, magasin, surface, dessin, affichage, tiroir, markDirty } = d;
+  const eviterChevauchements = creerChevauchements(surface.svg, () => etat.selectedKey);
   // Le dessin du plan est orchestre dans render/pipeline.ts. La terrasse courante suit la selection
   // (core/contexteTerrasse.ts), et le tiroir la suit a chaque rendu.
   function render(): void {
@@ -70,6 +72,8 @@ export function creerRendu(d: DependancesRendu) {
     // Le repere du dessin suit la vue : un deplacement n'est qu'un decalage du viewBox (render/repere.ts).
     dessin.suivreLaVue();
     rendreScene(etat, contexteRendu());
+    // Les etiquettes qui se chevauchent : la moins prioritaire se masque, une fois l'image posee (app/assemblage/chevauchements.ts).
+    eviterChevauchements();
     tiroir.synchroniser(contexteChange);
     magasin.notifier();
     const duree = performance.now() - debut;

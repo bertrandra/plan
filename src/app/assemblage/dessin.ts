@@ -60,6 +60,11 @@ export interface DependancesDessin {
   insererSommetAuClic: (obj: ObjetPlan, cote: number, clic: PtBrut) => void;
   /** La date, l'heure et le lieu, pour les ombres des parasols. */
   contexteSoleil: () => ContexteSoleil;
+  /**
+   * Les mesures des cotes (« → 2,50 m · Δ +0,20 m ») se dessinent-elles sur le plan ? Une preference d'affichage, eteinte par defaut
+   * (audit UX de la 5.45.0, constat 7) ; le brouillon d'une cote en cours, lui, se voit toujours.
+   */
+  mesuresVisibles: () => boolean;
 }
 
 export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): Dessin {
@@ -130,8 +135,9 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       if (mesure.ref) visees.add(mesure.ref.objKey);
       for (const c of mesure.cibles) visees.add(c.objKey);
       const lit = (o: ObjetPlan) => visees.has(o.key) || lesTerrains(o);
-      redessinerSiChange(s.cotes, 'cotes', cleDesCalques(etatDessin(), lit), () =>
-        dessinerCotes(s.cotes, { scene: sceneDessin(), objets: etat.objects, mesures: etat.measures, brouillonRef: mesure.ref, brouillonCibles: mesure.cibles }));
+      const visibles = d.mesuresVisibles();
+      redessinerSiChange(s.cotes, 'cotes', cleDesCalques(etatDessin(), lit) + (visibles ? '' : '|sans mesures'), () =>
+        dessinerCotes(s.cotes, { scene: sceneDessin(), objets: etat.objects, mesures: visibles ? etat.measures : [], brouillonRef: mesure.ref, brouillonCibles: mesure.cibles }));
     },
     // La contrainte de position modifie les objets : elle s'execute avant le dessin, comme avant.
     renderParasolOverlay() {

@@ -165,6 +165,17 @@ aujourd'hui dupliqué entre Vue 3D et visionneuse : une seule instance, deux ét
 Le sous-onglet **Canevas** du mode Terrasse disparaît : c'est le plan lui-même avec les calques de
 la terrasse, choisis dans Z3.
 
+**Un plan qui se lit** (audit UX de la 5.45.0, constats 6 à 8). Les mesures des cotes (« → 2,50 m · Δ +0,20 m ») sont une
+préférence d'affichage de l'appareil, éteinte par défaut, dans le menu Affichage (« Mesures des cotes sur le plan ») : ni Ctrl+Z, ni
+« projet modifié », permise en lecture seule ; poser une cote l'allume (`app/mesuresSurLePlan.ts`). Deux étiquettes qui se
+chevauchent : la moins prioritaire se masque, à l'écran seulement — l'objet choisi, puis les noms, les cotes, les mesures
+(`app/assemblage/chevauchements.ts`). L'encart « Échelle » a quitté le plan : l'échelle graphique y suffit, la pastille ne vient que
+pendant un glisser, pour la position du pointeur. Un nom d'objet se lit sur le fond (contraste de 4,5 au moins, `encreDeNom`). Un
+côté ou un coin nommé par défaut se lit d'après sa place, partout à l'écran ; une insertion ou un retrait de sommet renumérote les
+noms par défaut, un nom saisi reste le sien. En Vue 3D, un geste parti d'une vue d'ensemble garde le regard à 10° au moins sous
+l'horizon, 2 m de la cible et l'œil à 1,50 m du sol ; la hauteur des yeux, un point de vue, le photomontage et la prise de l'audit
+gardent la règle des 0,30 m (`three/solCamera.ts`, `VUE_LIBRE`).
+
 ### 4.5 Z5 — Inspecteur (contextuel)
 
 | Section | Apparaît pour | Aujourd'hui | Contrat |

@@ -367,7 +367,10 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   };
   vue3d.scene = sc;
   // La camera ne passe jamais sous le sol, quel que soit le geste (three/solCamera.ts) : le relief sous elle, sinon le plan du sol.
-  tenirAuDessusDuSol(camera, controls, sol ? (x, z) => sol.hauteur({ x: cen.x + x, y: cen.y - z }) : () => 0);
+  // Pendant un geste parti d'une vue d'ensemble, la vue libre (constat 6 de l'audit UX de la 5.45.0) ; le mode Toit, qui pose et
+  // borne lui-meme sa camera, n'y est pas soumis.
+  tenirAuDessusDuSol(camera, controls, sol ? (x, z) => sol.hauteur({ x: cen.x + x, y: cen.y - z }) : () => 0, undefined,
+    () => typeof document !== 'undefined' && document.documentElement.dataset.modeToit !== undefined);
   // Courbe de film, ciel, brume, occlusion (R1) ; la vitrine peint son propre ciel (soleilVitrine.ts).
   monterRendu(sc, parametresQualite(vue3d.qualite), rayonParcelle ?? extent, !vue3d.apresSoleil);
   // Le relief des textures dessinees (R3), a l'ecran, hors qualite Econome.

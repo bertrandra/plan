@@ -7,7 +7,7 @@ import { detruireVue } from '../../render/vues.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
 import { creerRegistre } from '../commandes.js';
 import { droitsCourants, enLectureSeule } from '../acces.js';
-import { creerMagasin, brancherModeExpert } from '../magasin.js';
+import { creerMagasin, brancherModeExpert, brancherMesuresSurLePlan } from '../magasin.js';
 import type { Inspecteur } from '../inspecteur.js';
 import type { Explorateur } from '../explorateur.js';
 import type { Projet } from '../projet.js';
@@ -62,6 +62,8 @@ export function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   retenirProjetsConnus(seed.list.length);
   // Le mode expert, une preference de l'appareil (app/modeExpert.ts) : eteint, le registre efface les commandes qui lui sont reservees.
   brancherModeExpert(magasin);
+  // Les mesures des cotes sur le plan, une preference de l'appareil eteinte par defaut (app/mesuresSurLePlan.ts) : le plan suit.
+  brancherMesuresSurLePlan(magasin, undefined, () => render());
   const commandes = creerRegistre(droitsCourants(), (_id, message) => signalerLimiteProjets(message), () => !magasin.store.getState().options.modeExpert);
   // Le selecteur d'objets est l'explorateur (zones/) : il se redessine sur le magasin.
   const rebuildSelector = () => magasin.notifier();
@@ -74,7 +76,8 @@ export function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   const surface = creerSurface(etat);
   const dessin = creerDessin(etat, surface, {
     insererSommetAuClic: (o, i, p) => gestes.insertPointOnSegment(o, i, p),
-    contexteSoleil: affichage.contexteSoleilParasol
+    contexteSoleil: affichage.contexteSoleilParasol,
+    mesuresVisibles: () => magasin.store.getState().options.mesuresSurLePlan
   });
   const mesures = creerMesures(etat);
   const historique = creerHistorique(etat, {

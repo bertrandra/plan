@@ -162,6 +162,9 @@ d'y toucher.
   d'affichage, comme « Filaire » — pas de Ctrl+Z, pas de « projet modifié », permises en lecture
   seule (`app/explorateur.ts`, `app/ecouteurs/cibles.ts`). Elles restent rangées dans l'objet pour
   être retrouvées à la réouverture.
+- **« Mesures des cotes sur le plan »** (menu Affichage) : préférence d'affichage de l'appareil, éteinte par défaut, comme le mode
+  expert — pas de Ctrl+Z, pas de « projet modifié », permise en lecture seule ; poser une cote l'allume (`app/mesuresSurLePlan.ts`).
+  Les cotes restent dans le projet, l'onglet Cotes et les exports.
 - **« Relief » et « Courbes de niveau »** (menu Affichage, section Relief) : préférences d'affichage
   sans Ctrl+Z, permises en lecture seule, mais qui **marquent le projet à enregistrer** (attribut
   `enregistre` des champs, `app/ecouteurs/relief.ts`) : l'utilisateur attend de les retrouver.

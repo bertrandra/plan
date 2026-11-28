@@ -74,8 +74,8 @@ export function auDessusDuSol(camera: Pt3, cible: Pt3, sol: SolSous, marge = MAR
 interface CameraTenue { position: Pt3 & { set(x: number, y: number, z: number): unknown }; lookAt(v: Pt3 & object): void }
 interface OrbiteTenue {
   target: Pt3 & { set(x: number, y: number, z: number): unknown };
-  addEventListener(type: 'change', f: () => void): void;
-  removeEventListener(type: 'change', f: () => void): void;
+  addEventListener(type: 'change' | 'start' | 'end', f: () => void): void;
+  removeEventListener(type: 'change' | 'start' | 'end', f: () => void): void;
 }
 
 /**
@@ -85,17 +85,93 @@ interface OrbiteTenue {
  * n'est pas touche). La correction est faite avant que l'orbite ne retienne la position : la suivante part de la camera corrigee,
  * sans a-coup. Rend de quoi debrancher.
  */
-export function tenirAuDessusDuSol(camera: CameraTenue, orbite: OrbiteTenue, sol: SolSous, marge = MARGE_SOL_CAMERA_M): () => void {
+export function tenirAuDessusDuSol(camera: CameraTenue, orbite: OrbiteTenue, sol: SolSous, marge = MARGE_SOL_CAMERA_M, exempte: () => boolean = () => false): () => void {
+  // Le geste en cours, s'il est parti de la vue libre : ses mouvements y restent (constat 6). Un glisser, un pincement, la molette
+  // de l'orbite s'annoncent par 'start' et 'end' ; la molette, les boutons et les fleches de Plan, par `geste3d` (plus bas).
+  let libre = false;
+  const debut = () => { libre = !exempte() && dansLaVueLibre(camera.position, orbite.target, sol); };
+  const fin = () => { libre = false; };
   const corriger = () => {
-    const r = auDessusDuSol(camera.position, orbite.target, sol, marge);
+    const strict = libre || (gestesEnCours > 0 && !exempte() && libreAuDebutDuGeste(sol));
+    const r = strict ? dansLaVueLibreRamenee(camera.position, orbite.target, sol) : auDessusDuSol(camera.position, orbite.target, sol, marge);
     if (!r) return;
     orbite.target.set(r.cible.x, r.cible.y, r.cible.z);
     camera.position.set(r.camera.x, r.camera.y, r.camera.z);
     camera.lookAt(orbite.target);
   };
   orbite.addEventListener('change', corriger);
+  orbite.addEventListener('start', debut);
+  orbite.addEventListener('end', fin);
   corriger();
-  return () => orbite.removeEventListener('change', corriger);
+  return () => { orbite.removeEventListener('change', corriger); orbite.removeEventListener('start', debut); orbite.removeEventListener('end', fin); };
+}
+
+/** Les gestes de Plan hors de l'orbite (molette vers un point, boutons de zoom, quarts de tour) en cours, et d'ou ils partaient. */
+let gestesEnCours = 0;
+let departDuGeste: { camera: Pt3; cible: Pt3 } | null = null;
+function libreAuDebutDuGeste(sol: SolSous): boolean {
+  return !!departDuGeste && dansLaVueLibre(departDuGeste.camera, departDuGeste.cible, sol);
+}
+
+/**
+ * Un geste de la personne qui bouge la camera sans passer par l'orbite (la molette vers un point, « Rapprocher », un quart de tour) :
+ * la vue libre le tient comme un glisser, s'il part d'une vue d'ensemble.
+ */
+export function geste3d(camera: Pt3, cible: Pt3, f: () => void): void {
+  const avant = departDuGeste;
+  departDuGeste = { camera: { x: camera.x, y: camera.y, z: camera.z }, cible: { x: cible.x, y: cible.y, z: cible.z } };
+  gestesEnCours++;
+  try { f(); } finally { gestesEnCours--; departDuGeste = avant; }
+}
+
+/**
+ * La vue libre (audit UX de la 5.45.0, constat 6) : un glisser amenait la camera de 27,5 m a 0,94 m, le regard a l'horizontale, et
+ * quatre pincements a 0,30 m — on s'y perdait. Pendant un geste parti d'une vue d'ensemble, la camera garde donc le regard au moins
+ * a 10° sous l'horizon, 2 m au moins de sa cible et l'oeil a 1,50 m au moins au-dessus du sol sous lui. Une camera posee plus bas
+ * par un mode qui le veut (hauteur des yeux, point de vue enregistre, photomontage, vue de prise de l'audit) n'est pas une vue
+ * d'ensemble : ses gestes gardent la seule regle des 0,30 m (`auDessusDuSol`), jusqu'a ce qu'elle revienne d'elle-meme dans la vue
+ * libre. Rien n'est touche hors d'un geste : un rendu, une capture, un export voient la camera la ou elle a ete posee.
+ */
+export const VUE_LIBRE = { inclinaisonMinDeg: 10, distanceMinM: 2, hauteurOeilM: 1.5 } as const;
+
+/** L'angle du regard sous l'horizon, en degres (positif : la camera regarde vers le bas). */
+function inclinaison(camera: Pt3, cible: Pt3): number {
+  const d = Math.hypot(camera.x - cible.x, camera.y - cible.y, camera.z - cible.z);
+  return d < 1e-9 ? 90 : (Math.asin(Math.max(-1, Math.min(1, (camera.y - cible.y) / d))) * 180) / Math.PI;
+}
+
+/** La camera est-elle dans la vue libre (a une tolerance pres) ? */
+export function dansLaVueLibre(camera: Pt3, cible: Pt3, sol: SolSous, v = VUE_LIBRE): boolean {
+  const d = Math.hypot(camera.x - cible.x, camera.y - cible.y, camera.z - cible.z);
+  return d >= v.distanceMinM - 1e-3 && inclinaison(camera, cible) >= v.inclinaisonMinDeg - 1e-3 && camera.y >= lire(sol, camera.x, camera.z) + v.hauteurOeilM - 1e-3;
+}
+
+/**
+ * La camera ramenee dans la vue libre, la cible gardee, ou null si elle y est deja : la distance d'abord, puis l'inclinaison (la
+ * camera tourne vers le haut autour de la cible, meme azimut, meme distance), enfin l'oeil au-dessus du sol (`auDessusDuSol` a
+ * 1,50 m, qui tourne de meme).
+ */
+export function dansLaVueLibreRamenee(camera: Pt3, cible: Pt3, sol: SolSous, v = VUE_LIBRE): { camera: Pt3; cible: Pt3 } | null {
+  let cam = { x: camera.x, y: camera.y, z: camera.z };
+  const cib = { x: cible.x, y: cible.y, z: cible.z };
+  let change = false;
+  let dx = cam.x - cib.x, dy = cam.y - cib.y, dz = cam.z - cib.z;
+  let d = Math.hypot(dx, dy, dz);
+  if (d < v.distanceMinM - TOLERANCE_M) {
+    const k = d < 1e-9 ? 0 : v.distanceMinM / d;
+    cam = d < 1e-9 ? { x: cib.x, y: cib.y + v.distanceMinM, z: cib.z } : { x: cib.x + dx * k, y: cib.y + dy * k, z: cib.z + dz * k };
+    dx = cam.x - cib.x; dy = cam.y - cib.y; dz = cam.z - cib.z; d = v.distanceMinM;
+    change = true;
+  }
+  if (inclinaison(cam, cib) < v.inclinaisonMinDeg - 1e-6) {
+    const phi = (v.inclinaisonMinDeg * Math.PI) / 180, horiz = Math.hypot(dx, dz);
+    const ux = horiz < 1e-9 ? 1 : dx / horiz, uz = horiz < 1e-9 ? 0 : dz / horiz;
+    cam = { x: cib.x + ux * d * Math.cos(phi), y: cib.y + d * Math.sin(phi), z: cib.z + uz * d * Math.cos(phi) };
+    change = true;
+  }
+  const r = auDessusDuSol(cam, cib, sol, v.hauteurOeilM);
+  if (r) return r;
+  return change ? { camera: cam, cible: cib } : null;
 }
 
 /**
