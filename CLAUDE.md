@@ -259,6 +259,9 @@ d'y toucher.
   parcelle n'écrivent que la profondeur (ils cachent le projet derrière eux) et ne portent pas d'ombre. Rien n'est rebâti : le mode
   masque et remplace, puis remet tout à la sortie (`poserFiltre3d`, three/sceneVivante.ts). C'est le seul champ fichier d'image hors
   de l'audit et de la calibration (`tests/unit/architecture/captureAudit.test.ts`), sans `capture`.
+- **Gestes du plan 2D** (demande de l'utilisateur, 27 novembre 2026) : un glisser déplace la vue, sauf sur l'objet déjà choisi
+  qui peut bouger (lui, ses poignées, les accès et les outils gardent leur geste) ; un toucher bref choisit. Le terrain, le
+  cadastre et l'IGN, le verrouillé et la lecture seule déplacent la vue même choisis. Décision dans `interaction/choixGeste.ts`.
 - **Gazon de la parcelle du projet (Vue 3D)** : montré par défaut, au-dessus de la photo aérienne
   (`three/gazon.ts`, texture dessinée). La case « Gazon (3D) » (Apparence) suit la même règle que
   « Relief » ; une texture horizontale choisie l'emporte. Seul son retrait s'écrit (`gazon3d: false`).

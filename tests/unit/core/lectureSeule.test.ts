@@ -39,7 +39,10 @@ describe('ou le refus est pose dans les gestes du pointeur', () => {
   });
 
   it('refuse aussi le recul au double-clic, qui change l ordre d empilement', () => {
-    expect(source).toContain('if(!etat.lectureSeule) ctx.sendObjectBackward(objDbl);');
+    // Le double-clic de la souris et le double toucher passent par une seule fonction depuis la regle des gestes du 27 novembre
+    // 2026 (interaction/choixGeste.ts) : un seul recul, garde.
+    expect(source).toContain('function doubleClicObjet(');
+    expect(source.split('ctx.sendObjectBackward(').length - 1).toBe(1);
   });
 
   it('refuse le recul au double toucher aussi, comme a la souris (D-18)', () => {

@@ -370,8 +370,8 @@ export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInsp
       <details className="plichamps gestesPlan" data-pli="gestes">
         <summary>Gestes sur le plan</summary>
         <p className="hint">{tactile
-        ? 'Glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer. Double toucher sur un côté = ajouter un point ; sur un coin = figer ou dégeler. Pincer = zoom. Trois doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'
-        : 'Glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités, l\'intérieur d\'une forme pour la déplacer en bloc (un clic simple sans glisser désélectionne). Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Glissement 3 doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>
+        ? 'Touchez un objet pour le choisir, puis faites-le glisser. Glissez ailleurs pour vous déplacer. Sur l\'objet choisi, glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités. Double toucher sur un côté = ajouter un point ; sur un coin = figer ou dégeler. Pincer = zoom ; deux ou trois doigts = déplacer la vue. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'
+        : 'Cliquez un objet pour le choisir, puis faites-le glisser. Glissez ailleurs pour vous déplacer (ou avec le bouton du milieu, ou la barre d\'espace tenue). Sur l\'objet choisi, glissez un point pour l\'ajuster, un côté pour déplacer ses deux extrémités ; un clic simple sans glisser le désélectionne. Double-clic sur un côté = ajouter un point. Double-clic sur un coin = figer/dégeler. Molette / pincement 2 doigts = zoom. Rien ne peut sortir de la parcelle (sauf la parcelle elle-même).'}</p>
       </details>
     </div>
   );
