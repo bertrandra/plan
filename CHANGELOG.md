@@ -5,6 +5,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Se déplacer sur le plan 2D sans attraper d'objet** (demande du propriétaire : « pas facile de se déplacer car je sélectionne à
+  chaque fois des objets »). Un glisser qui commence sur un objet non sélectionné déplace maintenant la vue, sans rien choisir ni
+  déplacer ; un toucher ou un clic bref (sous 10 px au doigt, 5 px à la souris) choisit l'objet, comme avant ; l'objet choisi se
+  déplace au glisser, ses poignées, les accès de la clôture et les outils (cote, alignement, retouche) gardent leur geste. Le terrain
+  (parcelle du projet, voisines), ce qui vient du cadastre ou de l'IGN, un objet verrouillé et la lecture seule déplacent toujours la
+  vue, même choisis. À la souris, le bouton du milieu et la barre d'espace tenue (le plan ayant le focus, hors d'un champ) déplacent
+  aussi la vue. Le rappel « Gestes sur le plan » de l'inspecteur le dit. La décision est une fonction pure testée
+  (`interaction/choixGeste.ts`) ; la Vue 3D ne change pas ; aucune quantité ni aucun export ne bouge. Fumée : point 202 nouveau.
+
 ## [5.44.0] — 2026-11-28
 
 Version **mineure** au sens de `MD/RELEASE.md` : deux fonctions nouvelles — des trottoirs dans l'option « Rues », avec la part

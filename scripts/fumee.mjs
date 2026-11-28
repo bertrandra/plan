@@ -7934,6 +7934,91 @@ const POINTS = {
     if (echecs.length) return { ok: false, mesure: echecs.join(' ; ') };
     return { ok: true, mesure: `projet rouvert, toits relus (marque ${marques[0]}) : le L en un toit (faîtage ${longere.faitage} m, égouts ${longere.egouts[0]} m, deux croupes), le bout à ${bout.faitage} m, trois lucarnes` };
   },
+  202: async (page, f) => {
+    // Se deplacer sur le plan 2D sans attraper d'objet (demande du proprietaire, 27 novembre 2026 : « pas facile de se deplacer car
+    // je selectionne a chaque fois des objets ») : la regle de interaction/choixGeste.ts, jouee au doigt (compact, moyen) et a la
+    // souris (large). 1. Glisser sur la maison non choisie deplace la vue, sans rien choisir ni deplacer. 2. Toucher la parcelle la
+    // choisit ; la glisser ensuite deplace la vue, la parcelle reste et reste choisie. 3. Toucher la terrasse la choisit. 4. Glisser
+    // la terrasse choisie la deplace, la vue reste.
+    const echecs = [], mesures = [];
+    const lire = () => page.evaluate(() => {
+      const e = window.__plan.etat();
+      const pts = (k) => JSON.stringify(e.objects.find((o) => o.key === k)?.pts ?? null);
+      return { sel: e.selectedKey, o: { ...e.scene.origine }, scale: e.scene.scale, maison: pts('maison'), parcelle: pts('parcelle'), terrasse: e.objects.find((o) => o.key === 'terrasse')?.pts.map((q) => ({ ...q })) };
+    });
+    // Un point du plan ou le corps de l'objet est vraiment sous le pointeur (ni une poignee, ni une autre forme, ni un panneau).
+    const pointSur = (cle) => page.evaluate((cle) => {
+      const r = document.getElementById('stage').getBoundingClientRect();
+      const n = 40, trouves = [];
+      for (let j = 2; j < n - 2; j++) for (let i = 2; i < n - 2; i++) {
+        const x = r.left + (r.width * i) / n, y = r.top + (r.height * j) / n;
+        const el = document.elementFromPoint(x, y);
+        if (el && el.closest('#stage svg') && el.dataset.role === 'obj' && el.dataset.key === cle) trouves.push({ x, y });
+      }
+      if (!trouves.length) return null;
+      // Le point le plus au centre des points trouves : loin des bords de la forme.
+      const cx = trouves.reduce((s, p) => s + p.x, 0) / trouves.length, cy = trouves.reduce((s, p) => s + p.y, 0) / trouves.length;
+      return trouves.reduce((m, p) => (Math.hypot(p.x - cx, p.y - cy) < Math.hypot(m.x - cx, m.y - cy) ? p : m));
+    }, cle);
+    const glisser1 = async (de, dx, dy) => {
+      if (f.mobile) await doigts(page, [de], [{ x: de.x + dx, y: de.y + dy }], 8);
+      else await glisser(page, de, dx, dy, 8);
+      await page.waitForTimeout(250);
+    };
+    const toucher = async (p) => { if (f.mobile) await page.touchscreen.tap(p.x, p.y); else await page.mouse.click(p.x, p.y); await page.waitForTimeout(450); };
+    await page.evaluate(() => { window.__plan.ouvrirFeuille(null); window.__plan.selectionnerCle(null); window.__plan.executer('vue.ajuster'); });
+    await page.waitForTimeout(400);
+    const geste = f.mobile ? 'au doigt' : 'à la souris';
+
+    // ---- 1. La maison, non choisie : la vue suit, rien n'est choisi --------------------------------
+    const m = await pointSur('maison');
+    if (!m) return { ok: false, mesure: 'la maison n’est nulle part sous le pointeur' };
+    const a1 = await lire();
+    await glisser1(m, 60, 30);
+    const b1 = await lire();
+    const pan1 = { x: b1.o.x - a1.o.x, y: b1.o.y - a1.o.y };
+    if (b1.sel !== null) echecs.push('glisser sur la maison l’a choisie (' + b1.sel + ')');
+    if (b1.maison !== a1.maison) echecs.push('glisser sur la maison l’a déplacée');
+    if (Math.abs(pan1.x - 60) > 2 || Math.abs(pan1.y - 30) > 2) echecs.push(`glisser sur la maison : vue déplacée de (${pan1.x.toFixed(1)}, ${pan1.y.toFixed(1)}) px pour (60, 30)`);
+    mesures.push(`maison glissée ${geste} : vue (${pan1.x.toFixed(0)}, ${pan1.y.toFixed(0)}) px, rien de choisi`);
+
+    // ---- 2. La parcelle : un toucher la choisit ; glissee ensuite, la vue suit -------------------------
+    const p = await pointSur('parcelle');
+    if (!p) return { ok: false, mesure: mesures.concat('la parcelle n’est nulle part sous le pointeur').join(' ; ') };
+    await toucher(p);
+    const a2 = await lire();
+    if (a2.sel !== 'parcelle') echecs.push('toucher la parcelle : sélection ' + a2.sel);
+    if (a2.o.x !== b1.o.x || a2.o.y !== b1.o.y) echecs.push('toucher la parcelle a déplacé la vue');
+    const p2 = (await pointSur('parcelle')) ?? p;
+    await glisser1(p2, -40, 20);
+    const b2 = await lire();
+    const pan2 = { x: b2.o.x - a2.o.x, y: b2.o.y - a2.o.y };
+    if (b2.parcelle !== a2.parcelle) echecs.push('glisser la parcelle choisie l’a déplacée');
+    if (b2.sel !== 'parcelle') echecs.push('glisser la parcelle choisie a changé la sélection (' + b2.sel + ')');
+    if (Math.abs(pan2.x + 40) > 2 || Math.abs(pan2.y - 20) > 2) echecs.push(`glisser la parcelle : vue déplacée de (${pan2.x.toFixed(1)}, ${pan2.y.toFixed(1)}) px pour (−40, 20)`);
+    mesures.push(`parcelle touchée : choisie ; glissée : vue (${pan2.x.toFixed(0)}, ${pan2.y.toFixed(0)}) px, parcelle immobile`);
+
+    // ---- 3. et 4. La terrasse : un toucher la choisit ; glissee, elle se deplace -----------------------
+    const t = await pointSur('terrasse');
+    if (!t) return { ok: false, mesure: mesures.concat('la terrasse n’est nulle part sous le pointeur').join(' ; ') };
+    await toucher(t);
+    if ((await lire()).sel !== 'terrasse') echecs.push('toucher la terrasse : sélection ' + (await lire()).sel);
+    // Cadree sur elle, comme le ferait la personne avant de la deplacer : un petit glisser reste dans la parcelle.
+    await page.evaluate(() => window.__plan.executer('vue.ajuster'));
+    await page.waitForTimeout(400);
+    const t2 = await pointSur('terrasse');
+    if (!t2) return { ok: false, mesure: mesures.concat('la terrasse cadrée n’est nulle part sous le pointeur').join(' ; ') };
+    const a4 = await lire();
+    await glisser1(t2, 16, -12);
+    const b4 = await lire();
+    const v = { x: (b4.terrasse[0].x - a4.terrasse[0].x) * a4.scale, y: -(b4.terrasse[0].y - a4.terrasse[0].y) * a4.scale };
+    if (Math.abs(v.x - 16) > 3 || Math.abs(v.y + 12) > 3) echecs.push(`glisser la terrasse choisie : déplacée de (${v.x.toFixed(1)}, ${v.y.toFixed(1)}) px pour (16, −12)`);
+    if (b4.o.x !== a4.o.x || b4.o.y !== a4.o.y) echecs.push('glisser la terrasse choisie a déplacé la vue');
+    if (b4.sel !== 'terrasse') echecs.push('glisser la terrasse choisie : sélection ' + b4.sel);
+    mesures.push(`terrasse touchée : choisie ; glissée : déplacée de (${v.x.toFixed(0)}, ${v.y.toFixed(0)}) px, vue immobile`);
+    await annuler(page);
+    return echecs.length ? { ok: false, mesure: echecs.join(' ; ') } : { ok: true, mesure: mesures.join(' ; ') };
+  },
   201: async (page, f) => {
     // Zoomer dans l'apercu des parcelles de l'import par adresse (demande du proprietaire, 27 novembre 2026 : « je dois pouvoir
     // zoomer sur le plan pour sélectionner la ou les parcelles pendant les étapes »). Etape 2 : agrandir (bouton, puis pincer au
@@ -11950,9 +12035,11 @@ function pointsPour(nomClasse) {
   //       et les couleurs « Plan » / « Réelles », sous « Rues » dans le menu Affichage.
   // 201 : zoomer dans l'apercu de l'import par adresse : agrandir, pincer ou molette, glisser sans choisir, toucher qui choisit (etape 2)
   //       et qui coche (etape 3), le zoom garde d'une etape a l'autre, « Tout voir ».
+  // 202 : se deplacer sur le plan 2D sans attraper d'objet : glisser sur un objet non choisi deplace la vue, un toucher choisit,
+  //       l'objet choisi se deplace, la parcelle choisie deplace la vue (interaction/choixGeste.ts).
   // 203 : la camera de la Vue 3D ne passe plus sous le sol : orbite poussee vers le bas, deplacement, molette ou pincement, camera
   //       posee sous le sol ; l'oeil reste a 0,30 m au-dessus du sol sous lui, la cible sur le sol ou au-dessus.
-  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 203];
+  const gardeFous = [49, 50, 51, 52, ...(nomClasse === 'large' ? [53] : []), 57, 60, 61, 62, 63, 64, 66, 69, 70, 73, 74, 75, 76, 77, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
