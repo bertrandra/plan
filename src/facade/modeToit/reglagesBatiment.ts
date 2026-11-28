@@ -59,11 +59,13 @@ export function sourcesDuToit(o: ObjetPlan): { enPlace: SourceToit; options: Opt
   return { enPlace: modeToitActif(b), options: offertes.map((s) => ({ valeur: s, libelle: MOTS_SOURCE[s] })) };
 }
 
-/** Pose la source `v` sur le brouillon ; une valeur hors des choix offerts est refusee. */
+/** Pose la source `v` sur le brouillon ; une valeur hors des choix offerts est refusee, celle deja montree n'ecrit rien. */
 export function poserSource(o: ObjetPlan, v: string): boolean | string {
   const s = sourcesDuToit(o);
   if (!s) return 'Ce bâtiment n’a qu’une lecture de son toit : rien à choisir.';
   if (!s.options.some((x) => x.valeur === v)) return 'Cette lecture du toit n’existe pas pour ce bâtiment.';
+  // Celle que la 3D montre deja : rien a ecrire (la liste de l'inspecteur d'avant ne la reecrivait pas non plus).
+  if (v === s.enPlace) return false;
   champsBatiment(o).modeToit = v as SourceToit;
   return true;
 }

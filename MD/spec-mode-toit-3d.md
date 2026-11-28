@@ -318,12 +318,12 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
   hauteur mal lue que l'on corrige, pas une forme : la poignée du faîtage règle la pente à part. L'égout tiré s'arrondit à 5 cm ; le
   plus bas reste entre 1,5 m (`EGOUT_MIN_M`, celui d'`ajusterCorps`) et 40 m (`EGOUT_MAX_M`, la borne de la lecture LiDAR). Ce qui
   est posé sur ses murs se repose sur lui ; une galerie ou un appentis à hauteur propre ne passe pas au-dessus de son égout.
-- **Le corps principal porte l'élévation** : son égout le plus bas devient `elevation` et pose `egoutChoisi: 'saisie'`, comme le champ
-  « Élévation » de l'inspecteur. La session du mode garde `elevation` et `egoutChoisi` dans ses instantanés (`sessionToit.ts`) :
+- **Le corps principal porte l'élévation** : son égout le plus bas devient `elevation` et pose `egoutChoisi: 'saisie'`, comme la
+  « Hauteur à l'égout » du groupe « Le bâtiment » de l'atelier (jusqu'au 28 novembre 2026, le champ « Élévation » de l'inspecteur). La session du mode garde `elevation` et `egoutChoisi` dans ses instantanés (`sessionToit.ts`) :
   annuler, abandonner et Échap les rendent. Comme tout geste du mode, la poignée pose `toitFige` (`sessionToit.ts::ecrireLeGeste`) ;
   « Valider » en fait une étape d'historique.
-- Clavier : comme les autres poignées du mode, elle ne se prend qu'au pointeur (souris, doigt) ; le champ « Élévation » de
-  l'inspecteur reste le chemin au clavier pour le corps principal.
+- Clavier : comme les autres poignées du mode, elle ne se prend qu'au pointeur (souris, doigt) ; la « Hauteur à l'égout » de l'atelier
+  (sous « Plus de réglages », groupe « Le bâtiment ») est le chemin au clavier pour le corps principal.
 - Tests : `tests/unit/facade/modeToit/poignees.test.ts`, `tests/unit/app/toits/poigneeEgout.test.ts`. Fumée : point 97.
 
 ### Ce qui s'enregistre pendant une session  *(29 octobre 2026)*
@@ -567,6 +567,38 @@ chemin (le toit simple se réglait autrement en 2D qu'en 3D).
 - Rien ne change dans le moteur, les exports, les quantités, les empreintes ni AE 101 (`identite.ts` identique). Tests :
   `tests/unit/facade/modeToit/controleurToit.test.ts` (un cas par constat), `gestes.test.ts`, `simple.test.ts`. Fumée : point 208 et
   les points du mode adaptés (« Quitter sans garder », « Découper ce toit »).
+
+### Les réglages du bâtiment, dans l'atelier aussi  *(28 novembre 2026, « Go déplace »)*
+Une relecture après la PR #797 a trouvé des gestes sur le toit restés dans l'inspecteur : le choix de ce que la 3D montre du toit, la
+hauteur à l'égout d'un bâtiment et « Rendre au calcul », la couverture (couleur, matériau, pose). Le propriétaire : « Go déplace », « parfait,
+pas de legacy ».
+- **Des intentions du contrôleur** (`facade/modeToit/reglagesBatiment.ts`, pur) : `choisirSource`, `reglerEgout`, `egoutDUnPas`,
+  `rendreEgout`, `choisirCouleur`, `choisirMateriau`, `choisirPose`. Chacune est une transaction (une entrée de pile, Défaire la rend au bit
+  près), de l'intention « Modifier » ; **aucune ne fige le toit** : ce ne sont pas des formes, et une couleur ou une hauteur choisie ne doit
+  pas couper la lecture automatique du reste. Chacune garde sa marque d'avant : la hauteur saisie pose `egoutChoisi: 'saisie'`, la couleur
+  choisie perd `origineCouleur`, « Rendre au calcul » lève `egoutChoisi` et efface `toitLidarLu` (seulement si `egoutRendable`). L'état du
+  contrôleur les dit (`etat().batiment` : la source et ses choix, la hauteur et d'où elle vient — saisie, validée par l'audit, lue sur le
+  LiDAR…, la couverture et le matériau que Plan déduit, la latitude de la parcelle comprise, passée à l'ouverture).
+- **La même sémantique qu'avant** : ces champs étaient des gestes du projet (annulables, « projet modifié », refusés en lecture seule) ; ils
+  le restent : un pas de la session, une étape d'historique à « Valider », des commandes `toit.*` qui demandent le droit d'écrire. Aucun
+  n'était une préférence d'affichage. « Valider » ne relance la lecture des toits que si le toit est redevenu à lire (plus figé, plus de
+  version de lecture : « Règles » rallumées, une hauteur rendue au calcul).
+- **Dans Z10**, sous « Plus de réglages », côté « Modifier », le groupe **« Le bâtiment »** : « Hauteur à l'égout » (d'où elle vient, − et +
+  de 10 cm, saisie au clavier écrite en quittant le champ ou par Entrée ; en corps, chacun garde ses égouts, sa poignée le déplace),
+  « Rendre au calcul » quand une lecture pourrait la reprendre, « Couleur de la couverture » (toit unique seulement ; la palette, écrite à sa
+  fermeture), « Matériau » (« Automatique (…) » et le catalogue), « Pose » (en mots, si le matériau en admet plus d'une), « Toit en 3D »
+  (en mots, si le bâtiment a plusieurs lectures). Commandes `toit.egout`, `toit.rendreEgout`, `toit.couleur`, `toit.materiau`, `toit.pose`,
+  `toit.source`, exposées `atelierToit`.
+- **Retirés** : dans Z5, le choix « Toit en 3D » (`toitMode`), les champs « Couverture », « Matériau », « Pose », « Élévation » et « Rendre au
+  calcul » d'un bâtiment, la commande `objet.rendreEgout`. La section « Toit » de l'inspecteur n'est plus qu'une lecture (le résumé, « Égout »
+  et d'où il vient, « Couverture »), les descriptions de ce que la 3D dessine et « Modifier le toit… ». « Élévation » reste dans Z5 pour ce
+  qui n'est pas un bâtiment. Les anciens fichiers s'ouvrent comme avant : rien du modèle n'a changé.
+- **Laissé hors de l'atelier** : l'essai des faits de toits de l'administrateur (`?regles=local`, `app/ecouteurs/faitsLocaux.ts`) pose
+  des faits d'essai sur le moteur et remet à lire les bâtiments qu'ils touchent (`toitLidarLu`) : un geste sur les faits, pas une édition
+  du toit d'un bâtiment ; de même la lecture LiDAR, les décisions de l'audit, les déplacements du bâtiment.
+- Un bâtiment chez un voisin ne s'ouvre pas dans l'atelier (`estRetouchable`) : sa hauteur et sa couverture ne se règlent plus à la main,
+  elles restent celles des lectures (Z5 les lit).
+- Tests : `tests/unit/facade/modeToit/reglagesBatiment.test.ts`. Fumée : point 209.
 
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.

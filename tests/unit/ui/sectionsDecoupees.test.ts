@@ -34,9 +34,11 @@ describe('les longues sections decoupees (B2)', () => {
     expect(s.filter(x => x.id === 'toit' || x.id === 'releve').map(x => x.titre)).toEqual(['Toit', 'Façades']);
     expect(s.find(x => x.id === 'toit')?.principale).toBe(true);
     expect(s.find(x => x.id === 'releve')?.champs.some(ch => ch.cle.startsWith('toit'))).toBe(false);
-    // Le toit s'edite dans l'atelier du toit (Z10) : l'inspecteur le resume, l'ouvre, et garde sa couverture.
-    expect(s.find(x => x.id === 'toit')?.champs.map(ch => ch.cle)).not.toEqual(expect.arrayContaining(['toitForme']));
-    expect(s.find(x => x.id === 'toit')?.champs.map(ch => ch.cle)).toEqual(expect.arrayContaining(['toitResume', 'toitModifier', 'toitMode', 'toitCouleur']));
+    // Le toit s'edite dans l'atelier du toit (Z10), et la seulement : l'inspecteur le resume (hauteur a l'egout et couverture comprises)
+    // et l'ouvre ; ni sa forme, ni sa source, ni sa couverture ne s'y reglent.
+    const cles = s.find(x => x.id === 'toit')?.champs.map(ch => ch.cle) ?? [];
+    for (const cle of ['toitForme', 'toitMode', 'toitCouleur', 'toitMateriau', 'toitPose']) expect(cles).not.toContain(cle);
+    expect(cles).toEqual(expect.arrayContaining(['toitResume', 'toitEgout', 'toitCouverture', 'toitModifier']));
   });
 
   it('la note de calcul : la neige, le vent et l altitude, que l alerte demande de choisir, sortent du pli ferme', () => {

@@ -7,6 +7,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La hauteur à l'égout, la couverture et « Toit en 3D » se règlent dans l'atelier du toit** (Z10 ; décision du propriétaire,
+  28 novembre 2026 : « Go déplace », « parfait, pas de legacy »). Une relecture de #797 avait trouvé ces gestes sur le toit restés dans
+  l'inspecteur. Ils passent par le contrôleur du toit, comme les autres : sous « Plus de réglages », côté « Modifier », le groupe
+  « Le bâtiment » porte « Hauteur à l'égout » (d'où elle vient : saisie, validée par l'audit, lue sur le LiDAR… ; − et + de 10 cm, ou
+  saisie), « Rendre au calcul », la couleur, le matériau et la pose de la couverture, et « Toit en 3D » (corps et pignons, tel que
+  mesuré, un toit par corps, un seul toit). Même sens qu'avant : des gestes du projet, annulables (un pas de la session, une étape à
+  « Valider »), qui marquent le projet modifié et demandent le droit d'écrire ; aucun ne coupe les Règles du toit, chacun garde sa
+  marque (`egoutChoisi`, `origineCouleur`).
+- **L'inspecteur ne fait plus que lire le toit** : la section « Toit » d'un bâtiment dit le résumé, « Égout » et d'où il vient,
+  « Couverture », ce que la 3D dessine, et ouvre l'atelier. Retirés : « Toit en 3D », « Couverture », « Matériau », « Pose »,
+  « Élévation » et « Rendre au calcul » d'un bâtiment (commande `objet.rendreEgout`, remplacée par `toit.rendreEgout`). « Élévation »
+  reste pour ce qui n'est pas un bâtiment. Un bâtiment chez un voisin, que l'atelier n'ouvre pas, garde la hauteur et la couverture de
+  ses lectures. Les anciens fichiers s'ouvrent comme avant ; aucune quantité, aucun export ne change.
+- L'essai des faits de toits de l'administrateur (`?regles=local`, `app/ecouteurs/faitsLocaux.ts`) reste où il est : il essaie des
+  faits sur le moteur et fait relire les bâtiments touchés, il n'édite pas un toit.
+- Fumée : point 209 (les trois déplacements, au doigt et à la souris).
 - **Un projet s'ouvre sans rien de choisi** (audit UX de la 5.45.0, constat 3) : la démonstration, un import, un fichier rouvert.
   Au doigt, un toucher sur un terrain verrouillé (la parcelle du projet, une parcelle voisine) le choisit sans feuille : une barre
   d'une ligne (57 px au lieu de 171) dit son nom et propose « Propriétés ». La règle des gestes de #791 ne change pas.
