@@ -370,6 +370,8 @@
   html[data-classe="compact"] .carteMaison .boutonEntreeMaison{ padding:8px 14px; font-size:1rem; }
   html[data-classe="compact"] .boutonEntreeMaison{ padding:4px 14px 4px 10px; font-size:.9rem; }
   html[data-mode-toit] .entreeMaison, html[data-vitrine] .entreeMaison{ display:none; }
+  /* L'atelier du toit ouvert sur le plan : la barre de la selection (le batiment, deja nomme par l'atelier) le couvrirait au doigt. */
+  html[data-mode-toit] #zoneSelection{ display:none; }
   /* Un message ne couvre pas l'entree : tant qu'elle est sur la scene, les messages passent en haut de l'ecran, comme pendant une
      session du mode au telephone (un message au bas de la fenetre tombait sur « Modifier » et prenait son toucher ; point 160 de la fumee). */
   html:has(.entreeMaison) .notificationsToasts{ bottom:auto; top:calc(var(--reserve-haut, 0px) + 72px); flex-direction:column; }
